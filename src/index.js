@@ -443,6 +443,24 @@ app.get('/api/v1/admin/vod/status', async (req, res) => {
   }
 });
 
+app.post('/api/v1/admin/vod/probe', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    res.json(await vodGateway.probe({
+      type: body.type,
+      id: body.id
+    }));
+  } catch (err) {
+    console.error('[app-vod] end-to-end probe failed:', err.message);
+    res.status(err.statusCode || 502).json({
+      ok: false,
+      error: err.message,
+      code: err.code || 'VOD_PROBE_FAILED'
+    });
+  }
+});
+
 app.get('/api/v1/admin/services', async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
