@@ -178,10 +178,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-}).catch(err => {
-  console.error('[auth] failed to initialise account store:', err);
-  process.exit(1);
-});
 
 // Artwork is drawn from URLs other people control. Whatever comes back, a
 // browser must treat it as an image and nothing more: no sniffing it into a
@@ -2807,6 +2803,7 @@ app.listen(PORT, BIND_HOST, () => {
   // fixtures all day, also ask for a pass (wired where the cron starts).
   cardWarmer.schedule(collectWarmUrls, WARM_INTERVAL_MS);
 });
-
-
-
+}).catch(err => {
+  console.error('[auth] failed to initialise account store:', err);
+  process.exit(1);
+});
