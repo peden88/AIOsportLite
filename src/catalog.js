@@ -301,7 +301,7 @@ const EVENT_DURATIONS = {
   motorsport: 4 * 60 * 60 * 1000,
   football: 2.5 * 60 * 60 * 1000,
   rugby: 2.5 * 60 * 60 * 1000
-}
+};
 const DEFAULT_EVENT_DURATION_MS = 3 * 60 * 60 * 1000;
 function eventDurationMs(category) {
   return EVENT_DURATIONS[category] || DEFAULT_EVENT_DURATION_MS;
@@ -773,7 +773,7 @@ const SCHEDULE_MAX = 40;
 // ball it is played with.
 const BOARD_CATEGORY = {
   'soccer/all': 'football'
-}
+};
 
 // ESPN serves every crest from the same 500-pixel path, which is also how the
 // bundled table spells them, so the key the index stores rebuilds into a URL the
