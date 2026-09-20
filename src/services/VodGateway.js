@@ -88,9 +88,12 @@ function privatePlaybackRow(stream, client) {
   const streamDataType = String(stream.streamData && stream.streamData.type || '').toLowerCase();
   if (['error', 'statistic', 'info'].includes(streamDataType)) return null;
 
+  // Dedicated VOD playback only accepts media URLs. Stremio externalUrl means
+  // "leave the player and open another page/app", which violates the one-button
+  // in-player contract. AIOStreams may still use external debrid targets inside
+  // the failover chain encoded into one of its owned stream.url values.
   const direct = client.absolutizePlaybackUrl(stream.url);
-  const external = direct ? '' : client.absolutizePlaybackUrl(stream.externalUrl);
-  if (!direct && !external) return null;
+  if (!direct) return null;
 
   const requestHeaders = stream.behaviorHints &&
     stream.behaviorHints.proxyHeaders &&
@@ -100,7 +103,7 @@ function privatePlaybackRow(stream, client) {
       : undefined;
 
   return {
-    ...(direct ? { url: direct } : { externalUrl: external }),
+    url: direct,
     ...(requestHeaders && Object.keys(requestHeaders).length
       ? { behaviorHints: { proxyHeaders: { request: requestHeaders } } }
       : {})
