@@ -75,7 +75,7 @@ git pull
 docker compose up -d --build --remove-orphans
 ```
 
-`--build` matters: without it, Compose keeps running the old image. Saved profiles live in the `aiosports-data` volume and survive updates. `--remove-orphans` clears out the container from older versions, which used a different service name.
+`--build` matters: without it, Compose keeps running the old image. Saved profiles live in the `aiosportlite-data` volume and survive updates. `--remove-orphans` clears out the container from older versions, which used a different service name.
 
 If the manifest id or the tabs changed in a release, the release notes say so. In that case, reinstall the addon in your player.
 
@@ -86,8 +86,8 @@ If the manifest id or the tabs changed in a release, the release notes say so. I
 Every push to `main` publishes `ghcr.io/peden88/aiosportlite:latest` for **linux/amd64 and linux/arm64**. The command below is the same on either: Docker reads your machine's architecture and pulls the matching one. That covers an Oracle Cloud Ampere instance, a Raspberry Pi 4 or 5, and an Apple Silicon Mac, as well as an ordinary x86 server.
 
 ```bash
-docker run -d --name aiosports -p 7000:7000 \
-  --env-file .env -e DATA_DIR=/data -v aiosports-data:/data \
+docker run -d --name aiosportlite -p 7000:7000 \
+  --env-file .env -e DATA_DIR=/data -v aiosportlite-data:/data \
   --restart unless-stopped ghcr.io/peden88/aiosportlite:latest
 ```
 
@@ -120,7 +120,7 @@ npm start
 
 ```bash
 npm install -g pm2
-pm2 start npm --name aiosports -- start
+pm2 start npm --name aiosportlite -- start
 pm2 save
 ```
 
@@ -218,7 +218,7 @@ StreamFree, TimStreams, Streamed.pk, SportyHunter, WatchFooty, CDNLive, StreamSp
 
 **A stream microbuffers -- it never really breaks, but it keeps catching itself.** Usually the source, not the connection. Sources here publish a four-segment playlist and some of them publish in bursts: measured on two of three, eight seconds of nothing and then two segments at once. A player starts three segments from the end of a playlist, which is about twelve seconds of video, so an eight-second pause spends most of the cushion and anything else on top of it stalls. Set **Extra Buffer** in `/configure` (or `LIVE_BUFFER_SECONDS` for everyone) and the server hands the player a deeper window of what the source has already published, and tells it to start further back in it. You see the game that much later, and the bursts stop mattering. Sources that delete a segment the moment they stop listing it are found out and left alone.
 
-**My saved settings were lost after an update.** Profiles are stored in `DATA_DIR`. Compose keeps them on the `aiosports-data` volume. With `docker run`, add `-v aiosports-data:/data -e DATA_DIR=/data`.
+**My saved settings were lost after an update.** Profiles are stored in `DATA_DIR`. Compose keeps them on the `aiosportlite-data` volume. With `docker run`, add `-v aiosportlite-data:/data -e DATA_DIR=/data`.
 
 **Port 7000 is already in use.** Change the left side of `"7000:7000"` in `docker-compose.yml`, for example to `"7100:7000"`.
 
