@@ -75,11 +75,9 @@
     #video-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
     video { width: 100%; max-width: 1400px; max-height: 85vh; border-radius: 16px; background: #000; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
     
-    #source-selector { display: none; position: absolute; z-index: 102; background: rgba(20,20,20,0.9); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); flex-direction: column; gap: 10px; }
-    .source-btn { background: rgba(255,255,255,0.1); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
-    .source-btn:hover { background: var(--accent); }
-    
-    .loader { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+    #external-player { display:none; width:100%; height:100%; border:0; background:#000; }
+    .loader { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 2; text-align:center; padding:20px; }
+    #loader-status { color: var(--text-muted); font-size: 14px; max-width: 480px; }
     .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -105,10 +103,11 @@
       <button type="button" id="signOutBtn" title="Sign out of this browser" aria-label="Sign out" style="display: none; align-items: center; justify-content: center; width: 38px; height: 38px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; cursor: pointer; padding: 0;">
         <svg height="17" width="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
       </button>
-      <a href="/dashboard" title="Dashboard — caches, warming and health" aria-label="Dashboard" style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; text-decoration: none; transition: all 0.2s;">
+      <a id="dashboardLink" href="/dashboard" title="Dashboard — caches, warming and health" aria-label="Dashboard" style="display: none; align-items: center; justify-content: center; width: 38px; height: 38px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; text-decoration: none; transition: all 0.2s;">
         <svg height="17" width="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       </a>
-      <a href="/configure" style="background: var(--accent); color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: 700; font-family: 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 4px 15px var(--accent-glow);">Configure Addon</a>
+      <a id="usersLink" href="/users" style="display:none; background:rgba(255,255,255,0.1); color:white; padding:10px 16px; border-radius:30px; text-decoration:none; font-weight:700; font-family:'Outfit',sans-serif;">Users</a>
+      <a id="configureLink" href="/configure" style="display:none; background: var(--accent); color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: 700; font-family: 'Outfit', sans-serif; transition: all 0.2s; box-shadow: 0 4px 15px var(--accent-glow);">Configure</a>
     </div>
   </header>
 
@@ -121,18 +120,14 @@
 
   <div id="player-overlay">
     <button id="close-btn" onclick="closePlayer()">Close Player</button>
-    
-    <div id="source-selector">
-      <h3 style="margin-top:0; color:white; font-family:'Outfit',sans-serif;">Select Stream Source</h3>
-      <div id="source-buttons" style="display:flex; flex-direction:column; gap:10px;"></div>
-    </div>
-
     <div id="video-container">
       <div class="loader" id="loader">
         <div class="spinner"></div>
-        <div>Loading stream...</div>
+        <div>Loading stream…</div>
+        <div id="loader-status">Finding the best available source.</div>
       </div>
       <video id="video" controls autoplay></video>
+      <iframe id="external-player" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
     </div>
   </div>
 
@@ -237,113 +232,218 @@
       });
     }
 
-    async function fetchAndPlay(id) {
-      document.getElementById('player-overlay').style.display = 'flex';
-      document.getElementById('loader').style.display = 'flex';
-      document.getElementById('source-selector').style.display = 'none';
-      const video = document.getElementById('video');
-      video.style.opacity = '0';
-      
-      try {
-        const res = await fetch(`/stream/tv/${id}.json`);
-        const data = await res.json();
-        
-        if (!data.streams || data.streams.length === 0) {
-          alert('No streams found for this match.');
-          closePlayer();
-          return;
-        }
+    let playbackSessionId = null;
+    let switchingPlayback = false;
+    let stallTimer = null;
+    let playerGeneration = 0;
 
-        if (data.streams.length === 1) {
-          playStreamUrl(data.streams[0].url, data.streams[0]);
-        } else {
-          document.getElementById('loader').style.display = 'none';
-          const selector = document.getElementById('source-selector');
-          const btnContainer = document.getElementById('source-buttons');
-          btnContainer.innerHTML = '';
-          
-          data.streams.forEach(stream => {
-            const btn = document.createElement('button');
-            btn.className = 'source-btn';
-            btn.innerText = stream.title;
-            btn.onclick = () => {
-              selector.style.display = 'none';
-              document.getElementById('loader').style.display = 'flex';
-              playStreamUrl(stream.url, stream);
-            };
-            btnContainer.appendChild(btn);
-          });
-          
-          selector.style.display = 'flex';
+    function setLoader(message) {
+      const loader = document.getElementById('loader');
+      const status = document.getElementById('loader-status');
+      loader.style.display = 'flex';
+      if (status) status.textContent = message || 'Loading…';
+    }
+
+    function clearStallTimer() {
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = null;
+    }
+
+    async function fetchAndPlay(id) {
+      playerGeneration++;
+      const generation = playerGeneration;
+      document.getElementById('player-overlay').style.display = 'flex';
+      const video = document.getElementById('video');
+      const external = document.getElementById('external-player');
+      video.style.opacity = '0';
+      video.style.display = 'block';
+      external.style.display = 'none';
+      external.src = 'about:blank';
+      setLoader('Finding the best available source.');
+
+      try {
+        const res = await fetch('/api/v1/play', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contentType: 'sport_event', id })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (generation !== playerGeneration) return;
+        if (!res.ok || !data.ok || !data.playback) {
+          throw new Error(data.error || 'No playable stream is available.');
         }
+        playbackSessionId = data.sessionId || null;
+        await playOpaqueTarget(data.playback, generation);
       } catch (err) {
         console.error(err);
-        alert('Error resolving stream.');
-        closePlayer();
+        showPlaybackFailure(err.message || 'Unable to start this event.');
       }
     }
 
-    function playStreamUrl(url, streamObj = null) {
-      if (streamObj && streamObj.externalUrl) {
-        window.open(streamObj.externalUrl, '_blank');
-        closePlayer();
-        return;
+    async function playOpaqueTarget(target, generation = playerGeneration) {
+      if (!target || !target.url || generation !== playerGeneration) {
+        return requestNextPlayback(generation);
       }
-      
+
+      switchingPlayback = false;
+      clearStallTimer();
       const video = document.getElementById('video');
-      document.getElementById('loader').style.display = 'none';
-      video.style.opacity = '1';
+      const external = document.getElementById('external-player');
 
-      if (!url) {
-        alert('This stream cannot be played in the browser directly.');
-        closePlayer();
-        return;
-      }
-
-      if (Hls.isSupported()) {
-        if (hls) hls.destroy();
-        hls = new Hls({ maxBufferLength: 30 });
-        hls.loadSource(url);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e=>console.log(e)));
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = url;
-        video.play().catch(e=>console.log(e));
-      }
-    }
-
-    function closePlayer() {
-      document.getElementById('player-overlay').style.display = 'none';
-      document.getElementById('source-selector').style.display = 'none';
-      const video = document.getElementById('video');
-      video.pause();
-      video.src = '';
       if (hls) {
         hls.destroy();
         hls = null;
+      }
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+
+      if (target.kind === 'external') {
+        // Still a single Play action: the fallback target is embedded directly
+        // into this overlay rather than exposing a provider/source choice.
+        setLoader('Opening stream.');
+        video.style.display = 'none';
+        external.style.display = 'block';
+        external.onload = () => {
+          if (generation !== playerGeneration) return;
+          document.getElementById('loader').style.display = 'none';
+        };
+        external.src = target.url;
+        return;
+      }
+
+      external.style.display = 'none';
+      external.src = 'about:blank';
+      video.style.display = 'block';
+      video.style.opacity = '0';
+      setLoader('Starting stream.');
+
+      const markPlaying = () => {
+        if (generation !== playerGeneration) return;
+        clearStallTimer();
+        document.getElementById('loader').style.display = 'none';
+        video.style.opacity = '1';
+      };
+
+      const armStallFallback = () => {
+        clearStallTimer();
+        stallTimer = setTimeout(() => {
+          if (generation === playerGeneration && !video.paused) requestNextPlayback(generation);
+        }, 20000);
+      };
+
+      video.onplaying = markPlaying;
+      video.onwaiting = armStallFallback;
+      video.onstalled = armStallFallback;
+      video.onerror = () => requestNextPlayback(generation);
+
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          maxBufferLength: 30,
+          xhrSetup: (xhr) => {
+            const headers = target.requestHeaders || {};
+            for (const [name, value] of Object.entries(headers)) {
+              try { xhr.setRequestHeader(name, value); } catch (_) {}
+            }
+          }
+        });
+        hls.loadSource(target.url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (generation !== playerGeneration) return;
+          video.play().catch(() => requestNextPlayback(generation));
+        });
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data && data.fatal) requestNextPlayback(generation);
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = target.url;
+        video.play().catch(() => requestNextPlayback(generation));
+      } else {
+        requestNextPlayback(generation);
+      }
+    }
+
+    async function requestNextPlayback(generation = playerGeneration) {
+      if (switchingPlayback || generation !== playerGeneration) return;
+      switchingPlayback = true;
+      clearStallTimer();
+      setLoader('Trying another source automatically.');
+
+      try {
+        if (!playbackSessionId) throw new Error('No fallback session.');
+        const res = await fetch(`/api/v1/playback/${encodeURIComponent(playbackSessionId)}/next`, {
+          method: 'POST'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (generation !== playerGeneration) return;
+        if (!res.ok || !data.ok || !data.playback) {
+          throw new Error('No more playable sources.');
+        }
+        switchingPlayback = false;
+        await playOpaqueTarget(data.playback, generation);
+      } catch (err) {
+        switchingPlayback = false;
+        showPlaybackFailure('Unable to start this event right now.');
+      }
+    }
+
+    function showPlaybackFailure(message) {
+      clearStallTimer();
+      const video = document.getElementById('video');
+      const external = document.getElementById('external-player');
+      video.pause();
+      video.style.opacity = '0';
+      external.style.display = 'none';
+      external.src = 'about:blank';
+      setLoader(message || 'Playback unavailable.');
+    }
+
+    async function closePlayer() {
+      playerGeneration++;
+      clearStallTimer();
+      document.getElementById('player-overlay').style.display = 'none';
+      const video = document.getElementById('video');
+      const external = document.getElementById('external-player');
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      video.style.opacity = '0';
+      external.src = 'about:blank';
+      external.style.display = 'none';
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+      const sessionId = playbackSessionId;
+      playbackSessionId = null;
+      switchingPlayback = false;
+      if (sessionId) {
+        try { await fetch(`/api/v1/playback/${encodeURIComponent(sessionId)}`, { method: 'DELETE' }); } catch (_) {}
       }
     }
 
     loadTabs();
   </script>
 <script>
-  // Sign out is only meaningful when this server asks for a password. Without
-  // one there is nothing to sign out of, so the button stays hidden rather than
-  // offering an action that does nothing.
+  // Account-aware header. Ordinary users never see server/addon controls.
   (async () => {
     const btn = document.getElementById('signOutBtn');
-    if (!btn) return;
     try {
-      const gate = await (await fetch('/api/site/auth')).json();
-      if (!gate.keyRequired) return;
-      btn.style.display = 'inline-flex';
-      btn.addEventListener('click', async () => {
-        try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
-        location.href = '/login';
-      });
-    } catch (_) {
-      // If the check fails the button simply stays hidden.
-    }
+      const gate = await (await fetch('/api/site/auth', { cache: 'no-store' })).json();
+      if (gate.authenticated && (gate.multiUser || gate.legacyKeyRequired)) {
+        btn.style.display = 'inline-flex';
+        btn.addEventListener('click', async () => {
+          try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
+          location.href = '/login';
+        });
+      }
+      if (gate.user && gate.user.role === 'admin') {
+        document.getElementById('dashboardLink').style.display = 'inline-flex';
+        document.getElementById('configureLink').style.display = 'inline-flex';
+        document.getElementById('usersLink').style.display = 'inline-flex';
+      }
+    } catch (_) {}
   })();
 </script>
 </body>
