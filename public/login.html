@@ -3,88 +3,99 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AIOSports — Sign in</title>
-  <link rel="icon" type="image/png" href="/logo-v2.png">
-  <link rel="apple-touch-icon" href="/logo-v2.png">
+<title>AIOSport Lite — Sign in</title>
+<link rel="icon" type="image/png" href="/logo-v2.png">
+<link rel="apple-touch-icon" href="/logo-v2.png">
 <style>
-  :root { --bg:#0b0b0d; --panel:#151518; --line:#26262c; --text:#f2f2f4; --dim:#9a9aa4; --accent:#1668ff; }
-  * { box-sizing: border-box; }
+  :root { --bg:#0b0b0d; --panel:#151518; --line:#2a2a31; --text:#f4f4f6; --dim:#9a9aa4; --accent:#1668ff; --danger:#ff8d90; }
+  * { box-sizing:border-box; }
   body {
     margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-    background:
-      radial-gradient(900px 500px at 50% -10%, rgba(22, 104, 255,.13), transparent 65%),
-      var(--bg);
-    color: var(--text);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: 24px;
+    background:radial-gradient(900px 500px at 50% -10%, rgba(22,104,255,.14), transparent 65%),var(--bg);
+    color:var(--text); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:24px;
   }
-  .box {
-    width: 100%; max-width: 380px; background: var(--panel);
-    border: 1px solid var(--line); border-radius: 16px; padding: 30px 28px;
-    box-shadow: 0 24px 60px rgba(0,0,0,.5);
-  }
-  .mark { font-size: 30px; line-height: 1; margin-bottom: 14px; }
-  h1 { font-size: 20px; margin: 0 0 6px; font-weight: 650; letter-spacing: -.01em; }
-  p.sub { margin: 0 0 22px; color: var(--dim); font-size: 14px; }
-  label { display:block; font-size: 12px; letter-spacing:.08em; text-transform: uppercase;
-          color: var(--dim); font-weight: 600; margin-bottom: 7px; }
-  input {
-    width: 100%; font: inherit; font-size: 15px; padding: 11px 14px; border-radius: 10px;
-    background: #1f1f24; color: var(--text); border: 1px solid var(--line);
-  }
-  input:focus { outline: none; border-color: #3a3a44; }
-  button {
-    width: 100%; margin-top: 14px; font: inherit; font-size: 15px; font-weight: 650;
-    padding: 11px 14px; border-radius: 10px; cursor: pointer; border: none;
-    background: var(--accent); color: #fff;
-  }
-  button:hover:not(:disabled) { filter: brightness(1.1); }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  #msg { margin-top: 14px; min-height: 20px; font-size: 14px; color: #ff8d90; }
+  .box { width:100%; max-width:400px; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:30px 28px; box-shadow:0 24px 60px rgba(0,0,0,.5); }
+  .mark { width:52px; height:52px; display:grid; place-items:center; border-radius:14px; background:#1f1f24; font-size:27px; margin-bottom:18px; }
+  h1 { font-size:22px; margin:0 0 5px; font-weight:680; letter-spacing:-.02em; }
+  p.sub { margin:0 0 24px; color:var(--dim); font-size:14px; }
+  .field { margin-top:15px; }
+  label { display:block; font-size:12px; letter-spacing:.07em; text-transform:uppercase; color:var(--dim); font-weight:650; margin-bottom:7px; }
+  input { width:100%; font:inherit; font-size:16px; padding:12px 14px; border-radius:10px; background:#1f1f24; color:var(--text); border:1px solid var(--line); }
+  input:focus { outline:none; border-color:#5f7cff; box-shadow:0 0 0 3px rgba(22,104,255,.14); }
+  button { width:100%; margin-top:20px; font:inherit; font-size:15px; font-weight:680; padding:12px 14px; border-radius:10px; cursor:pointer; border:0; background:var(--accent); color:#fff; }
+  button:hover:not(:disabled) { filter:brightness(1.08); }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  #msg { margin-top:14px; min-height:21px; font-size:14px; color:var(--danger); }
+  .legacy { display:none; }
 </style>
 </head>
 <body>
-  <form class="box" id="form">
-    <div class="mark">🏟️</div>
-    <h1>AIOSports</h1>
-    <p class="sub">Sign in to browse the catalog.</p>
-    <label for="key">Password</label>
-    <input id="key" type="password" autocomplete="current-password" autofocus>
-    <button type="submit" id="go">Sign in</button>
-    <div id="msg"></div>
-  </form>
-
+<form class="box" id="form" autocomplete="on">
+  <div class="mark">🏟️</div>
+  <h1>AIOSport Lite</h1>
+  <p class="sub" id="subtitle">Sign in to watch.</p>
+  <div class="field" id="usernameField">
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" autofocus>
+  </div>
+  <div class="field">
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password">
+  </div>
+  <button type="submit" id="go">Sign in</button>
+  <div id="msg" aria-live="polite"></div>
+</form>
 <script>
 const form = document.getElementById('form');
-const key = document.getElementById('key');
+const username = document.getElementById('username');
+const password = document.getElementById('password');
+const usernameField = document.getElementById('usernameField');
+const subtitle = document.getElementById('subtitle');
 const go = document.getElementById('go');
 const msg = document.getElementById('msg');
+let multiUser = true;
 
-form.onsubmit = async e => {
+(async () => {
+  try {
+    const res = await fetch('/api/site/auth', { cache: 'no-store' });
+    const auth = await res.json();
+    if (auth.authenticated) return location.replace('/');
+    multiUser = auth.multiUser !== false;
+    if (!multiUser) {
+      usernameField.style.display = 'none';
+      subtitle.textContent = 'Sign in with the server access password.';
+      password.focus();
+    }
+  } catch (_) {}
+})();
+
+form.addEventListener('submit', async e => {
   e.preventDefault();
-  if (!key.value) return;
+  if (!password.value || (multiUser && !username.value.trim())) return;
   go.disabled = true;
   msg.textContent = '';
   try {
     const res = await fetch('/api/login', {
       method: 'POST',
-      headers: { 'x-auth-key': key.value }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username.value.trim(),
+        password: password.value,
+        clientType: 'web',
+        deviceName: navigator.platform || 'Web browser'
+      })
     });
     const body = await res.json().catch(() => ({}));
-    if (res.ok && body.authenticated) {
-      // Straight to the catalog, which is what someone signing in came for.
-      location.replace('/');
-      return;
-    }
+    if (res.ok && body.authenticated) return location.replace('/');
     msg.textContent = res.status === 429
-      ? 'Too many attempts. Wait a few minutes.'
-      : (body.error || 'That password was not accepted.');
+      ? 'Too many attempts. Try again in a few minutes.'
+      : (body.error || 'Sign-in failed.');
   } catch (err) {
-    msg.textContent = 'Cannot reach the server: ' + err.message;
+    msg.textContent = 'Cannot reach the server.';
   }
   go.disabled = false;
-  key.select();
-};
+  password.select();
+});
 </script>
 </body>
 </html>
