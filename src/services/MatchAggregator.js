@@ -214,6 +214,7 @@ const { getChannelLogo } = require('./ChannelLogoService');
 const leagueBadges = require('./LeagueBadgeService');
 const { moreSpecific } = require('../channelGenres');
 const { baseKey } = require('../channelRegions');
+const { isRetainedEventCategory, kickoffMs, shouldKeepMatch } = require('../sportsPolicy');
 
 /**
  * Give a region to the 24/7 channels whose source did not say, before merging.
@@ -680,6 +681,14 @@ class MatchAggregator {
           match._collegeSport = eventMarks.collegeSport(match.league);
         }
 
+        // Mixed providers often return every sport in one response. Once the
+        // category is known, discard excluded fixtures before fuzzy identity,
+        // crest resolution and merge work. "other" stays temporarily because a
+        // later provider can supply the missing category for the same event.
+        if (kickoffMs(match) > 0 && match.category !== 'other' && !isRetainedEventCategory(match.category)) {
+          return;
+        }
+
         const pre = this._precompute(match);
         let idx = -1;
         for (let i = 0; i < finalMatches.length; i++) {
@@ -693,6 +702,13 @@ class MatchAggregator {
         }
 
         const existing = finalMatches[idx];
+        // Promote an unknown listing when a second provider identifies the
+        // sport. Without this, a TotalSportek "other" row that arrived first
+        // could absorb a Football source and still be discarded as "other".
+        if (existing.category === 'other' && match.category && match.category !== 'other') {
+          existing.category = match.category;
+          finalPres[idx] = { ...finalPres[idx], category: match.category };
+        }
         // When a merge crosses the college/american_football line, the merged
         // event is collegiate: American Football lists professional fixtures
         // only, so College wins regardless of which provider arrived first.
@@ -813,7 +829,7 @@ class MatchAggregator {
 
     const now = Date.now();
     // Smart Trending Engine: Boost popular matches globally, but only if they are actually live or starting soon
-    const TRENDING_KEYWORDS = ['bein', 'real madrid', 'barcelona', 'manchester', 'arsenal', 'liverpool', 'chelsea', 'bayern', 'psg', 'lakers', 'warriors', 'mcgregor', 'super bowl', 'champions league', 'el clasico', 'f1', 'formula 1', 'grand prix'];
+    const TRENDING_KEYWORDS = ['bein', 'real madrid', 'barcelona', 'manchester', 'arsenal', 'liverpool', 'chelsea', 'bayern', 'psg', 'mcgregor', 'champions league', 'el clasico', 'f1', 'formula 1', 'grand prix'];
 
     finalMatches.forEach(match => {
       const titleLower = match.title.toLowerCase();
@@ -848,6 +864,12 @@ class MatchAggregator {
     // it for the badge.
     for (const match of finalMatches) {
       if (match._competition !== undefined) continue;
+      // Only retained team sports use competition inference. Race/fight cards
+      // have no two-team league identity, and channels do not need one.
+      if (match.category !== 'football' && match.category !== 'rugby') {
+        match._competition = null;
+        continue;
+      }
       try {
         const pair = teamLogos.resolveMatchup(match);
         match._competition = pair ? leagueBadges.competitionFor(pair.aLogo, pair.bLogo) : null;
@@ -857,6 +879,10 @@ class MatchAggregator {
     }
 
     const activeMatches = finalMatches.filter(match => {
+      // Final policy gate. This catches unknown/YAML providers and any source
+      // whose category could not be rejected earlier, while preserving 24/7
+      // channels independently of sport.
+      if (!shouldKeepMatch(match)) return false;
       // Dropped here rather than in the tabs: a tile that names no event is not
       // any one tab's problem.
       if (_namesNothing(match)) return false;
