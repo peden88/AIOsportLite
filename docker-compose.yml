@@ -1,7 +1,7 @@
 services:
-  aiosports:
+  aiosportlite:
     build: .
-    container_name: aiosports
+    container_name: aiosportlite
     ports:
       - "7000:7000"
     # Everything in .env reaches the app: ADDON_URL, AUTH_KEY, ADMIN_TOKEN and
@@ -26,8 +26,8 @@ services:
       # outlive a rebuild.
       - DATA_DIR=/data
     volumes:
-      - aiosports-data:/data
+      - aiosportlite-data:/data
     restart: unless-stopped
 
 volumes:
-  aiosports-data:
+  aiosportlite-data:
