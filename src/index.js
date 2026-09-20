@@ -2664,10 +2664,11 @@ container.resolve('cronService').onSynced = matches => {
 container.resolve('cronService').start();
 
 const BIND_HOST = process.env.HOST || process.env.IP || '0.0.0.0';
+userAuth.bootstrap().then(authBoot => {
 app.listen(PORT, BIND_HOST, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════╗');
-  console.log('║          🔴 AIOSports                              ║');
+  console.log('║          🔴 AIOSport Lite                         ║');
   console.log('╠══════════════════════════════════════════════════════╣');
   console.log(`║  Port       : ${String(PORT).padEnd(39)}║`);
   console.log('╚══════════════════════════════════════════════════════╝');
@@ -2683,19 +2684,16 @@ app.listen(PORT, BIND_HOST, () => {
   }
   console.log('');
 
-  // Say out loud which gates are actually on. Both of these fail open when
-  // unset, which is the right default for someone trying the addon on their own
-  // machine and the wrong one for a box on the internet -- and the difference
-  // was invisible, because an owner's own browser sees a login page either way.
-  const siteKey = process.env.AUTH_KEY;
   const adminKey = process.env.ADMIN_TOKEN;
-  console.log(`  Sign-in   : ${siteKey ? 'AUTH_KEY set' : 'NOT SET — anyone who can reach this can browse it'}`);
-  console.log(`  Dashboard : ${adminKey ? 'ADMIN_TOKEN set' : 'NOT SET — dashboard is closed until you set one'}`);
+  const userCount = userAuth.listUsers().length;
+  console.log(`  Accounts  : ${userCount ? userCount + ' configured' : 'NONE — site is open until an account is created'}`);
+  if (authBoot && authBoot.created) {
+    console.log(`  Auth init  : created initial admin from ${authBoot.source}`);
+  }
+  console.log(`  Dashboard : admin account${adminKey ? ' or ADMIN_TOKEN' : ''}`);
   console.log(`  Proxies   : trust proxy = ${TRUST_PROXY || 'loopback/private only (default)'}`);
-  for (const [name, value] of [['AUTH_KEY', siteKey], ['ADMIN_TOKEN', adminKey]]) {
-    if (value && value.length < 16) {
-      console.log(`  ! ${name} is only ${value.length} characters. Use 16 or more random ones on anything the internet can reach.`);
-    }
+  if (adminKey && adminKey.length < 16) {
+    console.log(`  ! ADMIN_TOKEN is only ${adminKey.length} characters. Use 16 or more random ones on anything the internet can reach.`);
   }
   // Said out loud at every boot, because the failure it warns about only shows
   // up on the *next* deploy -- by which time the settings are already gone.
@@ -2706,8 +2704,8 @@ app.listen(PORT, BIND_HOST, () => {
   if (!durable) {
     console.log('  → Mount a volume there to keep saved settings (see the README).');
   }
-  if (!siteKey || !adminKey) {
-    console.log('  → Set these in .env (or the environment) if this port is reachable from the internet.');
+  if (!userCount) {
+    console.log('  → Set APP_ADMIN_USERNAME and APP_ADMIN_PASSWORD before exposing this service.');
   }
   console.log('');
 
