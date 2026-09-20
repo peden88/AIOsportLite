@@ -439,6 +439,9 @@ app.patch('/api/v1/admin/users/:id', express.json({ limit: '8kb' }), async (req,
  * that before they rely on it rather than after they lose their settings.
  */
 app.get('/api/config/saved', (req, res) => {
+  if (userAuth.hasUsers() && !isAdmin(req)) {
+    return res.status(403).json({ error: 'Administrator access required.' });
+  }
   // Which profile the page is asking about; absent means the legacy one.
   const id = typeof req.query.id === 'string' && req.query.id ? req.query.id : LEGACY_ID;
   const saved = loadProfile(id);
@@ -451,8 +454,9 @@ app.get('/api/config/saved', (req, res) => {
     // Whether this caller may change it: signed in with a real key, or holding
     // the profile's own edit key (see mayEditProfile).
     canEdit: !!saved && mayEditProfile(req, id),
-    // No AUTH_KEY: profiles are guarded by their edit keys alone.
-    open: !process.env.AUTH_KEY,
+    // An account-less development install may still use the old open profile
+    // workflow. Once accounts exist, application configuration is admin-owned.
+    open: !userAuth.hasUsers() && !process.env.AUTH_KEY,
     // Only to someone signed in with a real key. The uuid IS the secret -- it
     // is the entire reason a profile is private -- so handing the list to
     // anyone who asks would give away every profile on the server. On an
@@ -474,8 +478,11 @@ let lastMarketSyncAt = 0;
 const MARKET_SYNC_EVERY_MS = 5 * 60 * 1000;
 
 app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
-  // The configure page is what AUTH_KEY guards, and this is that page's save
-  // button, so it is gated the same way: signed in, or the site is open anyway.
+  // First-party application configuration is installation-wide. Once account
+  // mode is enabled, only an administrator can create/change addon profiles.
+  if (userAuth.hasUsers() && !isAdmin(req)) {
+    return res.status(403).json({ error: 'Administrator access required.' });
+  }
   if (!isAuthed(req)) {
     return res.status(403).json({ error: 'Sign in before saving.' });
   }
@@ -547,6 +554,9 @@ app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
 });
 
 app.delete('/api/config/saved', (req, res) => {
+  if (userAuth.hasUsers() && !isAdmin(req)) {
+    return res.status(403).json({ error: 'Administrator access required.' });
+  }
   if (!isAuthed(req)) return res.status(403).json({ error: 'Sign in first.' });
   const id = typeof req.query.id === 'string' ? req.query.id : '';
   const file = profilePath(id);
@@ -844,7 +854,7 @@ app.post('/api/cache/warm/cancel', (req, res) => {
 });
 
 function requireAdminPage(req, res, next) {
-  if (isAdmin(req)) return next();
+  if (ownsEverything(req)) return next();
   if (!isAuthed(req)) return res.redirect('/login');
   return res.status(403).send('Administrator access required.');
 }
@@ -1844,7 +1854,7 @@ const OPEN_PROFILE_LIMIT = Number(process.env.PROFILE_LIMIT) || 500;
 
 /** Signed in with a real key -- AUTH_KEY set and given, or ADMIN_TOKEN. */
 function ownsEverything(req) {
-  return isAdmin(req);
+  return isAdmin(req) || (!userAuth.hasUsers() && !process.env.AUTH_KEY);
 }
 
 function editKeyPath(id) {
