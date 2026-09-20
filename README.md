@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="public/logo-v2.png" width="120" height="120" alt="AIOSports logo">
+  <img src="public/logo-v2.png" width="120" height="120" alt="AIOSport Lite logo">
 </p>
 
 # AIOSport Lite
 
-[![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen.svg)](https://github.com/mlp2069/aiosports/releases/latest)
+[![Version](https://img.shields.io/badge/version-v1.6.0--lite.1-brightgreen.svg)](https://github.com/peden88/AIOsportLite/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Forked from](https://img.shields.io/badge/forked_from-rajhodedara%2Flive--sport--plugin-6e7681?logo=github&logoColor=white)](https://github.com/rajhodedara/live-sport-plugin)
 [![Ko-fi](https://img.shields.io/badge/Support_on_Ko--fi-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/mlp20)
@@ -18,7 +18,7 @@ A self-hosted addon for [Stremio](https://www.stremio.com/) and [Nuvio](https://
 
 This is a fork of [rajhodedara/live-sport-plugin](https://github.com/rajhodedara/live-sport-plugin). Credit for the original project goes there.
 
-> **Streams come from third-party websites.** AIOSports hosts no video. Sources change and go offline often, so a fixture with no working stream is normal and usually not a problem with your setup.
+> **Streams come from third-party websites.** AIOSport Lite hosts no video. Sources change and go offline often, so a fixture with no working stream is normal and usually not a problem with your setup.
 
 ## Contents
 
@@ -40,8 +40,8 @@ This is a fork of [rajhodedara/live-sport-plugin](https://github.com/rajhodedara
 You need Docker with Compose v2.24 or newer.
 
 ```bash
-git clone https://github.com/mlp2069/aiosports.git
-cd aiosports
+git clone https://github.com/peden88/AIOsportLite.git
+cd AIOsportLite
 cp .env.example .env
 docker compose up -d --build
 ```
@@ -109,14 +109,14 @@ If you would rather not expose a port at all, put the instance behind a Cloudfla
 Node.js 22 or newer is required.
 
 ```bash
-git clone https://github.com/mlp2069/aiosports.git
-cd aiosports
+git clone https://github.com/peden88/AIOsportLite.git
+cd AIOsportLite
 cp .env.example .env
 npm install
 npm start
 ```
 
-`npm start` builds before it starts, so a separate build step isn't needed. To keep it running in the background with PM2, start it from the `aiosports` folder, because the internal resolver is found relative to that folder:
+`npm start` builds before it starts, so a separate build step isn't needed. To keep it running in the background with PM2, start it from the `AIOsportLite` folder, because the internal resolver is found relative to that folder:
 
 ```bash
 npm install -g pm2
@@ -239,13 +239,13 @@ Built with Node.js, Express and [stremio-addon-sdk](https://github.com/Stremio/s
 
 ## Getting help
 
-- **Bugs and questions:** open an [issue](https://github.com/mlp2069/aiosports/issues). The template asks for what's needed.
+- **Bugs and questions:** open an [issue](https://github.com/peden88/AIOsportLite/issues). The template asks for what's needed.
 - **Security problems:** report them privately; see [SECURITY.md](SECURITY.md).
 - **Support the project:** [this fork on Ko-fi](https://ko-fi.com/mlp20), or [the upstream project](https://ko-fi.com/rajodedara) it's built on.
 
 ## License and disclaimer
 
-AIOSports is released under the [MIT License](LICENSE). It is free, with no paid tiers, and anyone selling access to it is not connected to this project.
+AIOSport Lite is released under the [MIT License](LICENSE). It is free, with no paid tiers, and anyone selling access to it is not connected to this project.
 
 - **No hosted media.** The addon doesn't host, store or broadcast video. It lists links that third-party websites already publish and passes them to your player.
 - **Not affiliated.** It isn't affiliated with or endorsed by any league, team, broadcaster or streaming service. Their names and logos belong to their owners and appear only to identify content.
