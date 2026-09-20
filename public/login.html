@@ -60,6 +60,15 @@ let multiUser = true;
     const res = await fetch('/api/site/auth', { cache: 'no-store' });
     const auth = await res.json();
     if (auth.authenticated) return location.replace('/');
+    if (auth.setupRequired) {
+      multiUser = false;
+      usernameField.style.display = 'none';
+      subtitle.textContent = 'Administrator setup is required on the server.';
+      password.disabled = true;
+      go.disabled = true;
+      msg.textContent = 'Set APP_ADMIN_USERNAME and APP_ADMIN_PASSWORD, then restart AIOSport Lite.';
+      return;
+    }
     multiUser = auth.multiUser !== false;
     if (!multiUser) {
       usernameField.style.display = 'none';
