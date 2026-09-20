@@ -80,6 +80,16 @@ server = http.createServer((req, res) => {
     return send(res, {
       streams: [
         {
+          name: '[ERROR] This is a notice, not playback',
+          externalUrl: 'https://github.com/Viren070/AIOStreams',
+          streamData: { type: 'error' }
+        },
+        {
+          name: 'Statistics',
+          externalUrl: 'https://github.com/Viren070/AIOStreams',
+          streamData: { type: 'statistic' }
+        },
+        {
           name: 'SECRET PROVIDER A',
           title: 'Best ranked release',
           url: '/api/v1/debrid/playback/owned-chain',
@@ -137,6 +147,7 @@ server = http.createServer((req, res) => {
   console.log('--- AIOStreams ranked playback remains opaque');
   const candidates = await vod.playbackCandidates('movie', 'tt0133093');
   assert.strictEqual(candidates.length, 2);
+  assert.ok(!JSON.stringify(candidates).includes('github.com/Viren070/AIOStreams'));
   assert.strictEqual(candidates[0].url, base + '/api/v1/debrid/playback/owned-chain');
   assert.strictEqual(candidates[0].behaviorHints.proxyHeaders.request.Referer, 'https://origin.test/');
   assert.strictEqual(candidates[1].externalUrl, 'https://cdn.example.test/fallback.mkv');
