@@ -178,6 +178,10 @@ app.use((req, res, next) => {
   }
   next();
 });
+}).catch(err => {
+  console.error('[auth] failed to initialise account store:', err);
+  process.exit(1);
+});
 
 // Artwork is drawn from URLs other people control. Whatever comes back, a
 // browser must treat it as an image and nothing more: no sniffing it into a
