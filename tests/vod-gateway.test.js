@@ -166,6 +166,16 @@ server = http.createServer((req, res) => {
   assert.strictEqual(done.ok, false);
   assert.strictEqual(done.exhausted, true);
 
+  console.log('--- VOD diagnostics never expose manifest URLs');
+  const diagnostic = await vod.diagnostics();
+  assert.strictEqual(diagnostic.vodEnabled, true);
+  assert.strictEqual(diagnostic.metadata.reachable, true);
+  assert.strictEqual(diagnostic.streams.reachable, true);
+  assert.strictEqual(diagnostic.metadata.id, 'mock.metadata');
+  assert.strictEqual(diagnostic.streams.id, 'mock.streams');
+  assert.ok(!JSON.stringify(diagnostic).includes('/metadata/profile/manifest.json'));
+  assert.ok(!JSON.stringify(diagnostic).includes('/streams/profile/manifest.json'));
+
   console.log('--- configured manifest query is preserved upstream');
   assert.ok(seen.some(x => x === '/metadata/profile/manifest.json?tag=family'));
   assert.ok(seen.some(x => x === '/metadata/profile/catalog/movie/popular.json?tag=family'));
