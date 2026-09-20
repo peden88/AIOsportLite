@@ -16,7 +16,6 @@ const { inferGenre } = require('./channelGenres');
 const channelHealth = require('./services/ChannelHealth');
 const { exclusionReason } = require('./channelExclusions');
 const { parseMarkets, marketsSetting, isLocalTo } = require('./services/LocalMarkets');
-const { RETAINED_EVENT_CATEGORIES } = require('./sportsPolicy');
 
 // Titles that already name the visiting side first: "Rockies @ Yankees",
 // "Missouri at Kansas". Anything else ("A vs B", "A - B") conventionally names
@@ -180,12 +179,6 @@ function formatKickoff(dateObj, timeZone, hour12 = true) {
  * provider, merge guard and filter agrees on and does not change; this is only
  * what the reader sees, and it should match the tab the card sits in.
  */
-// Competitions worth naming on the card in place of the broad category.
-// The categories that have a tab of their own. The Other tab is defined by
-// exclusion from this list, and the sports filter needs the same definition --
-// keeping two copies is how they came to disagree.
-const TOP_LEVEL_CATEGORIES = [...RETAINED_EVENT_CATEGORIES, 'networks'];
-
 const CATEGORY_LABEL = {
   // Internal provider key remains `football`; only the user-facing name changes.
   football: 'FOOTBALL'
