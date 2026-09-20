@@ -32,7 +32,7 @@ const manifest = {
     { type: 'tv', id: 'nuvio_sports_upcoming', name: '⏱️ Upcoming', extra: [{ name: 'search', isRequired: false }] },
     { type: 'tv', id: 'nuvio_sports_teams', name: '⭐ Your Teams', extra: [{ name: 'search', isRequired: false }] },
     { type: 'tv', id: 'nuvio_sports_local', name: '📍 Local', extra: [{ name: 'search', isRequired: false }] }
-  ]
+  ],
 
   config: [
     { key: 'teams', title: 'Favorite Teams (comma separated)', type: 'text' },
