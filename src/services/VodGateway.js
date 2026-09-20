@@ -107,6 +107,48 @@ function privatePlaybackRow(stream, client) {
   };
 }
 
+async function diagnosticService(service, manifestUrl) {
+  if (!manifestUrl) return { configured: false, reachable: false };
+  try {
+    const client = new StremioServiceClient(manifestUrl, {
+      serviceName: service === 'metadata' ? 'AIOMetadata' : 'AIOStreams',
+      manifestTtlMs: 1
+    });
+    const manifest = await client.manifest({ force: true });
+    return {
+      configured: true,
+      reachable: true,
+      id: String(manifest.id || ''),
+      name: String(manifest.name || ''),
+      version: String(manifest.version || ''),
+      types: Array.isArray(manifest.types) ? manifest.types.map(String) : [],
+      resources: Array.isArray(manifest.resources)
+        ? manifest.resources.map(r => typeof r === 'string' ? r : String(r && r.name || '')).filter(Boolean)
+        : [],
+      catalogCount: Array.isArray(manifest.catalogs) ? manifest.catalogs.length : 0
+    };
+  } catch (err) {
+    return {
+      configured: true,
+      reachable: false,
+      error: err && err.code ? String(err.code) : 'UPSTREAM_ERROR'
+    };
+  }
+}
+
+async function diagnostics() {
+  const cfg = appServices._privateConfig();
+  const [metadata, streams] = await Promise.all([
+    diagnosticService('metadata', cfg.metadata.manifestUrl),
+    diagnosticService('streams', cfg.streams.manifestUrl)
+  ]);
+  return {
+    vodEnabled: cfg.vod.enabled,
+    metadata,
+    streams
+  };
+}
+
 async function playbackCandidates(type, id) {
   const safeType = validStremioType(type);
   const safeId = cleanId(id);
@@ -123,6 +165,7 @@ module.exports = {
   search,
   meta,
   playbackCandidates,
+  diagnostics,
   validStremioType,
   _privatePlaybackRow: privatePlaybackRow,
   _clientFor: clientFor,
