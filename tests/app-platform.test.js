@@ -49,6 +49,11 @@ try {
   t(true, boot.services.vod.enabled, 'VOD activates only when both global services exist');
   t(true, boot.contentTypes.includes('movie') && boot.contentTypes.includes('series'), 'VOD capabilities appear without a per-user addon list');
   t('https://streams.example.test/config/manifest.json', registry.manifestUrl('streams'), 'backend can read the private AIOStreams manifest URL');
+  t(
+    'https://streams.example.test/config/manifest.json',
+    registry._normaliseHttpUrl('stremio://streams.example.test/config/manifest.json'),
+    'stremio install URLs are normalised to HTTPS server URLs'
+  );
 
   process.env.AIOMETADATA_MANIFEST_URL = 'javascript:alert(1)';
   boot = registry.publicBootstrap();
