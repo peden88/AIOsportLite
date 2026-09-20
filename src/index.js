@@ -433,6 +433,16 @@ app.get('/api/v1/admin/users', (req, res) => {
   res.json({ users: userAuth.listUsers() });
 });
 
+app.get('/api/v1/admin/vod/status', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    res.json(await vodGateway.diagnostics());
+  } catch (err) {
+    console.error('[app-vod] diagnostics failed:', err.message);
+    res.status(500).json({ error: 'Could not check VOD services.' });
+  }
+});
+
 app.post('/api/v1/admin/users', express.json({ limit: '8kb' }), async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
