@@ -1,14 +1,14 @@
 {
-  "name": "aiosports",
-  "version": "1.6.0",
-  "description": "Self-hosted live sports and 24/7 channels addon for Stremio and Nuvio.",
+  "name": "aiosportlite",
+  "version": "1.6.0-lite.1",
+  "description": "Self-hosted live Football, Rugby, Racing and MMA plus 24/7 channels for Stremio and Nuvio.",
   "main": "src/index.js",
   "scripts": {
     "prestart": "npm run build",
     "start": "node dist/index.js",
     "dev": "node --watch-path=src src/index.js",
     "build": "npx @vercel/ncc build src/index.js -o dist --minify --external sharp && npx -y copyfiles -f \"src/providers/*.wasm\" \"src/providers/*.js\" dist",
-    "test": "node tests/merge-identity.test.js && node tests/art-cache.test.js && node tests/card-colors.test.js && node tests/channel-covers.test.js && node tests/station-labels.test.js && node tests/local-markets.test.js && node tests/playlist-rewrite.test.js && node tests/segment-policy.test.js && node tests/disk-cache.test.js && node tests/schedule-index.test.js && node tests/stream-ranking.test.js && node tests/fixture-details.test.js && node tests/totalsportek.test.js",
+    "test": "node tests/lite-sports.test.js && node tests/merge-identity.test.js && node tests/art-cache.test.js && node tests/card-colors.test.js && node tests/channel-covers.test.js && node tests/station-labels.test.js && node tests/local-markets.test.js && node tests/playlist-rewrite.test.js && node tests/segment-policy.test.js && node tests/disk-cache.test.js && node tests/schedule-index.test.js && node tests/stream-ranking.test.js && node tests/fixture-details.test.js && node tests/totalsportek.test.js",
     "stations": "node scripts/build-us-stations.js",
     "test:e2e-client": "node scripts/test-e2e-simulated-client.js",
     "test:sanity": "node scripts/test-e2e-simulated-client.js",
