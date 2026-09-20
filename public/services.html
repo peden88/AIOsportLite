@@ -45,7 +45,8 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
 
       <div class="actions">
         <button id="save">Save and test</button>
-        <button id="refresh" class="secondary">Test again</button>
+        <button id="refresh" class="secondary">Test manifests</button>
+        <button id="probe" class="secondary">Run end-to-end probe</button>
       </div>
       <div id="message" class="msg"></div>
     </section>
@@ -110,6 +111,22 @@ $('save').onclick=async()=>{
   }catch(e){$('message').textContent=e.message;$('message').className='msg bad';}
 };
 $('refresh').onclick=load;
+$('probe').onclick=async()=>{
+  $('message').textContent='Probing a real AIOMetadata title through AIOStreams…';
+  $('message').className='msg';
+  try{
+    const result=await api('/api/v1/admin/vod/probe',{method:'POST',body:'{}'});
+    if(!result.ok) throw new Error('No playable opaque stream was returned.');
+    $('message').textContent=
+      'Passed: '+(result.content?.title||result.content?.id||'title')+
+      ' · '+result.content?.type+
+      ' · '+result.streams?.playable+' playable AIOStreams candidate'+(result.streams?.playable===1?'':'s')+'.';
+    $('message').className='msg good';
+  }catch(e){
+    $('message').textContent='Probe failed: '+e.message;
+    $('message').className='msg bad';
+  }
+};
 load();
 </script>
 </body>
