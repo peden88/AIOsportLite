@@ -12,6 +12,8 @@
  * (stream resolution/failover) are configured and VOD_ENABLED is truthy.
  */
 
+const serviceSettings = require('./ServiceSettings');
+
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 
 function enabled(value) {
@@ -31,14 +33,49 @@ function normaliseHttpUrl(raw) {
   }
 }
 
+function selectedValue(saved, key, envName) {
+  return Object.prototype.hasOwnProperty.call(saved, key)
+    ? saved[key]
+    : process.env[envName];
+}
+
+function sourceFor(saved, key) {
+  return Object.prototype.hasOwnProperty.call(saved, key) ? 'data' : 'environment';
+}
+
+function validateManifestUrl(raw, label) {
+  if (raw === null || raw === undefined || String(raw).trim() === '') return '';
+  const value = normaliseHttpUrl(raw);
+  if (!value) {
+    const err = new Error(label + ' must be a valid http(s) or stremio manifest URL.');
+    err.code = 'INVALID_SERVICE_URL';
+    throw err;
+  }
+  const parsed = new URL(value);
+  if (!/\/manifest\.json$/i.test(parsed.pathname)) {
+    const err = new Error(label + ' must point to manifest.json.');
+    err.code = 'INVALID_SERVICE_URL';
+    throw err;
+  }
+  return value;
+}
+
 function privateConfig() {
-  const metadataManifestUrl = normaliseHttpUrl(process.env.AIOMETADATA_MANIFEST_URL);
-  const streamsManifestUrl = normaliseHttpUrl(process.env.AIOSTREAMS_MANIFEST_URL);
+  const saved = serviceSettings.read();
+  const metadataManifestUrl = normaliseHttpUrl(
+    selectedValue(saved, 'aiometadataManifestUrl', 'AIOMETADATA_MANIFEST_URL')
+  );
+  const streamsManifestUrl = normaliseHttpUrl(
+    selectedValue(saved, 'aiostreamsManifestUrl', 'AIOSTREAMS_MANIFEST_URL')
+  );
   const sportsManifestUrl = normaliseHttpUrl(process.env.AIOSPORT_MANIFEST_URL);
 
   const metadataEnabled = !!metadataManifestUrl;
   const streamsEnabled = !!streamsManifestUrl;
-  const vodEnabled = enabled(process.env.VOD_ENABLED) && metadataEnabled && streamsEnabled;
+  const vodRequested = Object.prototype.hasOwnProperty.call(saved, 'vodEnabled')
+    ? !!saved.vodEnabled
+    : enabled(process.env.VOD_ENABLED);
+  const vodEnabled = vodRequested && metadataEnabled && streamsEnabled;
 
   return {
     sports: {
@@ -57,7 +94,13 @@ function privateConfig() {
       role: 'vod-playback-resolution-and-failover'
     },
     vod: {
-      enabled: vodEnabled
+      enabled: vodEnabled,
+      requested: vodRequested
+    },
+    sources: {
+      metadata: sourceFor(saved, 'aiometadataManifestUrl'),
+      streams: sourceFor(saved, 'aiostreamsManifestUrl'),
+      vodEnabled: sourceFor(saved, 'vodEnabled')
     }
   };
 }
@@ -103,6 +146,65 @@ function publicBootstrap() {
   };
 }
 
+function endpointSummary(url, source) {
+  if (!url) return { configured: false, source };
+  try {
+    const parsed = new URL(url);
+    return {
+      configured: true,
+      source,
+      host: parsed.host,
+      protocol: parsed.protocol.replace(':', '')
+    };
+  } catch (_) {
+    return { configured: false, source };
+  }
+}
+
+function adminSummary() {
+  const cfg = privateConfig();
+  return {
+    vodRequested: cfg.vod.requested,
+    vodEnabled: cfg.vod.enabled,
+    metadata: endpointSummary(cfg.metadata.manifestUrl, cfg.sources.metadata),
+    streams: endpointSummary(cfg.streams.manifestUrl, cfg.sources.streams)
+  };
+}
+
+function updatePersistentVod(patch = {}) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    const err = new Error('Expected a service configuration object.');
+    err.code = 'INVALID_SERVICE_CONFIG';
+    throw err;
+  }
+
+  const current = serviceSettings.read();
+  const next = { ...current };
+
+  if (Object.prototype.hasOwnProperty.call(patch, 'vodEnabled')) {
+    next.vodEnabled = !!patch.vodEnabled;
+  }
+  if (patch.clearAiometadata === true) {
+    next.aiometadataManifestUrl = '';
+  } else if (Object.prototype.hasOwnProperty.call(patch, 'aiometadataManifestUrl')) {
+    next.aiometadataManifestUrl = validateManifestUrl(
+      patch.aiometadataManifestUrl,
+      'AIOMetadata manifest URL'
+    );
+  }
+  if (patch.clearAiostreams === true) {
+    next.aiostreamsManifestUrl = '';
+  } else if (Object.prototype.hasOwnProperty.call(patch, 'aiostreamsManifestUrl')) {
+    next.aiostreamsManifestUrl = validateManifestUrl(
+      patch.aiostreamsManifestUrl,
+      'AIOStreams manifest URL'
+    );
+  }
+
+  serviceSettings.write(next);
+  return adminSummary();
+}
+
 function manifestUrl(service) {
   const cfg = privateConfig();
   if (!cfg[service] || !cfg[service].manifestUrl) return '';
@@ -112,7 +214,10 @@ function manifestUrl(service) {
 module.exports = {
   publicBootstrap,
   manifestUrl,
+  adminSummary,
+  updatePersistentVod,
   _privateConfig: privateConfig,
   _normaliseHttpUrl: normaliseHttpUrl,
+  _validateManifestUrl: validateManifestUrl,
   _enabled: enabled
 };

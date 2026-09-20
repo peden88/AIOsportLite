@@ -443,6 +443,31 @@ app.get('/api/v1/admin/vod/status', async (req, res) => {
   }
 });
 
+app.get('/api/v1/admin/services', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    res.json({
+      config: appServices.adminSummary(),
+      status: await vodGateway.diagnostics()
+    });
+  } catch (err) {
+    console.error('[services] status failed:', err.message);
+    res.status(500).json({ error: 'Could not load service configuration.' });
+  }
+});
+
+app.put('/api/v1/admin/services', express.json({ limit: '16kb' }), async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const config = appServices.updatePersistentVod(req.body || {});
+    const status = await vodGateway.diagnostics();
+    res.json({ saved: true, config, status });
+  } catch (err) {
+    const statusCode = ['INVALID_SERVICE_URL', 'INVALID_SERVICE_CONFIG'].includes(err.code) ? 400 : 500;
+    res.status(statusCode).json({ error: err.message });
+  }
+});
+
 app.post('/api/v1/admin/users', express.json({ limit: '8kb' }), async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
@@ -615,6 +640,10 @@ app.delete('/api/config/saved', (req, res) => {
 
 app.get('/dashboard', requireAdminPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
+});
+
+app.get('/services', requireAdminPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'services.html'));
 });
 
 /**
@@ -850,7 +879,7 @@ function requirePage(req, res, next) {
 function guardStaticPages(req, res, next) {
   if (!/\.html?$/i.test(req.path)) return next();
   if (/^\/login\.html?$/i.test(req.path)) return next();
-  if (/^\/(?:dashboard|users|configure)\.html?$/i.test(req.path)) {
+  if (/^\/(?:dashboard|users|services|configure)\.html?$/i.test(req.path)) {
     return requireAdminPage(req, res, next);
   }
   return requirePage(req, res, next);

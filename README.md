@@ -195,6 +195,12 @@ When VOD is enabled, the first-party web app automatically adds **Movies** and *
 
 AIOStreams remains the authority for stream ordering and resolution. Its owned playback URLs contain its native failover-chain key, so the first playback target can move through AIOStreams' configured debrid/Usenet/fallback policy without the client knowing which provider won. AIOSport Lite keeps additional AIOStreams-ranked media URLs server-side as a second recovery layer for a player-detected failure. VOD `externalUrl` entries are deliberately ignored because they mean “open another page/app”, not guaranteed in-player media.
 
+### Configure VOD from the admin UI
+
+The preferred deployment path is the admin-only **Services** page at `/services`. It stores the two app-wide manifests in `DATA_DIR/app-services.json` with owner-only file permissions. Saved values override environment variables, so they can be changed without rebuilding the image or exposing them to ordinary accounts.
+
+The page can enable/disable VOD, replace or clear either global manifest, and test both services from inside the running container. Only the service host/name/version/reachability are displayed back; ordinary users never receive either manifest URL.
+
 Administrators can verify the two configured services without exposing their URLs:
 
 ```text
