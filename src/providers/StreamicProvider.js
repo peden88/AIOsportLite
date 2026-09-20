@@ -49,6 +49,7 @@ class StreamicProvider extends BaseProvider {
         if (!id) return;
 
         const categoryName = this.normalizeCategory(s.category);
+        if (!this.isRetainedEventCategory(categoryName)) return;
 
         let team1 = null, team2 = null;
         if (s.title && s.title.includes(' - ')) {
