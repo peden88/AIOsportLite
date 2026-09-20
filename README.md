@@ -2,7 +2,7 @@
   <img src="public/logo-v2.png" width="120" height="120" alt="AIOSports logo">
 </p>
 
-# AIOSports
+# AIOSport Lite
 
 [![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen.svg)](https://github.com/mlp2069/aiosports/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -83,12 +83,12 @@ If the manifest id or the tabs changed in a release, the release notes say so. I
 
 ### Prebuilt image
 
-Every push to `main` publishes `ghcr.io/mlp2069/aiosports:latest` for **linux/amd64 and linux/arm64**. The command below is the same on either: Docker reads your machine's architecture and pulls the matching one. That covers an Oracle Cloud Ampere instance, a Raspberry Pi 4 or 5, and an Apple Silicon Mac, as well as an ordinary x86 server.
+Every push to `main` publishes `ghcr.io/peden88/aiosportlite:latest` for **linux/amd64 and linux/arm64**. The command below is the same on either: Docker reads your machine's architecture and pulls the matching one. That covers an Oracle Cloud Ampere instance, a Raspberry Pi 4 or 5, and an Apple Silicon Mac, as well as an ordinary x86 server.
 
 ```bash
 docker run -d --name aiosports -p 7000:7000 \
   --env-file .env -e DATA_DIR=/data -v aiosports-data:/data \
-  --restart unless-stopped ghcr.io/mlp2069/aiosports:latest
+  --restart unless-stopped ghcr.io/peden88/aiosportlite:latest
 ```
 
 ### Oracle Cloud, and other ARM servers
@@ -164,15 +164,11 @@ Settings live in `.env`. Copy `.env.example` and edit it, and restart after a ch
 | Tab | Holds |
 |---|---|
 | 🔴 Live Now | Fixtures in progress. Channels are not mixed in. |
-| ⚽ Soccer | Association football |
-| 🏈 NFL | The NFL |
-| 🏈 Other Football | The CFL, the AFL, and gridiron whose league can't be named |
-| 🎓 College | College fixtures in any sport |
+| ⚽ Football | Association football |
 | 🏉 Rugby | NRL, Premiership, URC, Top 14, Super Rugby and test rugby |
 | 🏎️ Racing | Motorsport |
 | 📺 Channels | Every 24/7 channel, A to Z, with a genre filter |
-| 🏏 🏀 🏒 ⚾ 🥊 ⛳ 🎾 🎯 | Cricket, basketball, hockey, baseball, MMA, golf, tennis, darts |
-| 🏅 Other Sports | Anything that fits no tab above |
+| 🥊 MMA | MMA, boxing and combat-sport events |
 | ⏱️ Upcoming · ⭐ Your Teams | Everything ahead, and the teams you follow in `/configure` (including games nobody streams yet -- see below) |
 | 📍 Local | The channels of the cities you name in `/configure` (see below) |
 
