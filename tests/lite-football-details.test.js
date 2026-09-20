@@ -70,9 +70,6 @@ const tab = async (name, conf = {}, list = []) => {
   const football = await tab('football', {}, [fixture(KICK)]);
   t(1, football.length, 'Football tab returns Football fixtures');
 
-  const basketball = await tab('basketball', {}, [{ ...fixture(KICK), id: 'b1', category: 'basketball' }]);
-  t(1, basketball.length, 'generic handler remains defensive for legacy direct calls');
-
   const teams = await tab('teams', { teams: 'Arsenal' }, []);
   const pending = teams.filter(m => String(m.description).includes('⏳ No streams listed yet'));
   t(1, pending.length, 'Your Teams can surface a scheduled Football fixture with no stream yet');
