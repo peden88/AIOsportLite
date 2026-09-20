@@ -18,6 +18,29 @@ env:
   IMAGE_NAME: peden88/aiosportlite
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Upstream's committed lockfile does not yet contain Sharp, so npm ci
+      # would reject it as out of sync. Keep install semantics aligned with the
+      # Dockerfile until the lockfile is regenerated from npm.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npm test
+
   # Each architecture is built on a runner of that architecture, and neither
   # knows about the other. The alternative is one runner emulating the other
   # through QEMU, which turns an npm install and a bundler run into the better
@@ -28,6 +51,7 @@ jobs:
   # viewer pulls has to be the index naming both -- so the halves are pushed by
   # digest here and the merge job below is what gives them a name.
   build:
+    needs: test
     strategy:
       fail-fast: false
       matrix:
