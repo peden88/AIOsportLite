@@ -209,7 +209,6 @@ const _SAME_SPORT = new Set(['college', 'american_football']);
 const _FIXTURE_JOINERS = new Set(['vs', 'v', 'at']);
 
 const teamLogos = require('./TeamLogoService');
-const eventMarks = require('./EventMarkService');
 const { getChannelLogo } = require('./ChannelLogoService');
 const leagueBadges = require('./LeagueBadgeService');
 const { moreSpecific } = require('../channelGenres');
