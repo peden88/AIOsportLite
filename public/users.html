@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIOSport Lite — Users</title>
+<style>
+:root{--bg:#0b0b0d;--panel:#151518;--line:#292930;--text:#f4f4f6;--dim:#9999a5;--accent:#1668ff;--danger:#d84a4e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:auto;padding:28px 20px 70px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}
+h1{font-size:24px;margin:0}.muted{color:var(--dim)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:1.1fr 1.1fr 1.4fr .8fr auto;gap:10px;align-items:end}
+label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}input,select{width:100%;background:#1f1f24;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px}
+button,a.btn{border:0;border-radius:9px;padding:10px 13px;background:var(--accent);color:#fff;font-weight:650;cursor:pointer;text-decoration:none;display:inline-block}
+button.secondary,a.secondary{background:#292932}button.danger{background:var(--danger)}button:disabled{opacity:.45}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 8px;border-bottom:1px solid var(--line);vertical-align:middle}th{font-size:12px;color:var(--dim);font-weight:650}
+.actions{display:flex;gap:7px;flex-wrap:wrap}.status{font-size:13px;color:var(--dim);min-height:20px;margin-top:10px}
+@media(max-width:760px){.grid{grid-template-columns:1fr 1fr}.grid .wide{grid-column:1/-1}table,thead,tbody,tr,th,td{display:block}thead{display:none}tr{padding:12px 0;border-bottom:1px solid var(--line)}td{border:0;padding:5px 0}}
+</style>
+</head>
+<body><main>
+<div class="top"><div><h1>Users</h1><div class="muted">Accounts are for identity and viewing state only. Content services are app-wide.</div></div><a class="btn secondary" href="/">Back</a></div>
+<section class="panel">
+  <h2 style="margin-top:0;font-size:18px">Create user</h2>
+  <form id="create" class="grid">
+    <div><label>Username</label><input id="newUsername" required minlength="3" maxlength="40"></div>
+    <div><label>Display name</label><input id="newDisplay" maxlength="80"></div>
+    <div class="wide"><label>Password</label><input id="newPassword" type="password" required minlength="10"></div>
+    <div><label>Role</label><select id="newRole"><option value="user">User</option><option value="admin">Admin</option></select></div>
+    <button type="submit">Create</button>
+  </form>
+  <div class="status" id="createStatus"></div>
+</section>
+<section class="panel">
+  <div class="top" style="margin-bottom:8px"><h2 style="margin:0;font-size:18px">Accounts</h2><button class="secondary" id="refresh">Refresh</button></div>
+  <table><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table>
+  <div class="status" id="status"></div>
+</section>
+</main>
+<script>
+const rows=document.getElementById('rows'), status=document.getElementById('status'), createStatus=document.getElementById('createStatus');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||('HTTP '+r.status));return b}
+async function load(){
+  status.textContent='Loading…';
+  try{
+    const {users}=await api('/api/v1/admin/users');
+    rows.innerHTML=users.map(u=>`<tr data-id="${u.id}"><td><strong>${esc(u.displayName)}</strong><div class="muted">@${esc(u.username)}</div></td><td>${esc(u.role)}</td><td>${u.enabled?'Enabled':'Disabled'}</td><td>${new Date(u.createdAt).toLocaleDateString()}</td><td><div class="actions"><button class="secondary toggle">${u.enabled?'Disable':'Enable'}</button><button class="secondary role">Make ${u.role==='admin'?'user':'admin'}</button><button class="secondary password">Password</button><button class="danger delete">Delete</button></div></td></tr>`).join('');
+    rows.querySelectorAll('tr').forEach((tr,i)=>{
+      const u=users[i];
+      tr.querySelector('.toggle').onclick=()=>patch(u.id,{enabled:!u.enabled});
+      tr.querySelector('.role').onclick=()=>patch(u.id,{role:u.role==='admin'?'user':'admin'});
+      tr.querySelector('.password').onclick=async()=>{const p=prompt('New password (10+ characters)');if(p)await patch(u.id,{password:p})};
+      tr.querySelector('.delete').onclick=async()=>{if(confirm('Delete '+u.username+'?')){try{await fetch('/api/v1/admin/users/'+u.id,{method:'DELETE'}).then(async r=>{if(!r.ok){const b=await r.json().catch(()=>({}));throw new Error(b.error||'Delete failed')}});load()}catch(e){status.textContent=e.message}}};
+    });
+    status.textContent=users.length+' account'+(users.length===1?'':'s');
+  }catch(e){status.textContent=e.message}
+}
+async function patch(id,body){try{await api('/api/v1/admin/users/'+id,{method:'PATCH',body:JSON.stringify(body)});load()}catch(e){status.textContent=e.message}}
+document.getElementById('create').onsubmit=async e=>{e.preventDefault();createStatus.textContent='';try{await api('/api/v1/admin/users',{method:'POST',body:JSON.stringify({username:newUsername.value.trim(),displayName:newDisplay.value.trim(),password:newPassword.value,role:newRole.value})});e.target.reset();createStatus.textContent='User created.';load()}catch(err){createStatus.textContent=err.message}};
+document.getElementById('refresh').onclick=load;
+load();
+</script>
+</body></html>
