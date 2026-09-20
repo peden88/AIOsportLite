@@ -19,8 +19,9 @@ function enabled(value) {
 }
 
 function normaliseHttpUrl(raw) {
-  const value = String(raw || '').trim();
+  let value = String(raw || '').trim();
   if (!value) return '';
+  if (value.startsWith('stremio://')) value = 'https://' + value.slice('stremio://'.length);
   try {
     const url = new URL(value);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
