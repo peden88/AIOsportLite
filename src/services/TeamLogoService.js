@@ -69,7 +69,7 @@ const CATEGORY_LEAGUES = {
     'rugby-urba', 'rugby-urba-14',
     'rugby-six-nations', 'rugby-championship', 'rugby-international', 'rugby-test',
     'rugby-nations', 'rugby-lions', 'rugby-tri-nations', 'rugby-wwc']
-}
+};
 
 // Youth and reserve sides carry the senior badge, so "England U21" resolves
 // through "england". Applies to clubs too ("Chelsea U21" -> Chelsea's crest).
