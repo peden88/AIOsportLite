@@ -236,9 +236,11 @@ function deleteUser(id) {
     err.code = 'LAST_ADMIN';
     throw err;
   }
+  // Revoke while the user still exists so the session cleanup is persisted,
+  // then remove the account itself.
+  revokeUserSessions(id);
   state.users.splice(i, 1);
   saveUsers();
-  revokeUserSessions(id);
   return true;
 }
 
@@ -379,9 +381,17 @@ function bootstrapInitialAdmin() {
   if (!password) return null;
   const username = process.env.APP_ADMIN_USERNAME || 'admin';
   const displayName = process.env.APP_ADMIN_DISPLAY_NAME || 'Administrator';
-  const created = createUser({ username, password, displayName, role: 'admin' });
-  console.log(`[accounts] Created initial administrator "${created.username}".`);
-  return created;
+  try {
+    const created = createUser({ username, password, displayName, role: 'admin' });
+    console.log(`[accounts] Created initial administrator "${created.username}".`);
+    return created;
+  } catch (err) {
+    // A legacy AUTH_KEY may predate the account password policy. Do not turn a
+    // weak old key into a weak account and do not crash the server; leave the
+    // first-party site locked until a valid APP_ADMIN_PASSWORD is supplied.
+    console.error(`[accounts] Initial administrator was not created: ${err.message}`);
+    return null;
+  }
 }
 
 module.exports = {
