@@ -738,39 +738,9 @@ async function handleStream(type, id, config) {
 
   streams.push(...collected);
 
-  // --- Inject relevant 24/7 channels based on category ---
-  const isStreamFreeEnabled = !config || !config.sources || config.sources === 'none' || config.sources.split(',').includes('streamfree');
-  if (match.category === 'cricket' && isStreamFreeEnabled) {
-    try {
-      const extraChannels = [
-        { id: 'willow', title: 'Willow TV' },
-        { id: 'skycricket', title: 'Sky Sports Cricket' }
-      ];
-      
-      const warmed = await Promise.all(extraChannels.map(async (channel) => {
-        const key = `streamfree:__channel__:${channel.id}`;
-        const resolved = await resolveCache.getOrCreate(key, () => mintVerifiedSources(
-          { source: 'streamfree', id: channel.id, original_category: 'cricket' },
-          { category: 'cricket', title: channel.title },
-          config,
-          key
-        ));
-        return resolved.map((s) => ({ ...s, _cacheKey: key }));
-      }));
-      warmed.flat().forEach((s) => {
-        s._source = 'streamfree';
-        s.score = streamScorer.calculateScore(s, 'streamfree', sourceHealth('streamfree'));
-        streams.push(s);
-      });
-    } catch (e) {
-      console.warn('[streams.js] Error injecting 24/7 cricket channels:', e.message);
-    }
-  }
-
   // Standardize Stream Labels
   const sportIcons = {
-    football: '⚽', cricket: '🏏', motorsport: '🏎️',
-    basketball: '🏀', american_football: '🏈', rugby: '🏉', networks: '📺'
+    football: '⚽', motorsport: '🏎️', mma: '🥊', rugby: '🏉', networks: '📺'
   };
   const icon = sportIcons[match.category] || '📡';
 
