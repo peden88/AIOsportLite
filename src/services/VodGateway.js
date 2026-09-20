@@ -81,6 +81,13 @@ async function meta(type, id) {
 
 function privatePlaybackRow(stream, client) {
   if (!stream || typeof stream !== 'object') return null;
+
+  // AIOStreams deliberately appends notice rows to ordinary Stremio stream
+  // responses. They may carry an externalUrl (for example its GitHub page), but
+  // they are UI notices rather than media and must never win automatic playback.
+  const streamDataType = String(stream.streamData && stream.streamData.type || '').toLowerCase();
+  if (['error', 'statistic', 'info'].includes(streamDataType)) return null;
+
   const direct = client.absolutizePlaybackUrl(stream.url);
   const external = direct ? '' : client.absolutizePlaybackUrl(stream.externalUrl);
   if (!direct && !external) return null;
