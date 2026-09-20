@@ -467,6 +467,9 @@ app.delete('/api/v1/admin/users/:userId', requireAccountAdmin, (req, res) => {
  * that before they rely on it rather than after they lose their settings.
  */
 app.get('/api/config/saved', (req, res) => {
+  if (userStore.hasUsers() && !canConfigure(req)) {
+    return res.status(403).json({ error: 'Administrator account required.' });
+  }
   // Which profile the page is asking about; absent means the legacy one.
   const id = typeof req.query.id === 'string' && req.query.id ? req.query.id : LEGACY_ID;
   const saved = loadProfile(id);
@@ -899,6 +902,10 @@ app.post('/api/cache/warm/cancel', (req, res) => {
 
 app.get(['/configure', '/:config/configure'], requireConfigurator, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'configure.html'));
+});
+
+app.get('/users', requireAccountAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'users.html'));
 });
 
 app.get('/api/matches', requirePage, (req, res) => {
