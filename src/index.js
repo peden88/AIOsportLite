@@ -306,15 +306,33 @@ async function accountLoginHandler(req, res) {
   const legacyKey = req.get('x-auth-key') || '';
   const username = String(body.username || (legacyKey ? 'admin' : '')).trim();
   const password = String(body.password || legacyKey || '');
-  const deviceName = String(body.deviceName || 'Web browser');
+  const isAppClient = req.path === '/api/v1/auth/login';
+  const deviceName = String(body.deviceName || (isAppClient ? 'TV app' : 'Web browser'));
 
-  const session = await userAuth.login(username, password, { kind: 'web', deviceName });
+  const session = await userAuth.login(username, password, {
+    kind: isAppClient ? 'app' : 'web',
+    deviceName
+  });
   if (!session) {
     noteFailureOnce(req);
     return res.status(403).json({ error: 'Username or password was not accepted.' });
   }
 
   FAILURES.delete(failureKey(req));
+
+  if (isAppClient) {
+    // Native clients receive the opaque token once and store it in platform
+    // secure storage. They send it as Authorization: Bearer <token>.
+    return res.json({
+      authenticated: true,
+      tokenType: 'Bearer',
+      accessToken: session.token,
+      expiresAt: session.expiresAt,
+      user: session.user
+    });
+  }
+
+  // Browsers keep the same token HttpOnly so page JavaScript never sees it.
   res.cookie(APP_SESSION_COOKIE, session.token, {
     httpOnly: true,
     sameSite: 'lax',
