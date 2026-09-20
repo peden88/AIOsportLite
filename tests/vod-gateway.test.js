@@ -171,6 +171,16 @@ server = http.createServer((req, res) => {
   assert.strictEqual(done.ok, false);
   assert.strictEqual(done.exhausted, true);
 
+  console.log('--- end-to-end VOD probe');
+  const probe = await vod.probe();
+  assert.strictEqual(probe.ok, true);
+  assert.strictEqual(probe.content.type, 'movie');
+  assert.strictEqual(probe.content.id, 'tt0133093');
+  assert.strictEqual(probe.content.title, 'The Matrix');
+  assert.strictEqual(probe.streams.playable, 2);
+  assert.ok(!JSON.stringify(probe).includes('SECRET PROVIDER'));
+  assert.ok(!JSON.stringify(probe).includes('/api/v1/debrid/playback/owned-chain'));
+
   console.log('--- VOD diagnostics never expose manifest URLs');
   const diagnostic = await vod.diagnostics();
   assert.strictEqual(diagnostic.vodEnabled, true);
