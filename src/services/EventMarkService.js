@@ -26,8 +26,6 @@ const SERIES = [
   { re: /\bpfl\b/i, kicker: 'PFL', mark: `${ESPN}/i/teamlogos/leagues/500/pfl.png` },
   { re: /\bwwe\b|smackdown|monday night raw/i, kicker: 'WWE', mark: `${ESPN}/i/teamlogos/leagues/500/wwe.png` },
   { re: /\baew\b|all elite/i, kicker: 'AEW', mark: `${ESPN}/i/teamlogos/leagues/500/aew.png` },
-  { re: /\bpga\b|pga tour/i, kicker: 'PGA TOUR', mark: `${ESPN}/i/teamlogos/leagues/500/pgatour.png` },
-  { re: /\blpga\b/i, kicker: 'LPGA', mark: `${ESPN}/i/teamlogos/leagues/500/lpga.png` }
 ];
 
 // Whatever the sport is, when no series matched. No kicker goes with these: the
@@ -35,17 +33,8 @@ const SERIES = [
 const SPORT_ICONS = {
   mma: `${ESPN}/i/espn/misc_logos/500/boxing.png`,
   motorsport: `${ESPN}/redesign/assets/img/icons/ESPN-icon-nascar.png`,
-  golf: `${ESPN}/redesign/assets/img/icons/ESPN-icon-golf.png`,
-  tennis: `${ESPN}/redesign/assets/img/icons/ESPN-icon-tennis.png`,
-  cricket: `${ESPN}/redesign/assets/img/icons/ESPN-icon-cricket.png`,
   rugby: `${ESPN}/redesign/assets/img/icons/ESPN-icon-rugby.png`,
-  hockey: `${ESPN}/redesign/assets/img/icons/ESPN-icon-hockey.png`,
-  basketball: `${ESPN}/redesign/assets/img/icons/ESPN-icon-basketball.png`,
-  baseball: `${ESPN}/redesign/assets/img/icons/ESPN-icon-baseball.png`,
   football: `${ESPN}/redesign/assets/img/icons/ESPN-icon-soccer.png`,
-  american_football: `${ESPN}/redesign/assets/img/icons/ESPN-icon-football.png`,
-  college: `${ESPN}/redesign/assets/img/icons/ESPN-icon-football-college.png`,
-  darts: `${ESPN}/redesign/assets/img/icons/ESPN-icon-darts.png`
 };
 
 /**
@@ -66,20 +55,4 @@ function markFor(title, category, league) {
   return sport ? { mark: sport, mark2: null, kicker: null } : null;
 }
 
-/**
- * Which college sport a league name describes, or null when it does not say.
- *
- * Feeds name the same competition either way round: "NCAA Division 1 Football"
- * one day and the bare "NCAAF" the next. Basketball is tested first so NCAAB is
- * not read as the NCAA + F of NCAAF.
- */
-function collegeSport(league) {
-  const lg = String(league || '').toLowerCase();
-  if (/basketball|ncaa[bmw]\b/.test(lg)) return 'basketball';
-  if (/football|ncaaf\b/.test(lg)) return 'football';
-  if (/hockey|ncaah\b/.test(lg)) return 'hockey';
-  if (/baseball/.test(lg)) return 'baseball';
-  return null;
-}
-
-module.exports = { markFor, collegeSport, SERIES, SPORT_ICONS };
+module.exports = { markFor, SERIES, SPORT_ICONS };
