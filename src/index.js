@@ -936,7 +936,7 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
       // The first-party app has one installation-wide sports configuration.
       // Existing named profiles remain available to Stremio/Nuvio installs, but
       // an app user never supplies an addon/config choice here.
-      const appConfig = loadProfile(LEGACY_ID) || {};
+      const appConfig = resolveAppSportsConfig();
       const result = await opaquePlayback.startSportsPlayback(id, appConfig);
       return res.status(result.ok ? 200 : 404).json(result);
     }
@@ -2086,6 +2086,68 @@ function encodeConfigSegment(config) {
   return Buffer.from(JSON.stringify(config), 'utf8')
     .toString('base64')
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Resolve the single installation-wide AIOSport manifest into the config object
+ * used by first-party web/TV playback.
+ *
+ * Supported local manifest shapes:
+ *   /manifest.json                 base/default config
+ *   /saved/manifest.json           legacy saved app profile
+ *   /p/<uuid>/manifest.json        one centrally selected saved profile
+ *   /<encoded-config>/manifest.json an explicit immutable config
+ *
+ * The hostname is intentionally ignored: ADDON_URL is commonly the public
+ * Pangolin address while this process is reached internally by another name.
+ * The path is the stable identity of the local config.
+ */
+function resolveAppSportsConfig() {
+  const configured = appServices.manifestUrl('sports');
+
+  // Migration/default: before the app-wide manifest setting exists, the old
+  // singleton saved config remains the installation-wide sports config.
+  if (!configured) return loadProfile(LEGACY_ID) || {};
+
+  let pathname;
+  try {
+    pathname = new URL(configured, BASE_URL).pathname;
+  } catch {
+    const err = new Error('AIOSPORT_MANIFEST_URL is invalid.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  if (pathname === '/manifest.json') return {};
+
+  if (pathname === '/saved/manifest.json') {
+    const config = loadProfile(LEGACY_ID);
+    if (config) return config;
+    const err = new Error('AIOSPORT_MANIFEST_URL points to a saved profile that does not exist.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  const profile = pathname.match(/^\/p\/([^/]+)\/manifest\.json$/);
+  if (profile) {
+    let id = '';
+    try { id = decodeURIComponent(profile[1]); } catch (_) {}
+    const config = loadProfile(id);
+    if (config) return config;
+    const err = new Error('AIOSPORT_MANIFEST_URL points to a profile that does not exist.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  const encoded = pathname.match(/^\/([^/]+)\/manifest\.json$/);
+  if (encoded) {
+    const config = decodeConfigSegment(encoded[1]);
+    if (config) return config;
+  }
+
+  const err = new Error('AIOSPORT_MANIFEST_URL is not a supported AIOSport Lite manifest URL.');
+  err.statusCode = 503;
+  throw err;
 }
 
 function decodeConfigSegment(configStr) {
