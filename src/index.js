@@ -237,7 +237,10 @@ app.use((req, res, next) => {
     // The redirect carries the whole config in its Location, so it goes only
     // to someone allowed to open the configure page. Before this, a signed-out
     // visitor read /saved/configure's settings straight out of the 302.
-    if (process.env.AUTH_KEY && !isAuthed(req)) return res.redirect(302, '/login');
+    if (!ownsEverything(req)) {
+      if (!isAuthed(req)) return res.redirect(302, '/login');
+      return res.status(403).send('Administrator access required.');
+    }
     const extra = asPage[2] ? '&' + asPage[2] : '';
     return res.redirect(302, '/' + encoded + '/configure?profile=' + encodeURIComponent(id) + extra);
   }
@@ -799,9 +802,13 @@ function isAuthed(req) {
   if (currentAccount(req)) return true;
   if (isAdmin(req)) return true;               // legacy ADMIN_TOKEN cookie/header
 
-  // Account-less development installs may remain open exactly as before.
-  // A real deployment gets users at boot from APP_ADMIN_* or migrates AUTH_KEY.
-  if (!userAuth.hasUsers() && !process.env.AUTH_KEY) return true;
+  // Account-less installs fail closed by default. Open mode exists only for
+  // deliberate local development and must be opted into explicitly.
+  if (!userAuth.hasUsers() && !process.env.AUTH_KEY) {
+    return ['1', 'true', 'yes', 'on'].includes(
+      String(process.env.ALLOW_OPEN_ACCESS || '').trim().toLowerCase()
+    );
+  }
 
   // Legacy cookie remains valid only while no account store exists. In normal
   // operation bootstrap converts AUTH_KEY into the initial admin account before
@@ -1948,7 +1955,11 @@ const OPEN_PROFILE_LIMIT = Number(process.env.PROFILE_LIMIT) || 500;
 
 /** Signed in with a real key -- AUTH_KEY set and given, or ADMIN_TOKEN. */
 function ownsEverything(req) {
-  return isAdmin(req) || (!userAuth.hasUsers() && !process.env.AUTH_KEY);
+  if (isAdmin(req)) return true;
+  if (userAuth.hasUsers() || process.env.AUTH_KEY) return false;
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(process.env.ALLOW_OPEN_ACCESS || '').trim().toLowerCase()
+  );
 }
 
 function editKeyPath(id) {
@@ -2754,7 +2765,7 @@ app.get('/health', (_, res) => {
   // Alive, and nothing else. The cache counts that used to ride along named
   // every provider and how busy each was, to anyone who asked; the dashboard
   // has them, behind ADMIN_TOKEN.
-  res.json({ status: 'ok', service: 'aiosports' });
+  res.json({ status: 'ok', service: 'aiosportlite' });
 });
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
@@ -2797,7 +2808,8 @@ app.listen(PORT, BIND_HOST, () => {
 
   const adminKey = process.env.ADMIN_TOKEN;
   const userCount = userAuth.listUsers().length;
-  console.log(`  Accounts  : ${userCount ? userCount + ' configured' : 'NONE — site is open until an account is created'}`);
+  const openDevelopment = ['1', 'true', 'yes', 'on'].includes(String(process.env.ALLOW_OPEN_ACCESS || '').trim().toLowerCase());
+  console.log(`  Accounts  : ${userCount ? userCount + ' configured' : (openDevelopment ? 'NONE — explicit open-development mode' : 'NONE — web access is closed')}`);
   if (authBoot && authBoot.created) {
     console.log(`  Auth init  : created initial admin from ${authBoot.source}`);
   }
@@ -2815,8 +2827,8 @@ app.listen(PORT, BIND_HOST, () => {
   if (!durable) {
     console.log('  → Mount a volume there to keep saved settings (see the README).');
   }
-  if (!userCount) {
-    console.log('  → Set APP_ADMIN_USERNAME and APP_ADMIN_PASSWORD before exposing this service.');
+  if (!userCount && !openDevelopment) {
+    console.log('  → Set APP_ADMIN_USERNAME and APP_ADMIN_PASSWORD, then restart to create the first administrator.');
   }
   console.log('');
 
