@@ -16,6 +16,7 @@ const { inferGenre } = require('./channelGenres');
 const channelHealth = require('./services/ChannelHealth');
 const { exclusionReason } = require('./channelExclusions');
 const { parseMarkets, marketsSetting, isLocalTo } = require('./services/LocalMarkets');
+const { RETAINED_EVENT_CATEGORIES } = require('./sportsPolicy');
 
 // Titles that already name the visiting side first: "Rockies @ Yankees",
 // "Missouri at Kansas". Anything else ("A vs B", "A - B") conventionally names
@@ -183,22 +184,14 @@ function formatKickoff(dateObj, timeZone, hour12 = true) {
 // The categories that have a tab of their own. The Other tab is defined by
 // exclusion from this list, and the sports filter needs the same definition --
 // keeping two copies is how they came to disagree.
-const TOP_LEVEL_CATEGORIES = ['football', 'cricket', 'basketball', 'motorsport', 'hockey',
-  'baseball', 'mma', 'golf', 'tennis', 'rugby', 'american_football', 'darts', 'networks', 'college'];
-
-const COMPETITION_LABEL = { nfl: 'NFL', cfl: 'CFL', afl: 'AFL' };
+const TOP_LEVEL_CATEGORIES = [...RETAINED_EVENT_CATEGORIES, 'networks'];
 
 const CATEGORY_LABEL = {
-  american_football: 'FOOTBALL',
-  // Soccer's internal name is `football`, so once the gridiron tab is called
-  // Football the two read identically on the card. The soccer tab has always
-  // been called Soccer; its cards now say so too.
-  football: 'SOCCER'
+  // Internal provider key remains `football`; only the user-facing name changes.
+  football: 'FOOTBALL'
 };
 
-function categoryLabel(category, competition) {
-  const named = COMPETITION_LABEL[String(competition || '')];
-  if (named) return named;
+function categoryLabel(category) {
   const key = String(category || '');
   return CATEGORY_LABEL[key] || key.toUpperCase();
 }
@@ -304,21 +297,11 @@ function prettifyName(name) {
 
 // How long an event of each kind can still be on, measured from kickoff.
 const EVENT_DURATIONS = {
-  cricket: 8 * 60 * 60 * 1000,
   mma: 6 * 60 * 60 * 1000,
-  fighting: 6 * 60 * 60 * 1000,
-  boxing: 5 * 60 * 60 * 1000,
   motorsport: 4 * 60 * 60 * 1000,
-  american_football: 4 * 60 * 60 * 1000,
-  baseball: 3.5 * 60 * 60 * 1000,
-  basketball: 3 * 60 * 60 * 1000,
-  tennis: 4 * 60 * 60 * 1000,
-  golf: 6 * 60 * 60 * 1000,
   football: 2.5 * 60 * 60 * 1000,
-  rugby: 2.5 * 60 * 60 * 1000,
-  hockey: 3 * 60 * 60 * 1000,
-  darts: 4 * 60 * 60 * 1000
-};
+  rugby: 2.5 * 60 * 60 * 1000
+}
 const DEFAULT_EVENT_DURATION_MS = 3 * 60 * 60 * 1000;
 function eventDurationMs(category) {
   return EVENT_DURATIONS[category] || DEFAULT_EVENT_DURATION_MS;
@@ -396,20 +379,11 @@ function mapMatchToMetaPreview(match, config = {}) {
   
   // Dynamic Sport-Specific Posters
   const categoryColors = {
-    football: '10b981', // green
-    basketball: 'f97316', // orange
-    motorsport: 'ef4444', // red
-    cricket: '0ea5e9', // light blue
-    tennis: 'a3e635', // lime
-    rugby: '8b5cf6', // purple
-    american_football: '0369a1', // dark blue
-    baseball: 'f43f5e', // rose
-    hockey: '06b6d4', // cyan
-    golf: '22c55e', // emerald
-    darts: 'eab308', // yellow
-    mma: 'dc2626', // crimson red
-    networks: '64748b', // slate
-    college: 'd946ef' // fuchsia
+    football: '10b981',
+    motorsport: 'ef4444',
+    rugby: '8b5cf6',
+    mma: 'dc2626',
+    networks: '64748b'
   };
   const color = categoryColors[match.category] || '333333';
   
@@ -546,34 +520,10 @@ function mapMatchToMetaPreview(match, config = {}) {
   // otherwise the governing mark for the sport, which is more use than the home
   // side's crest repeated at badge size.
   //
-  // The NCAA mark is served from this addon rather than hot-linked: Wikimedia
-  // rate-limits a browser user-agent, and ESPN's "ncaa_football" is a generic
-  // silhouette, not the NCAA's own mark.
   const SPORT_BADGE = {
-    college: `${BASE_URL}/marks/ncaa.png`,
     rugby: 'https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-rugby.png'
   };
-  // A college game shows the ball it is played with. The NCAA mark stands in
-  // only for a college fixture whose sport nothing names, which is the one case
-  // where there is no ball to show.
-  const COLLEGE_BADGE = {
-    football: eventMarks.SPORT_ICONS.american_football,
-    basketball: eventMarks.SPORT_ICONS.basketball,
-    hockey: eventMarks.SPORT_ICONS.hockey,
-    baseball: eventMarks.SPORT_ICONS.baseball
-  };
-  // Which NCAA mark the corner gets. The league names the sport when the feed
-  // sends one; failing that ESPN's own crest for the competition does
-  // (ESPN-icon-football-college, ncaa_basketball). The plain NCAA mark stands in
-  // when nothing says which sport this is.
-  const collegeSport = match._collegeSport
-    || eventMarks.collegeSport(match.league)
-    || (/football/i.test(leagueLogo || '') ? 'football'
-      : /basketball/i.test(leagueLogo || '') ? 'basketball'
-      : null);
-  const sportBadge = match.category === 'college'
-    ? (COLLEGE_BADGE[collegeSport] || SPORT_BADGE.college)
-    : (SPORT_BADGE[match.category] || leagueBadges.sportMark(match.category) || null);
+  const sportBadge = SPORT_BADGE[match.category] || leagueBadges.sportMark(match.category) || null;
 
   // The competition worked out from the two crests, for the fixtures no feed
   // names a league for. Every rugby fixture arrives with an empty league field,
@@ -592,13 +542,11 @@ function mapMatchToMetaPreview(match, config = {}) {
   // college fixture carries an NCAA mark, so the corner reads the same whether
   // the feed named a conference or nothing at all. Everywhere else the league
   // is the more specific answer and wins.
-  const collegeBadge = match.category === 'college' ? sportBadge : null;
-
   // A channel's own logo outranks its sport's mark: NFL Network is more use in
   // the corner than a generic football. It sat last while the sport mark only
   // existed for a couple of categories, and giving every sport one put a
   // pictogram in front of all nine channels' branding.
-  let logo = collegeBadge || bundledBadge || leagueLogo || competitionBadge || channelLogo
+  let logo = bundledBadge || leagueLogo || competitionBadge || channelLogo
     || sportBadge || matchLogo || team1Logo || null;
 
   // Matchup card from the resolved crest candidates. The provider's poster
@@ -824,18 +772,8 @@ const SCHEDULE_MAX = 40;
 // where the two differ: a college game belongs with the college games whichever
 // ball it is played with.
 const BOARD_CATEGORY = {
-  'football/nfl': 'american_football',
-  'football/cfl': 'american_football',
-  'australian-football/afl': 'american_football',
-  'football/college-football': 'college',
-  'basketball/nba': 'basketball',
-  'basketball/wnba': 'basketball',
-  'basketball/mens-college-basketball': 'college',
-  'baseball/mlb': 'baseball',
-  'baseball/college-baseball': 'college',
-  'hockey/nhl': 'hockey',
   'soccer/all': 'football'
-};
+}
 
 // ESPN serves every crest from the same 500-pixel path, which is also how the
 // bundled table spells them, so the key the index stores rebuilds into a URL the
@@ -1214,15 +1152,6 @@ async function handleCatalog(type, id, extra, config, opts = {}) {
     } else {
       filteredMatches = []; // If no config, return empty
     }
-  } else if (categoryMatch === 'american_football') {
-    // The NFL tab. Everything gridiron and Australian arrives filed as
-    // american_football, so the competition the crests named is what separates
-    // them -- there is no category to do it with.
-    filteredMatches = matches.filter(m => m.category === 'american_football' && !isChannel(m) && m._competition === 'nfl');
-  } else if (categoryMatch === 'other_football') {
-    // Everything else under that heading: the CFL, the AFL, and any fixture
-    // whose competition could not be named.
-    filteredMatches = matches.filter(m => m.category === 'american_football' && !isChannel(m) && m._competition !== 'nfl');
   } else if (categoryMatch === 'channels') {
     // Always-on channels, gathered in one place. A channel has no kickoff, which
     // is what separates it from a fixture.
@@ -1251,8 +1180,6 @@ async function handleCatalog(type, id, extra, config, opts = {}) {
       ? matches.filter(m => isChannel(m) && !isTeamChannel(m) && !exclusionReason(m)
         && !channelHealth.isDead(m.id) && isLocalTo(m, markets))
       : [];
-  } else if (categoryMatch === 'other') {
-    filteredMatches = matches.filter(m => !TOP_LEVEL_CATEGORIES.includes(m.category) && !isChannel(m));
   } else if (categoryMatch !== 'catalog') {
     // Fixtures only. The always-on channels that used to be mixed in here now
     // live in the Channels tab, so a sport tab is a schedule rather than a
@@ -1262,16 +1189,9 @@ async function handleCatalog(type, id, extra, config, opts = {}) {
 
   if (typeof conf.sports === 'string' && conf.sports !== 'all') {
     const allowedSports = conf.sports.toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
-    // "other" is not a category any fixture carries -- it is the tab for
-    // everything that is not one of the named sports. Comparing it literally
-    // meant that unticking a single sport emptied the Other tab, because a
-    // fixture in there has a category like "esports" that appears in no list.
-    const otherAllowed = allowedSports.includes('other');
-    // Don't filter out networks (24/7 TV) since they aren't tied to a specific sport
+    // 24/7 channels are independent of the event-sport selection.
     filteredMatches = filteredMatches.filter(m =>
-      m.category === 'networks'
-      || allowedSports.includes(m.category)
-      || (otherAllowed && !TOP_LEVEL_CATEGORIES.includes(m.category)));
+      m.category === 'networks' || allowedSports.includes(m.category));
   }
 
   filteredMatches = [...filteredMatches].sort((a, b) => {
