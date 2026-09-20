@@ -181,19 +181,21 @@ async function updateUser(id, patch = {}) {
   const user = findUserById(id);
   if (!user) return null;
 
-  if (patch.displayName !== undefined) user.displayName = cleanDisplayName(patch.displayName, user.username);
-  if (patch.enabled !== undefined) user.enabled = !!patch.enabled;
-  if (patch.role !== undefined) user.role = patch.role === 'admin' ? 'admin' : 'user';
-  if (patch.password !== undefined) user.password = await hashPassword(patch.password);
-  user.updatedAt = new Date().toISOString();
-
-  // Never permit the last enabled admin to be disabled or demoted.
-  if ((user.enabled === false || user.role !== 'admin') &&
+  const nextRole = patch.role !== undefined ? (patch.role === 'admin' ? 'admin' : 'user') : user.role;
+  const nextEnabled = patch.enabled !== undefined ? !!patch.enabled : user.enabled !== false;
+  if ((!nextEnabled || nextRole !== 'admin') &&
       !loadUsers().users.some(u => u.id !== user.id && u.enabled !== false && u.role === 'admin')) {
     const err = new Error('At least one enabled administrator must remain.');
     err.code = 'LAST_ADMIN';
     throw err;
   }
+
+  const nextPassword = patch.password !== undefined ? await hashPassword(patch.password) : null;
+  if (patch.displayName !== undefined) user.displayName = cleanDisplayName(patch.displayName, user.username);
+  user.enabled = nextEnabled;
+  user.role = nextRole;
+  if (nextPassword) user.password = nextPassword;
+  user.updatedAt = new Date().toISOString();
 
   saveUsers();
   if (user.enabled === false) revokeUserSessions(user.id);
@@ -279,8 +281,9 @@ async function login(username, password, options = {}) {
   // not exposed by a cheap-vs-expensive timing difference.
   const user = findUserByUsername(username);
   if (!user || user.enabled === false) {
-    const dummy = await hashPassword('dummy-password-for-timing');
-    await verifyPassword(password || '', dummy);
+    // Spend the same dominant cost as a real password check without first
+    // generating another password hash (which would make unknown users slower).
+    await scrypt(String(password || ''), Buffer.alloc(16));
     return null;
   }
   if (!(await verifyPassword(password, user.password))) return null;
