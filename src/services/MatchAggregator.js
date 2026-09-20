@@ -668,17 +668,12 @@ class MatchAggregator {
           const byCrest = _categoryFromCrests(match);
           if (byCrest) match.category = byCrest;
         }
-        // College games belong in College whatever the sport: a college hockey
-        // fixture in the Hockey tab is the same misfiling as a college football
-        // one beside the NFL.
+        // College detection is retained even though Lite has no College tab:
+        // it prevents an NCAA fixture misfiled by a provider from leaking into
+        // Football or another retained category. Once classified, the policy
+        // gate below discards it before merge/artwork work.
         if (match.category !== 'college' && _collegiateByCrest(match)) {
-          const FROM = { american_football: 'football', basketball: 'basketball', hockey: 'hockey', baseball: 'baseball' };
-          match._collegeSport = FROM[match.category] || null;
           match.category = 'college';
-        }
-        // Which college sport, for the card's badge.
-        if (match.category === 'college' && !match._collegeSport) {
-          match._collegeSport = eventMarks.collegeSport(match.league);
         }
 
         // Mixed providers often return every sport in one response. Once the
