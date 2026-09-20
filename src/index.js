@@ -291,24 +291,52 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
 });
 
-/** Exchange AUTH_KEY for the site cookie. */
-app.post('/api/login', (req, res) => {
-  const key = process.env.AUTH_KEY;
-  if (!key) return res.json({ authenticated: true, keyRequired: false });
-  if (throttled(req)) return res.status(429).json({ error: 'Too many failed sign-ins. Wait a few minutes.' });
-  if (!isAuthed(req)) {
-    noteFailureOnce(req);
-    return res.status(403).json({ error: 'That password was not accepted.' });
+async function accountLoginHandler(req, res) {
+  if (throttled(req)) {
+    return res.status(429).json({ error: 'Too many failed sign-ins. Wait a few minutes.' });
   }
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  // x-auth-key is accepted only as a migration convenience for the old login
+  // form/API. Once AUTH_KEY has bootstrapped the first admin it authenticates
+  // exactly the same account as username=admin/password=<old AUTH_KEY>.
+  const legacyKey = req.get('x-auth-key') || '';
+  const username = String(body.username || (legacyKey ? 'admin' : '')).trim();
+  const password = String(body.password || legacyKey || '');
+  const deviceName = String(body.deviceName || 'Web browser');
+
+  const session = await userAuth.login(username, password, { kind: 'web', deviceName });
+  if (!session) {
+    noteFailureOnce(req);
+    return res.status(403).json({ error: 'Username or password was not accepted.' });
+  }
+
   FAILURES.delete(failureKey(req));
-  res.cookie(AUTH_COOKIE, mintTicket(key), {
-    httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 30 * 24 * 3600 * 1000
+  res.cookie(APP_SESSION_COOKIE, session.token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: req.secure,
+    maxAge: Math.max(0, session.expiresAt - Date.now())
   });
-  res.json({ authenticated: true, keyRequired: true });
+  return res.json({
+    authenticated: true,
+    user: session.user,
+    expiresAt: session.expiresAt
+  });
+}
+
+app.post(['/api/login', '/api/v1/auth/login'], express.json({ limit: '8kb' }), (req, res) => {
+  accountLoginHandler(req, res).catch(err => {
+    console.error('[auth] login failed:', err.message);
+    res.status(500).json({ error: 'Sign-in failed.' });
+  });
 });
 
-app.post('/api/logout', (req, res) => {
-  res.clearCookie(AUTH_COOKIE);
+app.post(['/api/logout', '/api/v1/auth/logout'], (req, res) => {
+  const token = userAuth.tokenFromRequest(req, APP_SESSION_COOKIE);
+  if (token) userAuth.revokeToken(token);
+  res.clearCookie(APP_SESSION_COOKIE);
+  res.clearCookie(AUTH_COOKIE); // legacy cookie from pre-account builds
   res.clearCookie(ADMIN_COOKIE);
   res.json({ authenticated: false });
 });
@@ -345,7 +373,62 @@ const BUILD_INFO = (() => {
 app.get('/api/version', (req, res) => res.json(BUILD_INFO));
 
 app.get('/api/site/auth', (req, res) => {
-  res.json({ authenticated: isAuthed(req), keyRequired: !!process.env.AUTH_KEY });
+  const account = currentAccount(req);
+  res.json({
+    authenticated: isAuthed(req),
+    accountRequired: userAuth.hasUsers(),
+    user: account ? account.user : null
+  });
+});
+
+app.get('/api/v1/account', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  res.json({ user: account ? account.user : null });
+});
+
+app.get('/api/v1/account/sessions', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'Sign in first.' });
+  res.json({ sessions: userAuth.listSessionsForUser(account.user.id) });
+});
+
+app.delete('/api/v1/account/sessions/:sessionId', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'Sign in first.' });
+  const ok = userAuth.revokeSessionById(
+    req.params.sessionId,
+    account.user.id,
+    account.user.role === 'admin'
+  );
+  res.status(ok ? 204 : 404).end();
+});
+
+app.get('/api/v1/admin/users', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json({ users: userAuth.listUsers() });
+});
+
+app.post('/api/v1/admin/users', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const user = await userAuth.createUser(req.body || {});
+    res.status(201).json({ user });
+  } catch (err) {
+    const status = ['INVALID_USERNAME', 'INVALID_PASSWORD', 'USERNAME_EXISTS'].includes(err.code) ? 400 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+app.patch('/api/v1/admin/users/:id', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const user = await userAuth.updateUser(req.params.id, req.body || {});
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    res.json({ user });
+  } catch (err) {
+    const status = ['INVALID_PASSWORD', 'LAST_ADMIN'].includes(err.code) ? 400 : 500;
+    res.status(status).json({ error: err.message });
+  }
 });
 
 /**
@@ -585,10 +668,18 @@ function cookieValue(req, name) {
 // Two doors with two keys. AUTH_KEY opens the site -- the catalog page and the
 // configure page. ADMIN_TOKEN opens the dashboard and the buttons that change
 // state. Someone you let in to browse is not thereby allowed to empty a cache.
-const AUTH_COOKIE = 'ls_auth';
+const AUTH_COOKIE = 'ls_auth'; // legacy pre-account cookie
+const APP_SESSION_COOKIE = 'als_session';
 const ADMIN_COOKIE = 'ls_admin';
 
+function currentAccount(req) {
+  return userAuth.authenticateRequest(req, APP_SESSION_COOKIE);
+}
+
 function isAdmin(req) {
+  const account = currentAccount(req);
+  if (account && account.user.role === 'admin') return true;
+
   const token = process.env.ADMIN_TOKEN;
   if (token) {
     if (ticketValid(cookieValue(req, ADMIN_COOKIE), token)) return true;
@@ -666,11 +757,19 @@ app.post('/api/cache/logout', (req, res) => {
 
 /** May this caller see the site at all? The admin key opens every door. */
 function isAuthed(req) {
+  if (currentAccount(req)) return true;
+  if (isAdmin(req)) return true;               // legacy ADMIN_TOKEN cookie/header
+
+  // Account-less development installs may remain open exactly as before.
+  // A real deployment gets users at boot from APP_ADMIN_* or migrates AUTH_KEY.
+  if (!userAuth.hasUsers() && !process.env.AUTH_KEY) return true;
+
+  // Legacy cookie remains valid only while no account store exists. In normal
+  // operation bootstrap converts AUTH_KEY into the initial admin account before
+  // the HTTP listener is opened.
   const key = process.env.AUTH_KEY;
-  if (!key) return true;                       // no site key configured: open
-  if (isAdmin(req)) return true;               // admin implies access
-  if (ticketValid(cookieValue(req, AUTH_COOKIE), key)) return true;
-  return suppliedSecretMatches(req, req.get('x-auth-key') || req.query.key || '', key);
+  if (!userAuth.hasUsers() && key && ticketValid(cookieValue(req, AUTH_COOKIE), key)) return true;
+  return false;
 }
 
 /**
@@ -744,7 +843,13 @@ app.post('/api/cache/warm/cancel', (req, res) => {
   res.json({ cancelled: true, warmer: cardWarmer.status() });
 });
 
-app.get(['/configure', '/:config/configure'], requirePage, (req, res) => {
+function requireAdminPage(req, res, next) {
+  if (isAdmin(req)) return next();
+  if (!isAuthed(req)) return res.redirect('/login');
+  return res.status(403).send('Administrator access required.');
+}
+
+app.get(['/configure', '/:config/configure'], requireAdminPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'configure.html'));
 });
 
@@ -1739,7 +1844,7 @@ const OPEN_PROFILE_LIMIT = Number(process.env.PROFILE_LIMIT) || 500;
 
 /** Signed in with a real key -- AUTH_KEY set and given, or ADMIN_TOKEN. */
 function ownsEverything(req) {
-  return (!!process.env.AUTH_KEY && isAuthed(req)) || isAdmin(req);
+  return isAdmin(req);
 }
 
 function editKeyPath(id) {
