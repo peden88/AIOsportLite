@@ -1,8 +1,8 @@
 /**
- * manifest.js — Stremio / Nuvio Addon Manifest (iptv-org edition)
+ * manifest.js — AIOSport Lite Stremio / Nuvio addon manifest.
  *
- * Single catalog: all free live sports channels from iptv-org,
- * with a search catalog so users can filter by channel name.
+ * Event catalogs are intentionally limited to Football, Rugby, Racing and MMA.
+ * The separate Channels catalog remains available for 24/7 television feeds.
  */
 
 const { addonBuilder } = require('stremio-addon-sdk');
