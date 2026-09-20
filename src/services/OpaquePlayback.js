@@ -62,17 +62,9 @@ function publicResult(sessionId, target) {
   };
 }
 
-async function startSportsPlayback(matchId, config) {
+function startResolvedPlayback(kind, contentId, rows) {
   cleanup();
-  const suppliedId = String(matchId || '').trim();
-  if (!suppliedId) throw Object.assign(new Error('Missing sports event id.'), { statusCode: 400 });
-  const rawId = suppliedId.replace(/^nuvio_sport_/, '');
-
-  const result = await handleStream('tv', `nuvio_sport_${rawId}`, config || {});
-  const targets = (result && Array.isArray(result.streams) ? result.streams : [])
-    .map(opaqueTarget)
-    .filter(Boolean);
-
+  const targets = (Array.isArray(rows) ? rows : []).map(opaqueTarget).filter(Boolean);
   if (!targets.length) {
     return {
       ok: false,
@@ -83,18 +75,26 @@ async function startSportsPlayback(matchId, config) {
 
   const sessionId = crypto.randomUUID();
   const createdAt = now();
-  const session = {
-    kind: 'sport',
-    contentId: rawId,
+  sessions.set(sessionId, {
+    kind: String(kind || 'playback'),
+    contentId: String(contentId || ''),
     targets,
     cursor: 1,
     createdAt,
     expiresAt: createdAt + SESSION_TTL_MS
-  };
-  sessions.set(sessionId, session);
+  });
   cleanup();
-
   return publicResult(sessionId, targets[0]);
+}
+
+async function startSportsPlayback(matchId, config) {
+  cleanup();
+  const suppliedId = String(matchId || '').trim();
+  if (!suppliedId) throw Object.assign(new Error('Missing sports event id.'), { statusCode: 400 });
+  const rawId = suppliedId.replace(/^nuvio_sport_/, '');
+
+  const result = await handleStream('tv', `nuvio_sport_${rawId}`, config || {});
+  return startResolvedPlayback('sport', rawId, result && result.streams);
 }
 
 function nextPlayback(sessionId) {
@@ -134,6 +134,7 @@ function status() {
 }
 
 module.exports = {
+  startResolvedPlayback,
   startSportsPlayback,
   nextPlayback,
   finishPlayback,
