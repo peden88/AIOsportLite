@@ -100,7 +100,11 @@ server = http.createServer((req, res) => {
         {
           name: 'SECRET PROVIDER B',
           title: 'Second ranked release',
-          externalUrl: 'https://cdn.example.test/fallback.mkv'
+          url: '/api/v1/debrid/playback/second-owned-chain'
+        },
+        {
+          name: 'External page must never autoplay',
+          externalUrl: 'https://example.test/watch-page'
         },
         {
           name: 'Torrent only',
@@ -150,7 +154,8 @@ server = http.createServer((req, res) => {
   assert.ok(!JSON.stringify(candidates).includes('github.com/Viren070/AIOStreams'));
   assert.strictEqual(candidates[0].url, base + '/api/v1/debrid/playback/owned-chain');
   assert.strictEqual(candidates[0].behaviorHints.proxyHeaders.request.Referer, 'https://origin.test/');
-  assert.strictEqual(candidates[1].externalUrl, 'https://cdn.example.test/fallback.mkv');
+  assert.strictEqual(candidates[1].url, base + '/api/v1/debrid/playback/second-owned-chain');
+  assert.ok(!JSON.stringify(candidates).includes('example.test/watch-page'));
   assert.ok(!JSON.stringify(candidates).includes('SECRET PROVIDER'));
   assert.ok(!JSON.stringify(candidates).includes('Best ranked release'));
 
@@ -161,7 +166,7 @@ server = http.createServer((req, res) => {
 
   const next = opaque.nextPlayback(first.sessionId);
   assert.strictEqual(next.ok, true);
-  assert.strictEqual(next.playback.url, 'https://cdn.example.test/fallback.mkv');
+  assert.strictEqual(next.playback.url, base + '/api/v1/debrid/playback/second-owned-chain');
   const done = opaque.nextPlayback(first.sessionId);
   assert.strictEqual(done.ok, false);
   assert.strictEqual(done.exhausted, true);
