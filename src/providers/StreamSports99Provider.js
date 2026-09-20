@@ -61,6 +61,7 @@ class StreamSports99Provider extends BaseProvider {
         
         const events = sportsData[key];
         const mappedCategory = this.mapCategory(key);
+        if (!this.isRetainedEventCategory(mappedCategory)) return;
 
         if (Array.isArray(events)) {
           for (const item of events) {
