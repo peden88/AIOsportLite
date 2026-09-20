@@ -138,7 +138,7 @@
 
     async function loadTabs() {
       try {
-        const res = await fetch('/manifest.json');
+        const res = await fetch('/api/v1/sports/catalogs');
         const manifest = await res.json();
         const tabsContainer = document.getElementById('tabs');
         tabsContainer.innerHTML = '';
@@ -146,9 +146,8 @@
         let firstCatalog = null;
         let firstTab = null;
 
-        manifest.catalogs.forEach((catalog) => {
-          // Skip non-TV catalogs or internal ones
-          if (catalog.type !== 'tv' || catalog.id === 'nuvio_sports_teams') return;
+        (manifest.catalogs || []).forEach((catalog) => {
+          if (catalog.type !== 'tv') return;
           
           if (!firstCatalog) firstCatalog = catalog.id;
           
@@ -181,13 +180,13 @@
       document.getElementById('searchInput').value = ''; // Reset search on tab change
       
       try {
-        const res = await fetch(`/catalog/tv/${catalogId}.json`);
+        const res = await fetch('/api/v1/sports/catalog/' + encodeURIComponent(catalogId));
         const data = await res.json();
         currentMatches = data.metas || [];
         renderGrid(currentMatches);
       } catch (err) {
         console.error(err);
-        grid.innerHTML = '<div style="color:var(--accent);">Failed to load catalog. Ensure the Nuvio addon is running.</div>';
+        grid.innerHTML = '<div style="color:var(--accent);">Failed to load this catalog.</div>';
       }
     }
 

@@ -911,6 +911,54 @@ app.get('/api/matches', requirePage, (req, res) => {
   res.json(matches);
 });
 
+app.get('/api/v1/sports/catalogs', requirePage, (req, res) => {
+  try {
+    const config = resolveAppSportsConfig();
+    const configured = buildConfiguredManifest(config);
+    // First-party home navigation only lists catalogs that can be loaded
+    // without a required Stremio extra. Search-only/discover-only twins are
+    // still available through the public addon protocol, not as empty tabs.
+    const catalogs = (configured.catalogs || []).filter(cat => {
+      const extra = Array.isArray(cat.extra) ? cat.extra : [];
+      return !extra.some(item => item && item.isRequired);
+    });
+    res.json({ catalogs });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: 'Sports configuration is unavailable.' });
+  }
+});
+
+app.get('/api/v1/sports/catalog/:catalogId', requirePage, async (req, res) => {
+  try {
+    const config = resolveAppSportsConfig();
+    const configured = buildConfiguredManifest(config);
+    const catalogId = String(req.params.catalogId || '');
+    const allowed = (configured.catalogs || []).some(cat => cat.id === catalogId);
+    if (!allowed) return res.status(404).json({ error: 'Catalog is not enabled.' });
+
+    const extra = {};
+    for (const key of ['search', 'genre', 'skip']) {
+      if (typeof req.query[key] === 'string') extra[key] = req.query[key];
+    }
+    const result = await handleCatalog('tv', catalogId, extra, config);
+    res.json(result);
+  } catch (err) {
+    console.error('[app-sports] catalog failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'Could not load sports catalog.' });
+  }
+});
+
+app.get('/api/v1/sports/meta/:id', requirePage, async (req, res) => {
+  try {
+    const config = resolveAppSportsConfig();
+    const result = await handleMeta('tv', String(req.params.id || ''), config);
+    res.json(result);
+  } catch (err) {
+    console.error('[app-sports] metadata failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'Could not load sports metadata.' });
+  }
+});
+
 // ─── First-party app API ──────────────────────────────────────────────────────
 // Stremio-compatible routes intentionally continue returning stream arrays.
 // Our own web/TV clients never call them. They use this API, which exposes one
@@ -2168,14 +2216,8 @@ function decodeConfigSegment(configStr) {
     return null;
   }
 }
-app.get('/:config?/manifest.json', (req, res, next) => {
+function buildConfiguredManifest(parsedConfig = {}) {
   const { manifest, SEARCH_TWIN_SUFFIX } = require('./manifest');
-  let parsedConfig = {};
-  if (req.params.config) {
-    parsedConfig = decodeConfigSegment(req.params.config);
-    if (parsedConfig === null) return next();
-  }
-
   // Clone manifest catalogs
   const newManifest = JSON.parse(JSON.stringify(manifest));
   
@@ -2354,6 +2396,19 @@ app.get('/:config?/manifest.json', (req, res, next) => {
     const i = newManifest.catalogs.findIndex(c => c.id === t.after);
     newManifest.catalogs.splice(i + 1, 0, t.cat);
   }
+
+
+  return newManifest;
+}
+
+app.get('/:config?/manifest.json', (req, res, next) => {
+  let parsedConfig = {};
+  if (req.params.config) {
+    parsedConfig = decodeConfigSegment(req.params.config);
+    if (parsedConfig === null) return next();
+  }
+
+  const newManifest = buildConfiguredManifest(parsedConfig);
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', '*');
