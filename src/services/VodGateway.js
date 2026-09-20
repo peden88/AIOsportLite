@@ -152,6 +152,92 @@ async function diagnostics() {
   };
 }
 
+async function probe(options = {}) {
+  assertVodEnabled();
+
+  let type = options.type ? validStremioType(options.type) : '';
+  let id = options.id ? cleanId(options.id) : '';
+  let title = '';
+  let catalogName = '';
+  let catalogId = '';
+
+  if (!id) {
+    const descriptors = await clientFor('metadata').catalogDescriptors();
+    const candidateCatalogs = descriptors.filter(cat =>
+      ['movie', 'series'].includes(cat.type) &&
+      Array.isArray(cat.requiredExtras) &&
+      cat.requiredExtras.length === 0
+    );
+
+    for (const descriptor of candidateCatalogs.slice(0, 12)) {
+      try {
+        const response = await clientFor('metadata').catalog(descriptor.type, descriptor.id, {});
+        const rows = response && Array.isArray(response.metas) ? response.metas
+          : response && Array.isArray(response.metasDetailed) ? response.metasDetailed
+          : [];
+        const picked = rows.find(row => row && row.id);
+        if (!picked) continue;
+        type = validStremioType(picked.type || descriptor.type);
+        id = cleanId(picked.id);
+        title = String(picked.name || picked.title || '').slice(0, 200);
+        catalogName = String(descriptor.name || descriptor.id).slice(0, 120);
+        catalogId = String(descriptor.id).slice(0, 200);
+        break;
+      } catch (_) {
+        // Try the next directly-loadable catalog. One broken upstream catalog
+        // must not make the whole service probe fail.
+      }
+    }
+  }
+
+  if (!id || !type) {
+    const err = new Error('AIOMetadata did not return a probeable movie or series.');
+    err.statusCode = 502;
+    err.code = 'NO_PROBE_TITLE';
+    throw err;
+  }
+
+  const metaResponse = await clientFor('metadata').meta(type, id);
+  const meta = metaResponse && metaResponse.meta ? metaResponse.meta : null;
+  if (!meta) {
+    const err = new Error('AIOMetadata returned no metadata for the probe title.');
+    err.statusCode = 502;
+    err.code = 'PROBE_META_EMPTY';
+    throw err;
+  }
+
+  const streamClient = clientFor('streams');
+  const streamResponse = await streamClient.streams(type, id);
+  const rawStreams = streamResponse && Array.isArray(streamResponse.streams)
+    ? streamResponse.streams
+    : [];
+  const playable = rawStreams
+    .map(row => privatePlaybackRow(row, streamClient))
+    .filter(Boolean);
+
+  return {
+    ok: playable.length > 0,
+    content: {
+      type,
+      id,
+      title: String(meta.name || meta.title || title || '').slice(0, 200)
+    },
+    discovery: {
+      catalogId,
+      catalogName
+    },
+    metadata: {
+      ok: true,
+      hasVideos: Array.isArray(meta.videos) && meta.videos.length > 0
+    },
+    streams: {
+      returned: rawStreams.length,
+      playable: playable.length,
+      opaqueCompatible: playable.length > 0
+    }
+  };
+}
+
 async function playbackCandidates(type, id) {
   const safeType = validStremioType(type);
   const safeId = cleanId(id);
@@ -169,6 +255,7 @@ module.exports = {
   meta,
   playbackCandidates,
   diagnostics,
+  probe,
   validStremioType,
   _privatePlaybackRow: privatePlaybackRow,
   _clientFor: clientFor,
