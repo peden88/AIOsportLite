@@ -64,8 +64,9 @@ function publicResult(sessionId, target) {
 
 async function startSportsPlayback(matchId, config) {
   cleanup();
-  const rawId = String(matchId || '').trim();
-  if (!rawId) throw Object.assign(new Error('Missing sports event id.'), { statusCode: 400 });
+  const suppliedId = String(matchId || '').trim();
+  if (!suppliedId) throw Object.assign(new Error('Missing sports event id.'), { statusCode: 400 });
+  const rawId = suppliedId.replace(/^nuvio_sport_/, '');
 
   const result = await handleStream('tv', `nuvio_sport_${rawId}`, config || {});
   const targets = (result && Array.isArray(result.streams) ? result.streams : [])
