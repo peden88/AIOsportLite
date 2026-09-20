@@ -1900,12 +1900,10 @@ app.get('/:config?/manifest.json', (req, res, next) => {
   if (typeof parsedConfig.sports === 'string' && parsedConfig.sports !== 'all') {
     const enabled = new Set(parsedConfig.sports.split(',').map(x => x.trim()).filter(Boolean));
 
-    // Which sport a tab belongs to, worked out from its own id rather than from
-    // a list kept alongside. The list fell behind as tabs were added, and the
-    // failure was silent and backwards: College, Other Football and Channels
-    // were dropped by any sports filter, including one that had them ticked.
+    // Lite catalog ids name their retained sport directly. Utility catalogs
+    // stay visible independently of the event-sport selection.
     const ALWAYS = new Set(['live', 'upcoming', 'teams', 'channels', 'local']);
-    const SPORT_FOR_CATALOG = { other_football: 'american_football' };
+    const SPORT_FOR_CATALOG = {};
 
     newManifest.catalogs = newManifest.catalogs.filter(c => {
       const key = String(c.id).replace(/^nuvio_sports_/, '');
