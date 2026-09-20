@@ -40,6 +40,7 @@ const container = require('./container');
 const appServices = require('./services/AppServiceRegistry');
 const opaquePlayback = require('./services/OpaquePlayback');
 const userStore = require('./services/UserStore');
+const vodPlayback = require('./services/VodPlayback');
 
 userStore.bootstrapInitialAdmin();
 
@@ -949,10 +950,14 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
       if (!services.services.vod.enabled) {
         return res.status(503).json({ error: 'VOD is not enabled on this installation.' });
       }
-      // Reserved contract: AIOMetadata owns discovery/meta and AIOStreams owns
-      // the ranked VOD playback/failover chain. The adapter is enabled when VOD
-      // is switched on; clients will not need a protocol change.
-      return res.status(501).json({ error: 'VOD playback adapter is not enabled in this build.' });
+      // AIOMetadata supplies this canonical id/type during discovery. The
+      // AIOStreams manifest is installation-wide and never returned to the user.
+      const result = await vodPlayback.startVodPlayback({
+        contentType,
+        id,
+        stremioType: body.stremioType
+      });
+      return res.status(result.ok ? 200 : 404).json(result);
     }
 
     return res.status(400).json({ error: 'Unsupported content type.' });
