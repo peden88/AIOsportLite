@@ -40,6 +40,7 @@ const container = require('./container');
 const appServices = require('./services/AppServiceRegistry');
 const opaquePlayback = require('./services/OpaquePlayback');
 const userAuth = require('./services/UserAuth');
+const vodGateway = require('./services/VodGateway');
 
 
 
@@ -959,6 +960,63 @@ app.get('/api/v1/sports/meta/:id', requirePage, async (req, res) => {
   }
 });
 
+function vodExtraFromQuery(query) {
+  const out = {};
+  let count = 0;
+  for (const [key, value] of Object.entries(query || {})) {
+    if (count >= 16 || typeof value !== 'string') continue;
+    const safeKey = String(key).trim().slice(0, 64);
+    const safeValue = String(value).trim().slice(0, 1000);
+    if (!safeKey || !safeValue || /[\u0000-\u001f\u007f]/.test(safeKey + safeValue)) continue;
+    out[safeKey] = safeValue;
+    count++;
+  }
+  return out;
+}
+
+app.get('/api/v1/vod/catalogs', requirePage, async (req, res) => {
+  try {
+    res.json(await vodGateway.catalogs());
+  } catch (err) {
+    console.error('[app-vod] catalog manifest failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'VOD catalogs are unavailable.' });
+  }
+});
+
+app.get('/api/v1/vod/catalog/:type/:catalogId', requirePage, async (req, res) => {
+  try {
+    const result = await vodGateway.catalog(
+      req.params.type,
+      req.params.catalogId,
+      vodExtraFromQuery(req.query)
+    );
+    res.json(result);
+  } catch (err) {
+    console.error('[app-vod] catalog failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'Could not load VOD catalog.' });
+  }
+});
+
+app.get('/api/v1/vod/search', requirePage, async (req, res) => {
+  try {
+    const query = typeof req.query.q === 'string' ? req.query.q : '';
+    const type = typeof req.query.type === 'string' ? req.query.type : undefined;
+    res.json(await vodGateway.search(query, type));
+  } catch (err) {
+    console.error('[app-vod] search failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'VOD search is unavailable.' });
+  }
+});
+
+app.get('/api/v1/vod/meta/:type/:id', requirePage, async (req, res) => {
+  try {
+    res.json(await vodGateway.meta(req.params.type, req.params.id));
+  } catch (err) {
+    console.error('[app-vod] metadata failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'VOD metadata is unavailable.' });
+  }
+});
+
 // ─── First-party app API ──────────────────────────────────────────────────────
 // Stremio-compatible routes intentionally continue returning stream arrays.
 // Our own web/TV clients never call them. They use this API, which exposes one
@@ -994,10 +1052,26 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
       if (!services.services.vod.enabled) {
         return res.status(503).json({ error: 'VOD is not enabled on this installation.' });
       }
-      // Reserved contract: AIOMetadata owns discovery/meta and AIOStreams owns
-      // the ranked VOD playback/failover chain. The adapter can be enabled later
-      // without changing the client protocol.
-      return res.status(501).json({ error: 'VOD playback adapter is not enabled in this build.' });
+
+      // AIOMetadata owns discovery/meta. AIOStreams owns ranking and embeds its
+      // failover chain into the playback URLs it returns. We preserve that order
+      // server-side and expose only the current target to the client.
+      let stremioType = String(body.stremioType || body.type || '').trim().toLowerCase();
+      if (!stremioType) {
+        if (contentType === 'movie') stremioType = 'movie';
+        else if (contentType === 'series' || contentType === 'episode') stremioType = 'series';
+      }
+      if (!stremioType) {
+        return res.status(400).json({ error: 'VOD playback requires movie or series type.' });
+      }
+
+      const candidates = await vodGateway.playbackCandidates(stremioType, id);
+      const result = opaquePlayback.startOpaquePlayback(
+        'vod',
+        stremioType + ':' + id,
+        candidates
+      );
+      return res.status(result.ok ? 200 : 404).json(result);
     }
 
     return res.status(400).json({ error: 'Unsupported content type.' });

@@ -70,15 +70,9 @@ function normaliseSportsId(matchId) {
     : suppliedId;
 }
 
-async function startSportsPlayback(matchId, config) {
+function startOpaquePlayback(kind, contentId, rows) {
   cleanup();
-  const rawId = normaliseSportsId(matchId);
-  if (!rawId) throw Object.assign(new Error('Missing sports event id.'), { statusCode: 400 });
-
-  const result = await handleStream('tv', `nuvio_sport_${rawId}`, config || {});
-  const targets = (result && Array.isArray(result.streams) ? result.streams : [])
-    .map(opaqueTarget)
-    .filter(Boolean);
+  const targets = (Array.isArray(rows) ? rows : []).map(opaqueTarget).filter(Boolean);
 
   if (!targets.length) {
     return {
@@ -91,8 +85,8 @@ async function startSportsPlayback(matchId, config) {
   const sessionId = crypto.randomUUID();
   const createdAt = now();
   const session = {
-    kind: 'sport',
-    contentId: rawId,
+    kind: String(kind || 'unknown'),
+    contentId: String(contentId || ''),
     targets,
     cursor: 1,
     createdAt,
@@ -100,8 +94,19 @@ async function startSportsPlayback(matchId, config) {
   };
   sessions.set(sessionId, session);
   cleanup();
-
   return publicResult(sessionId, targets[0]);
+}
+
+async function startSportsPlayback(matchId, config) {
+  const rawId = normaliseSportsId(matchId);
+  if (!rawId) throw Object.assign(new Error('Missing sports event id.'), { statusCode: 400 });
+
+  const result = await handleStream('tv', `nuvio_sport_${rawId}`, config || {});
+  return startOpaquePlayback(
+    'sport',
+    rawId,
+    result && Array.isArray(result.streams) ? result.streams : []
+  );
 }
 
 function nextPlayback(sessionId) {
@@ -142,6 +147,7 @@ function status() {
 
 module.exports = {
   startSportsPlayback,
+  startOpaquePlayback,
   nextPlayback,
   finishPlayback,
   status,

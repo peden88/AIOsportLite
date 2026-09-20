@@ -68,7 +68,7 @@ function publicBootstrap() {
   if (cfg.vod.enabled) contentTypes.push('movie', 'series', 'anime', 'episode');
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     contentTypes,
     playback: {
       mode: 'opaque',
@@ -91,7 +91,12 @@ function publicBootstrap() {
         role: cfg.streams.role
       },
       vod: {
-        enabled: cfg.vod.enabled
+        enabled: cfg.vod.enabled,
+        catalogs: cfg.vod.enabled,
+        search: cfg.vod.enabled,
+        metadata: cfg.vod.enabled,
+        opaquePlayback: cfg.vod.enabled,
+        selectionOwner: 'aiostreams'
       }
     }
   };
