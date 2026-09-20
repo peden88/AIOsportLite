@@ -128,4 +128,65 @@ function verifyQuery(q, kind) {
 function verifyManifestQuery(q) { return verifyQuery(q, ''); }
 function verifySegmentQuery(q) { return verifyQuery(q, 'segment'); }
 
-module.exports = { manifestPath, segmentPath, verifyManifestQuery, verifySegmentQuery };
+// Internal web-player links are usable by Stremio/Nuvio without an account
+// cookie, so they carry their own short-lived capability. A copied /watch URL
+// without this signature cannot be used to bypass the site login.
+const WATCH_LINK_TTL_MS = Number(process.env.WATCH_LINK_TTL_MS) || 12 * 60 * 60 * 1000;
+
+function watchSignature(parts, exp) {
+  return crypto.createHmac('sha256', linkSecret())
+    .update(`watch\n${parts.url || ''}\n${parts.embed || ''}\n${parts.mode || ''}\n${parts.referer || ''}\n${exp}`)
+    .digest('base64url')
+    .slice(0, 32);
+}
+
+function signWatchPath(relativePath, ttlMs = WATCH_LINK_TTL_MS) {
+  let parsed;
+  try { parsed = new URL(String(relativePath || ''), 'http://aiosport.invalid'); }
+  catch { return relativePath; }
+  if (parsed.pathname !== '/watch') return relativePath;
+
+  const parts = {
+    url: parsed.searchParams.get('url') || '',
+    embed: parsed.searchParams.get('embed') || '',
+    mode: parsed.searchParams.get('mode') || '',
+    referer: parsed.searchParams.get('referer') || ''
+  };
+  if (!parts.url && !parts.embed) return relativePath;
+
+  const exp = Date.now() + Math.max(60000, Number(ttlMs) || WATCH_LINK_TTL_MS);
+  parsed.searchParams.set('exp', String(exp));
+  parsed.searchParams.set('sig', watchSignature(parts, exp));
+  return parsed.pathname + '?' + parsed.searchParams.toString();
+}
+
+function verifyWatchQuery(q) {
+  const text = value => (typeof value === 'string' ? value : '');
+  const expRaw = text(q.exp);
+  const sig = text(q.sig);
+  if (!/^\d+$/.test(expRaw) || !sig) return false;
+  const exp = Number(expRaw);
+  if (!Number.isFinite(exp) || exp < Date.now()) return false;
+
+  const parts = {
+    url: text(q.url),
+    embed: text(q.embed),
+    mode: text(q.mode),
+    referer: text(q.referer)
+  };
+  if (!parts.url && !parts.embed) return false;
+
+  const want = Buffer.from(watchSignature(parts, exp));
+  const got = Buffer.from(sig);
+  return want.length === got.length && crypto.timingSafeEqual(want, got);
+}
+
+module.exports = {
+  manifestPath,
+  segmentPath,
+  verifyManifestQuery,
+  verifySegmentQuery,
+  signWatchPath,
+  verifyWatchQuery,
+  WATCH_LINK_TTL_MS
+};

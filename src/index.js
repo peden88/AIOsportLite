@@ -1179,7 +1179,7 @@ app.get('/img/matchup', async (req, res) => {
 // absent, all fetches silently use undici — streams continue to work.
 const { safeFetch: _safeFetch, getImpit: _getImpit } = require('./impitClient');
 const { assertPublicUrl, publicAgent } = require('./netGuard');
-const { verifyManifestQuery, verifySegmentQuery } = require('./manifestLink');
+const { verifyManifestQuery, verifySegmentQuery, verifyWatchQuery } = require('./manifestLink');
 const { rewritePlaylist, absoluteEntry } = require('./playlistRewrite');
 const liveDelay = require('./liveDelay');
 const remint = require('./remint');
@@ -2294,6 +2294,13 @@ app.use(getRouter(builder.getInterface()));
 //   ?title=<encoded match title> shown in the page heading
 
 app.get('/watch', (req, res) => {
+  // Human web-player access requires a signed-in account. Stremio/Nuvio
+  // handoffs receive an expiring signed capability when the stream is minted,
+  // so third-party players keep working without learning user credentials.
+  if (!isAuthed(req) && !verifyWatchQuery(req.query)) {
+    return res.status(403).send('Sign in or use a valid signed playback link.');
+  }
+
   const mode     = req.query.mode;
   const title    = req.query.title || 'Live Sports';
   // A web player plays straight from the CDN, so its playlist is not this

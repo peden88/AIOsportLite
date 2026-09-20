@@ -3,6 +3,7 @@ const { bufferSeconds } = require('./liveDelay');
 const remint = require('./remint');
 const { stationOrder } = require('./services/StationLabel');
 const { parseMarkets, marketsSetting } = require('./services/LocalMarkets');
+const { signWatchPath } = require('./manifestLink');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -913,6 +914,16 @@ async function handleStream(type, id, config) {
   streams.push(...spread);
 
   for (const s of streams) { delete s.station; delete s.stationSort; }
+
+  // A raw /watch URL would bypass account login if somebody copied it. Sign
+  // every internal web-player handoff centrally so providers do not each have
+  // to implement access control, and third-party Stremio/Nuvio clients can
+  // still follow the URL without knowing about application accounts.
+  for (const s of streams) {
+    if (s.externalUrl && String(s.externalUrl).startsWith('/watch?')) {
+      s.externalUrl = signWatchPath(s.externalUrl);
+    }
+  }
 
   // The extra buffer travels on the link, because the manifest proxy serves
   // every viewer of a stream from one remembered window and only the link
