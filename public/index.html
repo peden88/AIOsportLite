@@ -325,6 +325,13 @@
         video.style.opacity = '1';
       };
 
+      const armStartupFallback = () => {
+        clearStallTimer();
+        stallTimer = setTimeout(() => {
+          if (generation === playerGeneration) requestNextPlayback(generation);
+        }, 20000);
+      };
+
       const armStallFallback = () => {
         clearStallTimer();
         stallTimer = setTimeout(() => {
@@ -336,6 +343,7 @@
       video.onwaiting = armStallFallback;
       video.onstalled = armStallFallback;
       video.onerror = () => requestNextPlayback(generation);
+      armStartupFallback();
 
       if (Hls.isSupported()) {
         hls = new Hls({
