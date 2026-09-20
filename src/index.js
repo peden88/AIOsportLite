@@ -339,7 +339,7 @@ app.post('/api/login', express.json({ limit: '8kb' }), (req, res) => {
   }
 
   const key = process.env.AUTH_KEY;
-  if (!key) return res.json({ authenticated: true, legacyOpen: true });
+  if (!key) return res.status(503).json({ error: 'Administrator setup is required.', setupRequired: true });
   const given = (req.body && req.body.password) || req.get('x-auth-key') || '';
   if (!suppliedSecretMatches(req, given, key)) {
     return res.status(403).json({ error: 'Password was not accepted.' });
@@ -398,7 +398,8 @@ app.get('/api/site/auth', (req, res) => {
     authenticated: isAuthed(req),
     multiUser: userStore.hasUsers(),
     user: account ? account.user : null,
-    legacyKeyRequired: !userStore.hasUsers() && !!process.env.AUTH_KEY
+    legacyKeyRequired: !userStore.hasUsers() && !!process.env.AUTH_KEY,
+    setupRequired: !userStore.hasUsers() && !process.env.AUTH_KEY
   });
 });
 
@@ -729,7 +730,7 @@ function requireAccountAdmin(req, res, next) {
 
 function legacySiteAuthed(req) {
   const key = process.env.AUTH_KEY;
-  if (!key) return true;
+  if (!key) return false;
   if (ticketValid(cookieValue(req, AUTH_COOKIE), key)) return true;
   return suppliedSecretMatches(req, req.get('x-auth-key') || req.query.key || '', key);
 }
