@@ -39,12 +39,9 @@ const STALE_SERVE_MS = 6 * 60 * 60 * 1000; // keep serving a stale index this lo
 // significant — a fixture is looked up by team pair, so an event from the wrong
 // board simply never matches.
 const CATEGORY_BOARDS = {
-  american_football: ['football/nfl', 'football/college-football', 'football/cfl', 'australian-football/afl'],
-  football: ['soccer/all'],
-  basketball: ['basketball/nba', 'basketball/wnba', 'basketball/mens-college-basketball'],
-  baseball: ['baseball/mlb', 'baseball/college-baseball'],
-  hockey: ['hockey/nhl'],
-  college: ['football/college-football', 'basketball/mens-college-basketball', 'baseball/college-baseball']
+  // Lite only enriches association football. This removes the NFL/CFL/AFL,
+  // college, NBA/WNBA, MLB and NHL scoreboard polling workload.
+  football: ['soccer/all']
 };
 
 const ALL_BOARDS = [...new Set(Object.values(CATEGORY_BOARDS).flat())];
@@ -175,7 +172,7 @@ const NEAR_DAYS = 9;         // as far out as a board is worth fetching a day at
 // has sixty. Every other board was measured complete by the month — nfl, mlb
 // and nhl each returned every event their per-day union held — so asking for
 // their days as well would be sixty requests for nothing.
-const PER_DAY_BOARDS = new Set(['soccer/all', 'football/college-football']);
+const PER_DAY_BOARDS = new Set(['soccer/all']);
 
 function stampFor(now, offsetDays) {
   const d = new Date(now + offsetDays * 86400000);
