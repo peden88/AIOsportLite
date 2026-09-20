@@ -614,20 +614,10 @@
     <div class="section">
       <h3>Select Sports</h3>
       <div class="sports-grid" id="sportsGrid">
-        <label class="checkbox-label active"><input type="checkbox" value="football" checked> ⚽ Soccer</label>
-        <label class="checkbox-label active"><input type="checkbox" value="basketball" checked> 🏀 Basketball</label>
-        <label class="checkbox-label active"><input type="checkbox" value="cricket" checked> 🏏 Cricket</label>
-        <label class="checkbox-label active"><input type="checkbox" value="american_football" checked> 🏈 Football</label>
+        <label class="checkbox-label active"><input type="checkbox" value="football" checked> ⚽ Football</label>
         <label class="checkbox-label active"><input type="checkbox" value="motorsport" checked> 🏎️ Racing</label>
-        <label class="checkbox-label active"><input type="checkbox" value="hockey" checked> 🏒 Hockey</label>
-        <label class="checkbox-label active"><input type="checkbox" value="baseball" checked> ⚾ Baseball</label>
         <label class="checkbox-label active"><input type="checkbox" value="rugby" checked> 🏉 Rugby</label>
-        <label class="checkbox-label active"><input type="checkbox" value="college" checked> 🎓 College</label>
         <label class="checkbox-label active"><input type="checkbox" value="mma" checked> 🥊 MMA</label>
-        <label class="checkbox-label active"><input type="checkbox" value="golf" checked> ⛳ Golf</label>
-        <label class="checkbox-label active"><input type="checkbox" value="tennis" checked> 🎾 Tennis</label>
-        <label class="checkbox-label active"><input type="checkbox" value="darts" checked> 🎯 Darts</label>
-        <label class="checkbox-label active"><input type="checkbox" value="other" checked> 📡 Other Sports</label>
       </div>
     </div>
 
@@ -1131,7 +1121,7 @@
     // sport, Other Football rides with American Football, and the tabs that
     // belong to no single sport always stay.
     const ALWAYS_SHOWN = new Set(['live', 'upcoming', 'teams', 'channels', 'local']);
-    const SPORT_FOR_CATALOG = { other_football: 'american_football' };
+    const SPORT_FOR_CATALOG = {};
 
     function sportOf(catalogId) {
       const key = String(catalogId).replace(/^nuvio_sports_/, '');
