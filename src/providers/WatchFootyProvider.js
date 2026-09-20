@@ -54,8 +54,10 @@ class WatchFootyProvider extends BaseProvider {
 
           const matchTime = item.timestamp ? parseTimezone(item.timestamp, 'UTC') : Date.now();
           
-          // Map dynamic sports directly from the API
+          // Map dynamic sports directly from the API, then discard categories
+          // the Lite build does not expose before allocating artwork/entities.
           const category = this.normalizeCategory(item.sport);
+          if (!this.isRetainedEventCategory(category)) continue;
 
           const posterUrl = item.poster ? (
             item.poster.startsWith('//') ? `https:${item.poster}` :
