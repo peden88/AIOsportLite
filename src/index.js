@@ -39,6 +39,9 @@ const { PORT, BASE_URL, getRequestBaseUrl } = require('./config');
 const container = require('./container');
 const appServices = require('./services/AppServiceRegistry');
 const opaquePlayback = require('./services/OpaquePlayback');
+const userStore = require('./services/UserStore');
+
+userStore.bootstrapInitialAdmin();
 
 
 
@@ -236,7 +239,7 @@ app.use((req, res, next) => {
     // The redirect carries the whole config in its Location, so it goes only
     // to someone allowed to open the configure page. Before this, a signed-out
     // visitor read /saved/configure's settings straight out of the 302.
-    if (process.env.AUTH_KEY && !isAuthed(req)) return res.redirect(302, '/login');
+    if (!canConfigure(req)) return res.status(403).send('Administrator account required.');
     const extra = asPage[2] ? '&' + asPage[2] : '';
     return res.redirect(302, '/' + encoded + '/configure?profile=' + encodeURIComponent(id) + extra);
   }
@@ -293,23 +296,66 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
 });
 
-/** Exchange AUTH_KEY for the site cookie. */
-app.post('/api/login', (req, res) => {
-  const key = process.env.AUTH_KEY;
-  if (!key) return res.json({ authenticated: true, keyRequired: false });
-  if (throttled(req)) return res.status(429).json({ error: 'Too many failed sign-ins. Wait a few minutes.' });
-  if (!isAuthed(req)) {
-    noteFailureOnce(req);
-    return res.status(403).json({ error: 'That password was not accepted.' });
+/**
+ * One login for web and TV.
+ *
+ * Once at least one app account exists, AUTH_KEY stops being a user credential:
+ * username/password accounts are authoritative. The legacy key remains only as
+ * a migration path on installations that have not created accounts yet.
+ */
+app.post('/api/login', express.json({ limit: '8kb' }), (req, res) => {
+  if (throttled(req)) {
+    return res.status(429).json({ error: 'Too many failed sign-ins. Wait a few minutes.' });
   }
+
+  if (userStore.hasUsers()) {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const user = userStore.authenticate(body.username, body.password);
+    if (!user) {
+      noteFailureOnce(req);
+      return res.status(403).json({ error: 'Username or password was not accepted.' });
+    }
+
+    FAILURES.delete(failureKey(req));
+    const clientType = String(body.clientType || 'web').trim().toLowerCase();
+    const created = userStore.createSession(user.id, {
+      clientType,
+      deviceName: body.deviceName
+    });
+    res.cookie(USER_SESSION_COOKIE, created.token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: req.secure,
+      maxAge: Math.max(60000, created.session.expiresAt - Date.now())
+    });
+
+    const appClient = ['android_tv', 'android', 'tv', 'app'].includes(clientType);
+    return res.json({
+      authenticated: true,
+      user,
+      ...(appClient ? { token: created.token } : {}),
+      session: created.session
+    });
+  }
+
+  const key = process.env.AUTH_KEY;
+  if (!key) return res.json({ authenticated: true, legacyOpen: true });
+  const given = (req.body && req.body.password) || req.get('x-auth-key') || '';
+  if (!suppliedSecretMatches(req, given, key)) {
+    return res.status(403).json({ error: 'Password was not accepted.' });
+  }
+
   FAILURES.delete(failureKey(req));
   res.cookie(AUTH_COOKIE, mintTicket(key), {
     httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 30 * 24 * 3600 * 1000
   });
-  res.json({ authenticated: true, keyRequired: true });
+  res.json({ authenticated: true, legacy: true });
 });
 
 app.post('/api/logout', (req, res) => {
+  const token = accountToken(req);
+  if (token) userStore.revokeSessionToken(token);
+  res.clearCookie(USER_SESSION_COOKIE);
   res.clearCookie(AUTH_COOKIE);
   res.clearCookie(ADMIN_COOKIE);
   res.json({ authenticated: false });
@@ -347,7 +393,70 @@ const BUILD_INFO = (() => {
 app.get('/api/version', (req, res) => res.json(BUILD_INFO));
 
 app.get('/api/site/auth', (req, res) => {
-  res.json({ authenticated: isAuthed(req), keyRequired: !!process.env.AUTH_KEY });
+  const account = accountSession(req);
+  res.json({
+    authenticated: isAuthed(req),
+    multiUser: userStore.hasUsers(),
+    user: account ? account.user : null,
+    legacyKeyRequired: !userStore.hasUsers() && !!process.env.AUTH_KEY
+  });
+});
+
+// Current account and device sessions. No addon/service configuration is stored
+// here: those remain installation-wide in AppServiceRegistry.
+app.get('/api/v1/account', requirePage, (req, res) => {
+  const account = accountSession(req);
+  if (!account) return res.status(404).json({ error: 'No account session.' });
+  res.json({ user: account.user, session: account.session });
+});
+
+app.get('/api/v1/account/sessions', requirePage, (req, res) => {
+  const account = accountSession(req);
+  if (!account) return res.status(404).json({ error: 'No account session.' });
+  res.json({ sessions: userStore.listUserSessions(account.user.id) });
+});
+
+app.delete('/api/v1/account/sessions/:sessionId', requirePage, (req, res) => {
+  const account = accountSession(req);
+  if (!account) return res.status(404).json({ error: 'No account session.' });
+  const removed = userStore.revokeSessionId(req.params.sessionId, account.user.id);
+  res.status(removed ? 204 : 404).end();
+});
+
+app.get('/api/v1/admin/users', requireAccountAdmin, (req, res) => {
+  res.json({ users: userStore.listUsers() });
+});
+
+app.post('/api/v1/admin/users', requireAccountAdmin, express.json({ limit: '8kb' }), (req, res) => {
+  try {
+    const user = userStore.createUser(req.body || {});
+    res.status(201).json({ user });
+  } catch (err) {
+    res.status(400).json({ error: err.message, code: err.code || 'INVALID_USER' });
+  }
+});
+
+app.patch('/api/v1/admin/users/:userId', requireAccountAdmin, express.json({ limit: '8kb' }), (req, res) => {
+  try {
+    const user = userStore.updateUser(req.params.userId, req.body || {});
+    if (!user) return res.status(404).json({ error: 'No such user.' });
+    res.json({ user });
+  } catch (err) {
+    res.status(400).json({ error: err.message, code: err.code || 'INVALID_USER' });
+  }
+});
+
+app.delete('/api/v1/admin/users/:userId', requireAccountAdmin, (req, res) => {
+  try {
+    const account = accountSession(req);
+    if (account && account.user.id === req.params.userId) {
+      return res.status(400).json({ error: 'Sign in as another administrator before deleting this account.' });
+    }
+    const removed = userStore.deleteUser(req.params.userId);
+    res.status(removed ? 204 : 404).end();
+  } catch (err) {
+    res.status(400).json({ error: err.message, code: err.code || 'INVALID_USER' });
+  }
 });
 
 /**
@@ -395,8 +504,8 @@ const MARKET_SYNC_EVERY_MS = 5 * 60 * 1000;
 app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
   // The configure page is what AUTH_KEY guards, and this is that page's save
   // button, so it is gated the same way: signed in, or the site is open anyway.
-  if (!isAuthed(req)) {
-    return res.status(403).json({ error: 'Sign in before saving.' });
+  if (!canConfigure(req)) {
+    return res.status(403).json({ error: 'Administrator account required.' });
   }
   const config = req.body && req.body.config !== undefined ? req.body.config : req.body;
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
@@ -466,7 +575,7 @@ app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
 });
 
 app.delete('/api/config/saved', (req, res) => {
-  if (!isAuthed(req)) return res.status(403).json({ error: 'Sign in first.' });
+  if (!canConfigure(req)) return res.status(403).json({ error: 'Administrator account required.' });
   const id = typeof req.query.id === 'string' ? req.query.id : '';
   const file = profilePath(id);
   if (!file) return res.status(400).json({ error: 'Not a profile id.' });
@@ -584,11 +693,54 @@ function cookieValue(req, name) {
   return '';
 }
 
-// Two doors with two keys. AUTH_KEY opens the site -- the catalog page and the
-// configure page. ADMIN_TOKEN opens the dashboard and the buttons that change
-// state. Someone you let in to browse is not thereby allowed to empty a cache.
-const AUTH_COOKIE = 'ls_auth';
+// First-party account sessions are shared by the web player and TV API. The
+// browser carries the opaque token in an HttpOnly cookie; the TV app carries the
+// same kind of token as a Bearer credential in secure local storage.
+const USER_SESSION_COOKIE = 'asl_session';
+const AUTH_COOKIE = 'ls_auth'; // legacy pre-account migration cookie
 const ADMIN_COOKIE = 'ls_admin';
+
+function accountToken(req) {
+  const auth = String(req.get('authorization') || '');
+  const bearer = auth.match(/^Bearer\s+(.+)$/i);
+  if (bearer && bearer[1]) return bearer[1].trim();
+  return cookieValue(req, USER_SESSION_COOKIE);
+}
+
+function accountSession(req) {
+  if (req._appAccountResolved) return req._appAccount || null;
+  req._appAccountResolved = true;
+  req._appAccount = userStore.resolveSession(accountToken(req));
+  return req._appAccount || null;
+}
+
+function isAccountAdmin(req) {
+  const account = accountSession(req);
+  return !!account && account.user.role === 'admin' && account.user.enabled !== false;
+}
+
+function requireAccountAdmin(req, res, next) {
+  if (isAccountAdmin(req) || isAdmin(req)) return next();
+  return res.status(403).json({ error: 'Administrator account required.' });
+}
+
+function legacySiteAuthed(req) {
+  const key = process.env.AUTH_KEY;
+  if (!key) return true;
+  if (ticketValid(cookieValue(req, AUTH_COOKIE), key)) return true;
+  return suppliedSecretMatches(req, req.get('x-auth-key') || req.query.key || '', key);
+}
+
+function canConfigure(req) {
+  if (userStore.hasUsers()) return isAccountAdmin(req) || isAdmin(req);
+  return legacySiteAuthed(req) || isAdmin(req);
+}
+
+function requireConfigurator(req, res, next) {
+  if (canConfigure(req)) return next();
+  if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Administrator account required.' });
+  return res.status(403).send('Administrator account required.');
+}
 
 function isAdmin(req) {
   const token = process.env.ADMIN_TOKEN;
@@ -666,13 +818,12 @@ app.post('/api/cache/logout', (req, res) => {
   res.json({ authenticated: false });
 });
 
-/** May this caller see the site at all? The admin key opens every door. */
+/** May this caller see the first-party site? */
 function isAuthed(req) {
-  const key = process.env.AUTH_KEY;
-  if (!key) return true;                       // no site key configured: open
-  if (isAdmin(req)) return true;               // admin implies access
-  if (ticketValid(cookieValue(req, AUTH_COOKIE), key)) return true;
-  return suppliedSecretMatches(req, req.get('x-auth-key') || req.query.key || '', key);
+  if (accountSession(req)) return true;
+  if (isAdmin(req)) return true; // server administrator break-glass access
+  if (userStore.hasUsers()) return false;
+  return legacySiteAuthed(req);
 }
 
 /**
@@ -746,7 +897,7 @@ app.post('/api/cache/warm/cancel', (req, res) => {
   res.json({ cancelled: true, warmer: cardWarmer.status() });
 });
 
-app.get(['/configure', '/:config/configure'], requirePage, (req, res) => {
+app.get(['/configure', '/:config/configure'], requireConfigurator, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'configure.html'));
 });
 
@@ -1799,7 +1950,8 @@ const OPEN_PROFILE_LIMIT = Number(process.env.PROFILE_LIMIT) || 500;
 
 /** Signed in with a real key -- AUTH_KEY set and given, or ADMIN_TOKEN. */
 function ownsEverything(req) {
-  return (!!process.env.AUTH_KEY && isAuthed(req)) || isAdmin(req);
+  if (userStore.hasUsers()) return isAccountAdmin(req) || isAdmin(req);
+  return (!!process.env.AUTH_KEY && legacySiteAuthed(req)) || isAdmin(req);
 }
 
 function editKeyPath(id) {
