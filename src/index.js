@@ -37,6 +37,8 @@ const { handleCatalog, handleMeta } = require('./catalog');
 const { handleStream, remintUpstream } = require('./streams');
 const { PORT, BASE_URL, getRequestBaseUrl } = require('./config');
 const container = require('./container');
+const appServices = require('./services/AppServiceRegistry');
+const opaquePlayback = require('./services/OpaquePlayback');
 
 
 
@@ -751,6 +753,64 @@ app.get(['/configure', '/:config/configure'], requirePage, (req, res) => {
 app.get('/api/matches', requirePage, (req, res) => {
   const matches = container.resolve('cacheService').getMatches();
   res.json(matches);
+});
+
+// ─── First-party app API ──────────────────────────────────────────────────────
+// Stremio-compatible routes below intentionally continue returning stream arrays.
+// Our own web/TV clients never call them. They use this API, which exposes only
+// one playback target at a time and keeps provider/source choices server-side.
+app.get('/api/v1/bootstrap', requirePage, (req, res) => {
+  res.json(appServices.publicBootstrap());
+});
+
+app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const contentType = String(body.contentType || body.kind || '').trim().toLowerCase();
+  const id = String(body.id || '').trim();
+
+  if (!id) return res.status(400).json({ error: 'Missing content id.' });
+
+  try {
+    if (contentType === 'sport' || contentType === 'sport_event' || contentType === 'live_channel') {
+      const services = appServices.publicBootstrap();
+      if (!services.services.sports.enabled) {
+        return res.status(503).json({ error: 'Sports playback is disabled.' });
+      }
+
+      // The first-party app has one installation-wide sports configuration.
+      // Existing named profiles remain available to Stremio/Nuvio installs, but
+      // an app user never supplies an addon/config choice here.
+      const appConfig = loadProfile(LEGACY_ID) || {};
+      const result = await opaquePlayback.startSportsPlayback(id, appConfig);
+      return res.status(result.ok ? 200 : 404).json(result);
+    }
+
+    if (['movie', 'series', 'anime', 'episode'].includes(contentType)) {
+      const services = appServices.publicBootstrap();
+      if (!services.services.vod.enabled) {
+        return res.status(503).json({ error: 'VOD is not enabled on this installation.' });
+      }
+      // Reserved contract: AIOMetadata owns discovery/meta and AIOStreams owns
+      // the ranked VOD playback/failover chain. The adapter is enabled when VOD
+      // is switched on; clients will not need a protocol change.
+      return res.status(501).json({ error: 'VOD playback adapter is not enabled in this build.' });
+    }
+
+    return res.status(400).json({ error: 'Unsupported content type.' });
+  } catch (err) {
+    console.error('[app-playback] start failed:', err.message);
+    return res.status(err.statusCode || 502).json({ error: 'Could not start playback.' });
+  }
+});
+
+app.post('/api/v1/playback/:sessionId/next', requirePage, (req, res) => {
+  const result = opaquePlayback.nextPlayback(req.params.sessionId);
+  res.status(result.ok ? 200 : (result.reason === 'PLAYBACK_SESSION_EXPIRED' ? 410 : 404)).json(result);
+});
+
+app.delete('/api/v1/playback/:sessionId', requirePage, (req, res) => {
+  opaquePlayback.finishPlayback(req.params.sessionId);
+  res.status(204).end();
 });
 
 // ─── Self-hosted image pipeline ───────────────────────────────────────
