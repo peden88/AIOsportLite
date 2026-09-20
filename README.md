@@ -14,7 +14,9 @@ A self-hosted addon for [Stremio](https://www.stremio.com/) and [Nuvio](https://
 - **One tile per event.** When several sources carry the same fixture or channel, their streams are merged onto a single tile.
 - **Covers for everything.** Fixtures are drawn from both teams' crests, and channels get a cover with their logo. The server renders them, so every player shows the same thing.
 - **A tidy Channels tab.** It's sorted A to Z, and channels with nothing playing are hidden until they come back.
-- **Your settings, one install link.** Save sports, sources, teams and timezone as a profile, and the install link stays the same when you change them.
+- **One application configuration.** Sports, metadata and stream services are configured once by an administrator and apply to every user.
+- **Multi-user access.** The first-party web app has real user accounts, revocable sessions and separate administrator permissions.
+- **One-button playback.** First-party clients never show a stream/source picker. The server chooses the best candidate and automatically falls through private alternatives when playback fails.
 
 This is a fork of [rajhodedara/live-sport-plugin](https://github.com/rajhodedara/live-sport-plugin). Credit for the original project goes there.
 
@@ -27,7 +29,8 @@ This is a fork of [rajhodedara/live-sport-plugin](https://github.com/rajhodedara
 - [Updating](#updating)
 - [Other ways to run it](#other-ways-to-run-it)
 - [Settings](#settings)
-- [Passwords, profiles and the dashboard](#passwords-profiles-and-the-dashboard)
+- [Accounts and administration](#accounts-and-administration)
+- [Optional VOD with AIOMetadata and AIOStreams](#optional-vod-with-aiometadata-and-aiostreams)
 - [Catalog tabs](#catalog-tabs)
 - [Sources](#sources)
 - [FAQ and troubleshooting](#faq-and-troubleshooting)
@@ -46,9 +49,9 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-The first build takes a few minutes. Then open `http://<your computer's IP address>:7000/configure` in a browser on the same network. On Windows, `ipconfig` shows the address; on macOS or Linux, use `ipconfig getifaddr en0` or `ip a`.
+The first build takes a few minutes. For a real deployment, set `APP_ADMIN_USERNAME` and `APP_ADMIN_PASSWORD` in `.env` before first boot, then open `http://<your computer's IP address>:7000/`. The first administrator is created once and the password is stored only as a salted scrypt hash in the data volume.
 
-The server only needs to reach the internet, not be reachable from it. Anything that can open the address can use the addon, though, so read [Passwords, profiles and the dashboard](#passwords-profiles-and-the-dashboard) before you expose it.
+The first-party web player fails closed when no account exists unless `ALLOW_OPEN_ACCESS=true` is explicitly set for local development. Read [Accounts and administration](#accounts-and-administration) before exposing the service.
 
 ## Install it in Stremio or Nuvio
 
@@ -131,8 +134,12 @@ Settings live in `.env`. Copy `.env.example` and edit it, and restart after a ch
 | Variable | What it does |
 |---|---|
 | `ADDON_URL` | Your public address, e.g. `https://sports.example.com`. Needed for Stremio (see [https](#stremio-needs-https)). |
-| `AUTH_KEY` | Password for the catalog and `/configure` pages. |
-| `ADMIN_TOKEN` | Password for `/dashboard`. The dashboard stays closed until this is set. |
+| `APP_ADMIN_USERNAME` | Username used to create the first administrator when the account store is empty. |
+| `APP_ADMIN_PASSWORD` | First administrator password. It is hashed into `DATA_DIR` on first boot and is not used again once accounts exist. |
+| `ADMIN_TOKEN` | Optional emergency/legacy administrator credential. Admin accounts can use the dashboard without it. |
+| `VOD_ENABLED` | Enables Movies/Series only when both global VOD manifest URLs below are configured. |
+| `AIOMETADATA_MANIFEST_URL` | One app-wide AIOMetadata manifest used for VOD catalogs, search and metadata. |
+| `AIOSTREAMS_MANIFEST_URL` | One app-wide AIOStreams manifest used for ranked VOD playback and failover. |
 | `TZ` | Timezone for kickoff times, for viewers who haven't picked one. |
 | `HIDE_EMPTY_CHANNELS` | `0` lists every channel, even ones with no streams right now. |
 | `TRUST_PROXY` | Only for a reverse proxy on a public address. See `.env.example`. |
@@ -141,23 +148,60 @@ Settings live in `.env`. Copy `.env.example` and edit it, and restart after a ch
 
 `.env.example` explains the rest, including `DATA_DIR`, `LINK_SECRET` and the source-specific options.
 
-## Passwords, profiles and the dashboard
+## Accounts and administration
 
-| | Without it | With it |
-|---|---|---|
-| `AUTH_KEY` | Anyone who can open the address can browse the catalog and `/configure`. | Visitors sign in at `/login` first. |
-| `ADMIN_TOKEN` | `/dashboard` is closed to everyone. | Open `/dashboard` and sign in with the token. |
+The first-party web player and future TV app use the same account store. Ordinary users have a username/password, a role, and revocable device/browser sessions. They do **not** have addon URLs, provider credentials or independent content configurations.
 
-**Use long random values**, for example the output of `openssl rand -base64 24`. After eight wrong guesses from one address, sign-in pauses for five minutes.
+Set these before the first production boot:
 
-**Saved profiles.** Every profile has its own install link, so two people can keep different settings on one server.
+```env
+APP_ADMIN_USERNAME=admin
+APP_ADMIN_PASSWORD=use-a-long-random-password
+```
 
-- With `AUTH_KEY` set, anyone who has signed in can see and change every profile.
-- Without it, a profile can only be changed from the browser that saved it. To change it from another device, use that profile's **edit link**, shown under the install link on `/configure`. Keep the edit link private.
+The initial administrator can then open `/users` to create or disable users, change roles/passwords, and sign every device out of an account. `/configure`, `/users` and `/dashboard` are administrator-only once accounts exist.
 
-**What stays open.** The manifest, catalogs, streams and artwork are never behind a password, because Stremio and Nuvio have no way to sign in. Someone who has your install link can therefore use the addon. To keep the addon itself private, put an IP allowlist or a VPN in front of it.
+Existing installations can migrate from the old single `AUTH_KEY`: when the account store is empty and no `APP_ADMIN_PASSWORD` is supplied, the server can create an `admin` account whose initial password is the old `AUTH_KEY`. New installations should use `APP_ADMIN_*` instead.
 
-**Behind a reverse proxy.** Caddy, nginx and Traefik on the same machine or network work without extra setup. If your proxy sits on a public address, set `TRUST_PROXY` as `.env.example` describes, and never set it to `true`.
+Browser sessions are HttpOnly cookies. Native/TV clients use the same credentials but receive an opaque revocable Bearer token from `/api/v1/auth/login`. The raw passwords and application manifest URLs are never returned to the client.
+
+The Stremio-compatible addon resources remain usable through their install URLs because Stremio cannot perform the application login. Internal `/watch` handoffs are separately HMAC-signed and expiring, so copying an unsigned web-player URL does not bypass the account gate.
+
+### Application-wide content configuration
+
+There are no user-specific addons in the first-party app. The administrator owns the service configuration and every authenticated user sees the same content backends.
+
+Sports can use the default/saved AIOSport Lite configuration or one explicit app-wide `AIOSPORT_MANIFEST_URL`. User accounts contain personal state such as favourites/watch progress later, not addon/service settings.
+
+## Optional VOD with AIOMetadata and AIOStreams
+
+VOD is intentionally split by responsibility:
+
+- **AIOMetadata** supplies Movies/Series catalogs, search, artwork, title metadata and episode lists.
+- **AIOStreams** supplies ranked stream results and its native playback/failover chain.
+- **AIOSport Lite** is the authenticated gateway. It keeps both manifest URLs server-side and exposes a first-party API to the web/TV clients.
+
+Configure one manifest for each service:
+
+```env
+VOD_ENABLED=true
+AIOMETADATA_MANIFEST_URL=https://metadata.example/stremio/<uuid>/manifest.json
+AIOSTREAMS_MANIFEST_URL=https://streams.example/<configured-path>/manifest.json
+```
+
+`http://`, `https://` and `stremio://` install URLs are accepted; `stremio://` is normalised to HTTPS. Internal Docker-network HTTP URLs are also valid if AIOSport Lite can reach them.
+
+When VOD is enabled, the first-party web app automatically adds **Movies** and **Series**. Search is sent only through AIOMetadata. Series metadata supplies the episode list. Pressing a movie or episode calls the opaque playback API; the user never receives a stream list, addon name, provider name, score or ranking.
+
+AIOStreams remains the authority for stream ordering and resolution. Its owned playback URLs contain its native failover-chain key, so the first playback target can move through AIOStreams' configured debrid/Usenet/fallback policy without the client knowing which provider won. AIOSport Lite keeps additional AIOStreams-ranked media URLs server-side as a second recovery layer for a player-detected failure. VOD `externalUrl` entries are deliberately ignored because they mean “open another page/app”, not guaranteed in-player media.
+
+Administrators can verify the two configured services without exposing their URLs:
+
+```text
+GET /api/v1/admin/vod/status
+```
+
+The response reports whether each service is configured/reachable plus manifest id/version/resources/types/catalog count. It never includes either manifest URL.
 
 ## Catalog tabs
 
@@ -198,13 +242,13 @@ What a network station streams free is its 24/7 **news** channel (FOX LOCAL, NBC
 
 StreamFree, TimStreams, Streamed.pk, SportyHunter, WatchFooty, CDNLive, StreamSports99, Streamic, TotalSportek, USA TV and iptv-org. Turn each one on or off in `/configure`, and drag them into the order you prefer.
 
-**Sort Streams By** decides what that order is worth. *Rating* ranks every stream on what was measured about it — the resolution and bitrate read from the stream itself, and whether that source has been answering lately. *Source order* hands you your own order instead, best stream first within each source. Dragging the sources selects the second on its own; either can be chosen outright.
+**Sort Streams By** still controls the server-side ranking. *Rating* ranks streams using measured characteristics such as resolution/bitrate and source health; *Source order* prioritises the administrator's configured source order. In the first-party web/TV clients that ranking is never displayed: pressing Play simply starts the highest-ranked working candidate.
 
 ## FAQ and troubleshooting
 
-**A fixture has no streams.** The source sites haven't posted one yet, or took it down. Streams often appear shortly before kickoff. Try again closer to the start, or pick another source's tile. A tile in ⭐ Your Teams marked `⏳ No streams listed yet` is this, said in advance: the game is on ESPN's schedule and no site has posted a link to it.
+**A fixture has no streams.** The source sites haven't posted one yet, or took it down. Streams often appear shortly before kickoff. Try again closer to the start. The first-party player chooses and retries available sources automatically; there is no source picker. A tile in ⭐ Your Teams marked `⏳ No streams listed yet` is this, said in advance: the game is on ESPN's schedule and no site has posted a link to it.
 
-**Two streams buffer at the same moment.** They are probably the same machine reached two ways. The list puts the best stream from each server at the top for that reason, so the second row down is a genuinely different server rather than a second link to the first one.
+**What happens when the chosen stream fails?** First-party clients never show the alternatives. AIOSport Lite keeps the ranked candidates private and requests the next one after a fatal startup/playback error. For VOD, the preferred AIOStreams URL also carries AIOStreams' own native failover chain, so debrid/Usenet failover happens before the client-level recovery path is needed.
 
 **Stremio won't install the addon.** It needs an https address; see [Stremio needs https](#stremio-needs-https).
 
