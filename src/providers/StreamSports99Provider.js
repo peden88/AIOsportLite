@@ -127,6 +127,9 @@ class StreamSports99Provider extends BaseProvider {
       // Find the specific item across all categories
       for (const key of Object.keys(sportsData)) {
         if (excludeKeys.includes(key) || key.startsWith('total_events_')) continue;
+        // The match that produced this source already established its sport.
+        // Do not rescan Basketball/NFL/etc. arrays when opening a Lite event.
+        if (this.mapCategory(key) !== matchCategory) continue;
         const events = sportsData[key];
         if (Array.isArray(events)) {
           const found = events.find(e => {
