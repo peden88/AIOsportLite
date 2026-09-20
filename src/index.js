@@ -431,6 +431,14 @@ app.patch('/api/v1/admin/users/:id', express.json({ limit: '8kb' }), async (req,
   }
 });
 
+app.delete('/api/v1/admin/users/:id/sessions', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const user = userAuth.listUsers().find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const revoked = userAuth.revokeUserSessions(req.params.id);
+  res.json({ revoked });
+});
+
 /**
  * Whether a saved configuration exists, and whether saving one is worth doing.
  *
@@ -861,6 +869,10 @@ function requireAdminPage(req, res, next) {
 
 app.get(['/configure', '/:config/configure'], requireAdminPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'configure.html'));
+});
+
+app.get('/users', requireAdminPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'users.html'));
 });
 
 app.get('/api/matches', requirePage, (req, res) => {
