@@ -46,7 +46,7 @@ function opaqueTarget(row) {
   };
 }
 
-function publicResult(sessionId, target, remaining) {
+function publicResult(sessionId, target) {
   if (!target) {
     return {
       ok: false,
@@ -58,8 +58,7 @@ function publicResult(sessionId, target, remaining) {
     ok: true,
     exhausted: false,
     sessionId,
-    playback: target,
-    alternativesRemaining: Math.max(0, remaining)
+    playback: target
   };
 }
 
@@ -94,7 +93,7 @@ async function startSportsPlayback(matchId, config) {
   sessions.set(sessionId, session);
   cleanup();
 
-  return publicResult(sessionId, targets[0], targets.length - 1);
+  return publicResult(sessionId, targets[0]);
 }
 
 function nextPlayback(sessionId) {
@@ -112,12 +111,12 @@ function nextPlayback(sessionId) {
   const target = session.targets[session.cursor] || null;
   if (!target) {
     sessions.delete(id);
-    return publicResult(id, null, 0);
+    return publicResult(id, null);
   }
 
   session.cursor += 1;
   session.expiresAt = now() + SESSION_TTL_MS;
-  return publicResult(id, target, session.targets.length - session.cursor);
+  return publicResult(id, target);
 }
 
 function finishPlayback(sessionId) {
