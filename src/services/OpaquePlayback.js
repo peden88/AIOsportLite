@@ -62,9 +62,17 @@ function publicResult(sessionId, target) {
   };
 }
 
+function normaliseSportsId(matchId) {
+  const suppliedId = String(matchId || '').trim();
+  if (!suppliedId) return '';
+  return suppliedId.startsWith('nuvio_sport_')
+    ? suppliedId.slice('nuvio_sport_'.length)
+    : suppliedId;
+}
+
 async function startSportsPlayback(matchId, config) {
   cleanup();
-  const rawId = String(matchId || '').trim();
+  const rawId = normaliseSportsId(matchId);
   if (!rawId) throw Object.assign(new Error('Missing sports event id.'), { statusCode: 400 });
 
   const result = await handleStream('tv', `nuvio_sport_${rawId}`, config || {});
@@ -138,6 +146,7 @@ module.exports = {
   finishPlayback,
   status,
   _opaqueTarget: opaqueTarget,
+  _normaliseSportsId: normaliseSportsId,
   _cleanup: cleanup,
   _sessions: sessions
 };

@@ -599,7 +599,7 @@ app.delete('/api/config/saved', (req, res) => {
   res.json({ deleted: true, id });
 });
 
-app.get('/dashboard', requirePage, (req, res) => {
+app.get('/dashboard', requireAdminPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
 });
 
@@ -832,6 +832,9 @@ function requirePage(req, res, next) {
 function guardStaticPages(req, res, next) {
   if (!/\.html?$/i.test(req.path)) return next();
   if (/^\/login\.html?$/i.test(req.path)) return next();
+  if (/^\/(?:dashboard|users|configure)\.html?$/i.test(req.path)) {
+    return requireAdminPage(req, res, next);
+  }
   return requirePage(req, res, next);
 }
 

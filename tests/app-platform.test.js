@@ -56,6 +56,8 @@ try {
   t(false, boot.services.vod.enabled, 'invalid metadata URL disables VOD');
 
   console.log('--- opaque playback target');
+  t('abc123', playback._normaliseSportsId('nuvio_sport_abc123'), 'canonical catalog ids are not double-prefixed');
+  t('abc123', playback._normaliseSportsId('abc123'), 'raw sports ids remain accepted');
   const target = playback._opaqueTarget({
     name: 'Provider Secret',
     title: 'Source 1 1080p',
