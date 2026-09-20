@@ -134,6 +134,7 @@ class TimStreamsProvider extends BaseProvider {
         }
         
         const category = this.normalizeCategory(genreLabel);
+        if (!this.isRetainedEventCategory(category)) return;
         
         let dateMs = Date.now();
         if (s.time) {
