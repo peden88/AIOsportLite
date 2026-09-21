@@ -1907,7 +1907,8 @@ app.get('/:config?/manifest.json', (req, res, next) => {
     const ALWAYS = new Set([
       'live', 'upcoming', 'teams',
       'channel_entertainment', 'channel_movies', 'channel_documentary',
-      'channel_kids', 'channel_sport'
+      'channel_kids', 'channel_sport_uk', 'channel_sport_us',
+      'channel_sport_international'
     ]);
     const SPORT_FOR_CATALOG = { other_football: 'american_football' };
 
