@@ -6,8 +6,6 @@
  */
 
 const { addonBuilder } = require('stremio-addon-sdk');
-const { GENRES } = require('./channelGenres');
-
 const manifest = {
   // Its own id, not upstream's. Sharing 'community.nuvio.live-sports' made the
   // two addons look like one to anything that keys installed addons by id.
@@ -39,17 +37,22 @@ const manifest = {
     { type: 'tv', id: 'nuvio_sports_darts', name: '🎯 Darts', extra: [{ name: 'search', isRequired: false }] },
     { type: 'tv', id: 'nuvio_sports_college', name: '🎓 College', extra: [{ name: 'search', isRequired: false }] },
     { type: 'tv', id: 'nuvio_sports_other', name: '🏅 Other Sports', extra: [{ name: 'search', isRequired: false }] },
-    { type: 'tv', id: 'nuvio_sports_channels', name: '📺 Channels', extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'search', isRequired: false }] },
+
+    // 24/7 television is split into focused catalogs instead of one enormous
+    // Channels wall. News, Local, Music, Lifestyle and International are
+    // intentionally not published.
+    { type: 'tv', id: 'nuvio_sports_channel_entertainment', name: '🎭 Entertainment', extra: [{ name: 'search', isRequired: false }] },
+    { type: 'tv', id: 'nuvio_sports_channel_movies', name: '🎬 Movies', extra: [{ name: 'search', isRequired: false }] },
+    { type: 'tv', id: 'nuvio_sports_channel_documentary', name: '📚 Documentaries', extra: [{ name: 'search', isRequired: false }] },
+    { type: 'tv', id: 'nuvio_sports_channel_kids', name: '🧒 Kids', extra: [{ name: 'search', isRequired: false }] },
+    { type: 'tv', id: 'nuvio_sports_channel_sport', name: '🏟️ Sport', extra: [{ name: 'search', isRequired: false }] },
 
     { type: 'tv', id: 'nuvio_sports_upcoming', name: '⏱️ Upcoming', extra: [{ name: 'search', isRequired: false }] },
-    { type: 'tv', id: 'nuvio_sports_teams', name: '⭐ Your Teams', extra: [{ name: 'search', isRequired: false }] },
-    // The viewer's own cities' channels. Listed only when the config names a city.
-    { type: 'tv', id: 'nuvio_sports_local', name: '📍 Local', extra: [{ name: 'search', isRequired: false }] }
+    { type: 'tv', id: 'nuvio_sports_teams', name: '⭐ Your Teams', extra: [{ name: 'search', isRequired: false }] }
   ],
 
   config: [
     { key: 'teams', title: 'Favorite Teams (comma separated)', type: 'text' },
-    { key: 'markets', title: 'Local channels: your cities (comma separated)', type: 'text' },
     { key: 'sports', title: 'Enabled Sports (comma separated)', type: 'text', default: 'all' },
     {
       key: 'timezone',
