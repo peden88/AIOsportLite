@@ -1,5 +1,5 @@
 /**
- * manifest.js — AIOSport Lite Stremio / Nuvio addon manifest.
+ * manifest.js — AIOPlay Stremio / Nuvio compatibility manifest.
  *
  * Event catalogs are intentionally limited to Football, Rugby, Racing and MMA.
  * The separate Channels catalog remains available for 24/7 television feeds.
@@ -13,11 +13,11 @@ const manifest = {
   // two addons look like one to anything that keys installed addons by id.
   id: 'community.aiosportlite',
   version: '1.6.0-lite.1',
-  name: 'AIOSport Lite',
+  name: 'AIOPlay',
   description:
-    'Live Football, Rugby, Racing and MMA fixtures plus 24/7 channels from several public sources, ' +
-    'with artwork for every event and channel. Self-hosted.',
-  logo: '/logo-v2.png',
+    'Self-hosted AIOPlay gateway for live events and 24/7 channels, with first-party Movies and Series ' +
+    'support through configured services.',
+  logo: '/brand/aioplay-mark.svg',
 
   types: ['tv'],
   resources: ['catalog', 'meta', 'stream'],

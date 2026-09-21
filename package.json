@@ -1,7 +1,7 @@
 {
   "name": "aiosportlite",
   "version": "1.6.0-lite.1",
-  "description": "Self-hosted live Football, Rugby, Racing and MMA plus 24/7 channels for Stremio and Nuvio.",
+  "description": "AIOPlay self-hosted media gateway for live events, channels and first-party VOD integration.",
   "main": "src/index.js",
   "scripts": {
     "prestart": "npm run build",

@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AIOSports | Setup</title>
-  <link rel="icon" type="image/png" href="/logo-v2.png">
-  <link rel="apple-touch-icon" href="/logo-v2.png">
+  <title>AIOPlay | Setup</title>
+  <link rel="icon" type="image/svg+xml" href="/brand/aioplay-mark.svg>
+  <link rel="apple-touch-icon" href="/brand/aioplay-mark.svg">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;900&display=swap"
     rel="stylesheet">
   <style>
@@ -559,9 +559,9 @@
 <body>
   <div class="container">
     <div class="header">
-      <img id="addonLogoImg" src="/logo-v2.png" alt="" style="width: 88px; height: 88px; border-radius: 20px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(22, 104, 255, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); object-fit: cover;">
+      <img id="addonLogoImg" src="/brand/aioplay-mark.svg" alt="" style="width: 88px; height: 88px; border-radius: 20px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(22, 104, 255, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); object-fit: cover;">
       <h1>
-        <span class="dot"></span><span id="addonName">AIOSports</span>
+        <span class="dot"></span><span id="addonName">AIOPlay</span>
         <button type="button" id="editAddonBtn" class="pencil-btn" title="Customize addon" aria-label="Customize addon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -864,7 +864,7 @@
 
           <div id="impPastePanel" hidden>
             <textarea id="impPaste" rows="6" spellcheck="false"
-                      placeholder="Paste the contents of an aiosports-config-….json file"></textarea>
+                      placeholder="Paste the contents of an aioplay-config-….json file"></textarea>
           </div>
 
           <div class="callout warn" id="impError" hidden aria-live="polite"></div>
@@ -881,7 +881,7 @@
 
     <div style="margin-top: 25px; padding: 16px; background: rgba(22, 104, 255, 0.08); border: 1px solid rgba(22, 104, 255, 0.2); border-radius: 16px; text-align: center;">
       <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--text-muted); line-height: 1.5;">
-        ☕ <strong>Support AIOSports</strong><br>Help keep our servers, scrapers, and 24/7 sports streams online!
+        ☕ <strong>Support AIOPlay</strong><br>Help keep our servers, scrapers, and 24/7 sports streams online!
       </p>
       <div class="footer-actions">
         <a class="footer-link kofi" href="https://ko-fi.com/mlp20" target="_blank" rel="noopener noreferrer">
@@ -1414,7 +1414,7 @@
     // Addon identity, edited in a dialog rather than by typing into the heading.
     // A heading that is secretly a text field is a heading people do not realise
     // they can change; a pencil says so.
-    const DEFAULT_ADDON_NAME = 'AIOSports';
+    const DEFAULT_ADDON_NAME = 'AIOPlay';
     const addonNameEl = document.getElementById('addonName');
     const addonLogoImg = document.getElementById('addonLogoImg');
     const addonSubtitleEl = document.getElementById('addonSubtitle');
@@ -1434,7 +1434,7 @@
     function paintIdentity() {
       addonNameEl.textContent = addonNameValue() || DEFAULT_ADDON_NAME;
       addonSubtitleEl.textContent = cleanText(identity.description, 300) || DEFAULT_SUBTITLE;
-      addonLogoImg.src = identity.logo || '/logo-v2.png';
+      addonLogoImg.src = identity.logo || '/brand/aioplay-mark.svg';
     }
 
     // Version and build, the way any self-hosted thing should say which copy of
@@ -2155,7 +2155,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'aiosports-config-' + exportStamp() + '.json';
+      a.download = 'aioplay-config-' + exportStamp() + '.json';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -2500,7 +2500,7 @@
           { year: 'numeric', month: 'long', day: 'numeric' });
       }
       const from = typeof parsed.addonVersion === 'string' && parsed.addonVersion !== 'unknown'
-        ? 'from AIOSports v' + cleanText(parsed.addonVersion, 20) : '';
+        ? 'from AIOPlay v' + cleanText(parsed.addonVersion, 20) : '';
       if (when || from) line(impPreview, [when, from].filter(Boolean).join(' · '));
 
       line(impPreview, clean.teams ? 'Teams — ' + clean.teams : 'Teams — cleared');
@@ -2579,7 +2579,7 @@
     function validateImportText(text) {
       try {
         if (text.length > MAX_IMPORT_BYTES) {
-          reject('That is ' + Math.round(text.length / 1024) + ' KB. A saved AIOSports config is a '
+          reject('That is ' + Math.round(text.length / 1024) + ' KB. A saved AIOPlay config is a '
             + 'few kilobytes at most, so this is not one.');
         }
 
@@ -2594,13 +2594,13 @@
             + 'thing including the closing brace.');
         }
 
-        if (!isPlainObject(parsed)) reject('That file does not contain an AIOSports config.');
+        if (!isPlainObject(parsed)) reject('That file does not contain an AIOPlay config.');
         if (parsed.kind !== EXPORT_KIND) {
-          reject('That is not an AIOSports config export. Look for a file named aiosports-config-….json.');
+          reject('That is not an AIOPlay config export. Look for a file named aioplay-config-….json.');
         }
         if (parsed.schemaVersion !== SCHEMA_VERSION) {
           if (typeof parsed.schemaVersion === 'number' && parsed.schemaVersion > SCHEMA_VERSION) {
-            reject('This file was made by a newer version of AIOSports (format ' + parsed.schemaVersion
+            reject('This file was made by a newer version of AIOPlay (format ' + parsed.schemaVersion
               + '). Update the addon, then import it again.');
           }
           reject('This file’s format (' + JSON.stringify(parsed.schemaVersion)
@@ -2611,7 +2611,7 @@
         const result = sanitiseConfig(parsed.config);
         if (!Object.keys(result.clean).length) {
           reject('Nothing in that file could be used. None of its settings are ones this version of '
-            + 'AIOSports understands.');
+            + 'AIOPlay understands.');
         }
         const size = JSON.stringify(result.clean).length;
         if (size > MAX_CONFIG_JSON) {
@@ -2625,14 +2625,14 @@
         impConfirm.disabled = false;
       } catch (err) {
         showImportError(err && err.friendly ? err.message
-          : 'That file could not be read as an AIOSports config.');
+          : 'That file could not be read as an AIOPlay config.');
       }
     }
 
     function readImportFile(file) {
       if (!file) return;
       if (file.size > MAX_IMPORT_BYTES) {
-        showImportError('That file is ' + Math.round(file.size / 1024) + ' KB. A saved AIOSports '
+        showImportError('That file is ' + Math.round(file.size / 1024) + ' KB. A saved AIOPlay '
           + 'config is a few kilobytes at most, so this is not one.');
         return;
       }

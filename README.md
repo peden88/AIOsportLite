@@ -1,8 +1,19 @@
 <p align="center">
-  <img src="public/logo-v2.png" width="120" height="120" alt="AIOSport Lite logo">
+  <img src="public/brand/aioplay-mark.svg" width="120" height="120" alt="AIOPlay logo">
 </p>
 
-# AIOSport Lite
+# AIOPlay
+
+## AIOPlay branding
+
+AIOPlay is the product identity across the web player and the forthcoming TV app. The application shell is intentionally media-neutral: sports are one content capability alongside Movies, Series, Channels and future services.
+
+- **In-app mark:** `public/brand/aioplay-mark.svg` — the AIO letters over the blue/cyan/violet play symbol. Use this for navigation chrome, login, settings, player branding and favicons.
+- **Launcher/banner:** `public/brand/aioplay-launcher.svg` — the wide AIOPlay lockup. This is the source artwork for Android TV launcher banners and splash/launch surfaces.
+- Do not add football, racing, MMA, rugby or other category imagery to the global AIOPlay logo. Category-specific artwork belongs inside content rows only.
+- Technical compatibility names such as `community.aiosportlite`, the GHCR image/repository name and legacy config/storage keys remain unchanged so branding updates do not break existing installs.
+
+
 
 [![Version](https://img.shields.io/badge/version-v1.6.0--lite.1-brightgreen.svg)](https://github.com/peden88/AIOsportLite/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -20,7 +31,7 @@ A self-hosted addon for [Stremio](https://www.stremio.com/) and [Nuvio](https://
 
 This is a fork of [rajhodedara/live-sport-plugin](https://github.com/rajhodedara/live-sport-plugin). Credit for the original project goes there.
 
-> **Streams come from third-party websites.** AIOSport Lite hosts no video. Sources change and go offline often, so a fixture with no working stream is normal and usually not a problem with your setup.
+> **Streams come from third-party websites.** AIOPlay hosts no video. Sources change and go offline often, so a fixture with no working stream is normal and usually not a problem with your setup.
 
 ## Contents
 
@@ -171,7 +182,7 @@ The Stremio-compatible addon resources remain usable through their install URLs 
 
 There are no user-specific addons in the first-party app. The administrator owns the service configuration and every authenticated user sees the same content backends.
 
-Sports can use the default/saved AIOSport Lite configuration or one explicit app-wide `AIOSPORT_MANIFEST_URL`. User accounts contain personal state such as favourites/watch progress later, not addon/service settings.
+Sports can use the default/saved AIOPlay configuration or one explicit app-wide `AIOSPORT_MANIFEST_URL`. User accounts contain personal state such as favourites/watch progress later, not addon/service settings.
 
 ## Optional VOD with AIOMetadata and AIOStreams
 
@@ -179,7 +190,7 @@ VOD is intentionally split by responsibility:
 
 - **AIOMetadata** supplies Movies/Series catalogs, search, artwork, title metadata and episode lists.
 - **AIOStreams** supplies ranked stream results and its native playback/failover chain.
-- **AIOSport Lite** is the authenticated gateway. It keeps both manifest URLs server-side and exposes a first-party API to the web/TV clients.
+- **AIOPlay** is the authenticated gateway. It keeps both manifest URLs server-side and exposes a first-party API to the web/TV clients.
 
 Configure one manifest for each service:
 
@@ -189,11 +200,11 @@ AIOMETADATA_MANIFEST_URL=https://metadata.example/stremio/<uuid>/manifest.json
 AIOSTREAMS_MANIFEST_URL=https://streams.example/<configured-path>/manifest.json
 ```
 
-`http://`, `https://` and `stremio://` install URLs are accepted; `stremio://` is normalised to HTTPS. Internal Docker-network HTTP URLs are also valid if AIOSport Lite can reach them.
+`http://`, `https://` and `stremio://` install URLs are accepted; `stremio://` is normalised to HTTPS. Internal Docker-network HTTP URLs are also valid if AIOPlay can reach them.
 
 When VOD is enabled, the first-party web app automatically adds **Movies** and **Series**. Search is sent only through AIOMetadata. Series metadata supplies the episode list. Pressing a movie or episode calls the opaque playback API; the user never receives a stream list, addon name, provider name, score or ranking.
 
-AIOStreams remains the authority for stream ordering and resolution. Its owned playback URLs contain its native failover-chain key, so the first playback target can move through AIOStreams' configured debrid/Usenet/fallback policy without the client knowing which provider won. AIOSport Lite keeps additional AIOStreams-ranked media URLs server-side as a second recovery layer for a player-detected failure. VOD `externalUrl` entries are deliberately ignored because they mean “open another page/app”, not guaranteed in-player media.
+AIOStreams remains the authority for stream ordering and resolution. Its owned playback URLs contain its native failover-chain key, so the first playback target can move through AIOStreams' configured debrid/Usenet/fallback policy without the client knowing which provider won. AIOPlay keeps additional AIOStreams-ranked media URLs server-side as a second recovery layer for a player-detected failure. VOD `externalUrl` entries are deliberately ignored because they mean “open another page/app”, not guaranteed in-player media.
 
 ### Configure VOD from the admin UI
 
@@ -254,7 +265,7 @@ StreamFree, TimStreams, Streamed.pk, SportyHunter, WatchFooty, CDNLive, StreamSp
 
 **A fixture has no streams.** The source sites haven't posted one yet, or took it down. Streams often appear shortly before kickoff. Try again closer to the start. The first-party player chooses and retries available sources automatically; there is no source picker. A tile in ⭐ Your Teams marked `⏳ No streams listed yet` is this, said in advance: the game is on ESPN's schedule and no site has posted a link to it.
 
-**What happens when the chosen stream fails?** First-party clients never show the alternatives. AIOSport Lite keeps the ranked candidates private and requests the next one after a fatal startup/playback error. For VOD, the preferred AIOStreams URL also carries AIOStreams' own native failover chain, so debrid/Usenet failover happens before the client-level recovery path is needed.
+**What happens when the chosen stream fails?** First-party clients never show the alternatives. AIOPlay keeps the ranked candidates private and requests the next one after a fatal startup/playback error. For VOD, the preferred AIOStreams URL also carries AIOStreams' own native failover chain, so debrid/Usenet failover happens before the client-level recovery path is needed.
 
 **Stremio won't install the addon.** It needs an https address; see [Stremio needs https](#stremio-needs-https).
 
@@ -295,7 +306,7 @@ Built with Node.js, Express and [stremio-addon-sdk](https://github.com/Stremio/s
 
 ## License and disclaimer
 
-AIOSport Lite is released under the [MIT License](LICENSE). It is free, with no paid tiers, and anyone selling access to it is not connected to this project.
+AIOPlay is released under the [MIT License](LICENSE). It is free, with no paid tiers, and anyone selling access to it is not connected to this project.
 
 - **No hosted media.** The addon doesn't host, store or broadcast video. It lists links that third-party websites already publish and passes them to your player.
 - **Not affiliated.** It isn't affiliated with or endorsed by any league, team, broadcaster or streaming service. Their names and logos belong to their owners and appear only to identify content.
