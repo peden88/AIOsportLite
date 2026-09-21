@@ -38,16 +38,14 @@
       display:flex;
       justify-content:center;
       align-items:center;
-      gap:9px;
+      gap:6px;
       margin:9px auto 0;
       width:100%;
       max-width:1180px;
       min-height:34px;
       flex-wrap:nowrap;
-      overflow-x:auto;
-      scrollbar-width:none;
+      overflow:visible;
     }
-    .control-bar::-webkit-scrollbar { display:none; }
     .admin-toolbar { display:flex; justify-content:center; align-items:center; gap:6px; margin:0; flex-wrap:nowrap; }
     .admin-toolbar a {
       min-height:34px;
@@ -104,17 +102,25 @@
     .mode-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:0 3px 12px rgba(22,104,255,.25); }
     .player-select {
       display:none;
+      height:34px;
       min-height:34px;
-      padding:6px 30px 6px 12px;
+      min-width:0;
+      max-width:118px;
+      padding:0 24px 0 10px;
       border-radius:18px;
       border:1px solid rgba(255,255,255,.18);
       background:#141418;
       color:#e8e8ec;
-      font:700 12px/1 'Inter',sans-serif;
+      font-family:'Inter',sans-serif;
+      font-size:12px;
+      font-weight:700;
+      line-height:normal;
       outline:none;
       cursor:pointer;
       white-space:nowrap;
+      text-overflow:ellipsis;
     }
+    .player-select option { color:#e8e8ec; background:#141418; font:inherit; }
     .player-select:focus { border-color:var(--accent); }
     .player-choice-overlay {
       display:none;
@@ -194,24 +200,40 @@
     .details-head h2 { margin:0 0 10px; font:800 28px/1.15 'Outfit',sans-serif; }
     .details-head p { color:var(--text-muted); margin:0; white-space:pre-line; }
     .details-close { float:right; background:#292930; color:#fff; border:0; border-radius:10px; padding:9px 13px; cursor:pointer; }
-    .episode-list { margin-top:24px; display:grid; gap:9px; }
+    .season-control { display:none; margin-top:22px; align-items:center; gap:10px; }
+    .season-control label { color:var(--text-muted); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+    .season-select {
+      min-height:38px;
+      padding:0 34px 0 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.16);
+      background:#1c1c22;
+      color:#fff;
+      font-family:'Inter',sans-serif;
+      font-size:13px;
+      font-weight:700;
+      line-height:normal;
+      outline:none;
+    }
+    .season-select:focus { border-color:var(--accent); }
+    .episode-list { margin-top:14px; display:grid; gap:9px; }
     .episode-btn { width:100%; text-align:left; background:#1c1c22; border:1px solid var(--card-border); color:#fff; border-radius:10px; padding:12px 14px; cursor:pointer; }
     .episode-btn:hover { border-color:var(--accent); background:#222633; }
-    .episode-season { margin:18px 0 7px; color:var(--text-muted); font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
     @media(max-width:650px){
-      header { padding: 12px 12px 10px; }
-      .header-row { gap: 9px; }
-      .brand img { width: 44px; height: 44px; }
-      .header-search { padding: 10px 14px; font-size: 14px; }
+      header { padding: 12px 8px 10px; }
+      .header-row { gap: 8px; }
+      .brand img { width: 42px; height: 42px; }
+      .header-search { padding: 10px 13px; font-size: 14px; }
       main { padding: 14px 12px 32px; }
-      .control-bar { gap:7px; margin-top:8px; justify-content:flex-start; }
-      .admin-toolbar { gap:5px; }
-      .admin-toolbar .admin-action { padding:6px 10px !important; font-size:12px; }
-      .admin-icon-button { width:32px; height:32px; min-height:32px !important; flex-basis:32px; }
-      .control-separator { height:22px; }
-      .mode-tabs { gap:5px; }
-      .mode-tab { padding:7px 12px; min-height:32px; font-size:12px; }
-      .player-select { min-height:32px; max-width:132px; padding:6px 26px 6px 10px; }
+      .control-bar { gap:4px; margin-top:8px; justify-content:center; }
+      .admin-toolbar { gap:3px; min-width:0; }
+      .admin-toolbar .admin-action { padding:5px 7px !important; min-height:30px; font-size:10.5px; }
+      .admin-icon-button { width:30px; height:30px; min-height:30px !important; flex-basis:30px; }
+      .admin-icon-button svg { width:15px; height:15px; }
+      .control-separator { height:20px; margin:0 1px; }
+      .mode-tabs { gap:3px; min-width:0; }
+      .mode-tab { padding:6px 9px; min-height:30px; font-size:11px; }
+      .player-select { height:30px; min-height:30px; max-width:92px; padding:0 20px 0 7px; font-size:11px; }
       .tabs { gap:10px; margin-bottom:14px; }
       .tab { padding:9px 16px; font-size:13px; }
       .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
@@ -256,13 +278,13 @@
       <div class="admin-only control-separator" aria-hidden="true"></div>
       <div class="mode-tabs" id="modeTabs"></div>
       <div class="control-separator vod-player-control" id="vodPlayerSeparator" aria-hidden="true" style="display:none"></div>
-      <select id="vodPlayerSelect" class="player-select vod-player-control" aria-label="VOD player">
-        <option value="internal">Player: AIOPlay</option>
-        <option value="ask">Player: Ask each time</option>
-        <option value="vlc">Player: VLC</option>
-        <option value="outplayer">Player: Outplayer</option>
-        <option value="strexo">Player: Strexo</option>
-        <option value="custom">Player: Custom</option>
+      <select id="vodPlayerSelect" class="player-select vod-player-control" aria-label="VOD playback player" title="VOD playback player">
+        <option value="internal">AIOPlay</option>
+        <option value="ask">Ask</option>
+        <option value="vlc">VLC</option>
+        <option value="outplayer">Outplayer</option>
+        <option value="strexo">Strexo</option>
+        <option value="custom">Custom</option>
       </select>
     </div>
   </header>
@@ -283,6 +305,10 @@
           <h2 id="detailsTitle"></h2>
           <p id="detailsDescription"></p>
         </div>
+      </div>
+      <div class="season-control" id="seasonControl">
+        <label for="seasonSelect">Season</label>
+        <select id="seasonSelect" class="season-select" aria-label="Season"></select>
       </div>
       <div class="episode-list" id="episodeList"></div>
     </div>
@@ -660,7 +686,12 @@
     async function openSeries(preview) {
       const overlay = document.getElementById('details-overlay');
       const list = document.getElementById('episodeList');
+      const seasonControl = document.getElementById('seasonControl');
+      const seasonSelect = document.getElementById('seasonSelect');
       overlay.style.display = 'block';
+      seasonControl.style.display = 'none';
+      seasonSelect.innerHTML = '';
+      seasonSelect.onchange = null;
       document.getElementById('detailsTitle').textContent = preview.name || 'Series';
       document.getElementById('detailsDescription').textContent = preview.description || '';
       const poster = document.getElementById('detailsPoster');
@@ -686,38 +717,53 @@
           (Number(a.season) || 0) - (Number(b.season) || 0) ||
           (Number(a.episode) || 0) - (Number(b.episode) || 0)
         );
-        list.innerHTML = '';
 
         if (!videos.length) {
           list.innerHTML = '<div style="color:var(--text-muted);">No episodes are available in metadata for this title.</div>';
           return;
         }
 
-        let lastSeason = null;
-        for (const video of videos) {
-          const season = Number(video.season) || 0;
-          if (season !== lastSeason) {
-            const heading = document.createElement('div');
-            heading.className = 'episode-season';
-            heading.textContent = season ? ('Season ' + season) : 'Episodes';
-            list.appendChild(heading);
-            lastSeason = season;
+        const seasons = [...new Set(videos.map(video => Number(video.season) || 0))].sort((a, b) => a - b);
+        const defaultSeason = seasons.find(season => season > 0) ?? seasons[0];
+
+        for (const season of seasons) {
+          const option = document.createElement('option');
+          option.value = String(season);
+          option.textContent = season > 0 ? ('Season ' + season) : 'Specials';
+          seasonSelect.appendChild(option);
+        }
+
+        const renderSeason = season => {
+          list.innerHTML = '';
+          const selected = videos.filter(video => (Number(video.season) || 0) === season);
+
+          if (!selected.length) {
+            list.innerHTML = '<div style="color:var(--text-muted);">No episodes are available for this season.</div>';
+            return;
           }
 
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'episode-btn';
-          const ep = Number(video.episode) || 0;
-          const prefix = season && ep ? ('S' + season + ' E' + ep + ' · ') : '';
-          button.textContent = prefix + (video.title || video.name || ('Episode ' + (ep || '')));
-          button.onclick = async () => {
-            closeDetails();
-            await fetchAndPlay(video.id, 'episode', 'series');
-          };
-          list.appendChild(button);
-        }
+          for (const video of selected) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'episode-btn';
+            const ep = Number(video.episode) || 0;
+            const prefix = ep ? ('E' + ep + ' · ') : '';
+            button.textContent = prefix + (video.title || video.name || ('Episode ' + (ep || '')));
+            button.onclick = async () => {
+              closeDetails();
+              await fetchAndPlay(video.id, 'episode', 'series');
+            };
+            list.appendChild(button);
+          }
+        };
+
+        seasonSelect.value = String(defaultSeason);
+        seasonSelect.onchange = () => renderSeason(Number(seasonSelect.value) || 0);
+        seasonControl.style.display = 'flex';
+        renderSeason(defaultSeason);
       } catch (err) {
         console.error(err);
+        seasonControl.style.display = 'none';
         list.innerHTML = '<div style="color:var(--accent);">Could not load episodes.</div>';
       }
     }
@@ -725,6 +771,13 @@
     function closeDetails() {
       document.getElementById('details-overlay').style.display = 'none';
       document.getElementById('episodeList').innerHTML = '';
+      const seasonControl = document.getElementById('seasonControl');
+      const seasonSelect = document.getElementById('seasonSelect');
+      if (seasonControl) seasonControl.style.display = 'none';
+      if (seasonSelect) {
+        seasonSelect.innerHTML = '';
+        seasonSelect.onchange = null;
+      }
     }
 
     function showPlaybackLoading(text = 'Loading stream...') {
