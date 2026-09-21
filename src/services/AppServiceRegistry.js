@@ -69,6 +69,9 @@ function privateConfig() {
     selectedValue(saved, 'aiostreamsManifestUrl', 'AIOSTREAMS_MANIFEST_URL')
   );
   const sportsManifestUrl = normaliseHttpUrl(process.env.AIOSPORT_MANIFEST_URL);
+  const sportsEnabled = Object.prototype.hasOwnProperty.call(saved, 'sportsEnabled')
+    ? !!saved.sportsEnabled
+    : (process.env.SPORTS_ENABLED === undefined ? true : enabled(process.env.SPORTS_ENABLED));
 
   const metadataEnabled = !!metadataManifestUrl;
   const streamsEnabled = !!streamsManifestUrl;
@@ -79,7 +82,7 @@ function privateConfig() {
 
   return {
     sports: {
-      enabled: process.env.SPORTS_ENABLED === undefined ? true : enabled(process.env.SPORTS_ENABLED),
+      enabled: sportsEnabled,
       manifestUrl: sportsManifestUrl,
       role: 'live-catalog-and-playback'
     },
@@ -98,6 +101,7 @@ function privateConfig() {
       requested: vodRequested
     },
     sources: {
+      sportsEnabled: sourceFor(saved, 'sportsEnabled'),
       metadata: sourceFor(saved, 'aiometadataManifestUrl'),
       streams: sourceFor(saved, 'aiostreamsManifestUrl'),
       vodEnabled: sourceFor(saved, 'vodEnabled')
@@ -164,6 +168,11 @@ function endpointSummary(url, source) {
 function adminSummary() {
   const cfg = privateConfig();
   return {
+    sports: {
+      enabled: cfg.sports.enabled,
+      source: cfg.sources.sportsEnabled,
+      manifestConfigured: !!cfg.sports.manifestUrl
+    },
     vodRequested: cfg.vod.requested,
     vodEnabled: cfg.vod.enabled,
     metadata: endpointSummary(cfg.metadata.manifestUrl, cfg.sources.metadata),
@@ -181,6 +190,9 @@ function updatePersistentVod(patch = {}) {
   const current = serviceSettings.read();
   const next = { ...current };
 
+  if (Object.prototype.hasOwnProperty.call(patch, 'sportsEnabled')) {
+    next.sportsEnabled = !!patch.sportsEnabled;
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'vodEnabled')) {
     next.vodEnabled = !!patch.vodEnabled;
   }
