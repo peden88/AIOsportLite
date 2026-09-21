@@ -5,8 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AIOPlay | Setup</title>
-  <link rel="icon" type="image/svg+xml" href="/brand/aioplay-mark.svg>
-  <link rel="apple-touch-icon" href="/brand/aioplay-mark.svg">
+  <link rel="icon" type="image/svg+xml" href="/aioplay-brand.webp>
+  <link rel="apple-touch-icon" href="/aioplay-brand.webp">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;900&display=swap"
     rel="stylesheet">
   <style>
@@ -559,7 +559,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <img id="addonLogoImg" src="/brand/aioplay-mark.svg" alt="" style="width: 88px; height: 88px; border-radius: 20px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(22, 104, 255, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); object-fit: cover;">
+      <img id="addonLogoImg" src="/aioplay-brand.webp" alt="" style="width: 88px; height: 88px; border-radius: 20px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(22, 104, 255, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); object-fit: cover;">
       <h1>
         <span class="dot"></span><span id="addonName">AIOPlay</span>
         <button type="button" id="editAddonBtn" class="pencil-btn" title="Customize addon" aria-label="Customize addon">
@@ -1434,7 +1434,7 @@
     function paintIdentity() {
       addonNameEl.textContent = addonNameValue() || DEFAULT_ADDON_NAME;
       addonSubtitleEl.textContent = cleanText(identity.description, 300) || DEFAULT_SUBTITLE;
-      addonLogoImg.src = identity.logo || '/brand/aioplay-mark.svg';
+      addonLogoImg.src = identity.logo || '/aioplay-brand.webp';
     }
 
     // Version and build, the way any self-hosted thing should say which copy of

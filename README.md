@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/brand/aioplay-mark.svg" width="120" height="120" alt="AIOPlay logo">
+  <img src="public/aioplay-brand.webp" width="120" height="120" alt="AIOPlay logo">
 </p>
 
 # AIOPlay
@@ -19,8 +19,8 @@ AIOPlay is the product identity for the first-party web and TV experience. It is
 
 AIOPlay is the product identity across the web player and the forthcoming TV app. The application shell is intentionally media-neutral: sports are one content capability alongside Movies, Series, Channels and future services.
 
-- **In-app mark:** `public/brand/aioplay-mark.svg` — the AIO letters over the blue/cyan/violet play symbol. Use this for navigation chrome, login, settings, player branding and favicons.
-- **Launcher/banner:** `public/brand/aioplay-launcher.svg` — the wide AIOPlay lockup. This is the source artwork for Android TV launcher banners and splash/launch surfaces.
+- **In-app mark:** `public/aioplay-brand.webp` — the AIO letters over the blue/cyan/violet play symbol. Use this for navigation chrome, login, settings, player branding and favicons.
+- **Launcher/banner:** `public/aioplay-launcher.webp` — the wide AIOPlay lockup. This is the source artwork for Android TV launcher banners and splash/launch surfaces.
 - Do not add football, racing, MMA, rugby or other category imagery to the global AIOPlay logo. Category-specific artwork belongs inside content rows only.
 - Technical compatibility names such as `community.aiosportlite`, the GHCR image/repository name and legacy config/storage keys remain unchanged so branding updates do not break existing installs.
 

@@ -17,7 +17,7 @@ const manifest = {
   description:
     'Self-hosted AIOPlay gateway for live events and 24/7 channels, with first-party Movies and Series ' +
     'support through configured services.',
-  logo: '/brand/aioplay-mark.svg',
+  logo: '/aioplay-brand.webp',
 
   types: ['tv'],
   resources: ['catalog', 'meta', 'stream'],
