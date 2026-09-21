@@ -214,7 +214,15 @@ app.use((req, res, next) => {
     const rest = req.url.slice(prefixLen);
     const wantsPage = /^(\/configure\/?)?(\?|$)/.test(rest)
       || String(req.get('accept') || '').includes('text/html');
-    if (wantsPage) return res.redirect(302, '/configure');
+    if (wantsPage) {
+      // /services links the installation-wide sports editor through /saved/configure.
+      // On a fresh install the default profile does not exist yet. Preserve that
+      // identity so the first Save creates "default" instead of a new UUID profile.
+      if (id === LEGACY_ID && ownsEverything(req)) {
+        return res.redirect(302, '/configure?profile=' + encodeURIComponent(LEGACY_ID));
+      }
+      return res.redirect(302, '/configure');
+    }
 
     // A player asking for the manifest gets an answer it can act on.
     return res.status(404).json({
@@ -461,11 +469,80 @@ app.post('/api/v1/admin/vod/probe', express.json({ limit: '8kb' }), async (req, 
   }
 });
 
+function sportsAdminStatus() {
+  const cfg = appServices._privateConfig();
+  const explicitManifest = !!cfg.sports.manifestUrl;
+  const savedDefault = !explicitManifest && !!loadProfile(LEGACY_ID);
+  const configurationSource = explicitManifest
+    ? 'explicit-manifest'
+    : (savedDefault ? 'saved-default' : 'built-in-defaults');
+
+  if (!cfg.sports.enabled) {
+    return {
+      enabled: false,
+      ready: false,
+      configurationSource,
+      catalogs: 0,
+      sourceMode: 'disabled',
+      selectedSources: 0,
+      customSourceOrder: false
+    };
+  }
+
+  try {
+    const config = resolveAppSportsConfig();
+    const configured = buildConfiguredManifest(config);
+    const catalogs = (configured.catalogs || []).filter(cat => {
+      const extra = Array.isArray(cat.extra) ? cat.extra : [];
+      return !extra.some(item => item && item.isRequired);
+    }).length;
+
+    const rawSources = String(config.sources || '').trim();
+    let sourceMode = 'all';
+    let selectedSources = null;
+    if (rawSources === 'none') {
+      sourceMode = 'none';
+      selectedSources = 0;
+    } else if (rawSources && rawSources !== 'all') {
+      sourceMode = 'custom';
+      selectedSources = rawSources.split(',').map(v => v.trim()).filter(Boolean).length;
+    }
+
+    return {
+      enabled: true,
+      ready: true,
+      configurationSource,
+      catalogs,
+      sourceMode,
+      selectedSources,
+      customSourceOrder: !!String(config.sourceOrder || '').trim()
+    };
+  } catch (_) {
+    return {
+      enabled: true,
+      ready: false,
+      configurationSource,
+      catalogs: 0,
+      sourceMode: 'unknown',
+      selectedSources: null,
+      customSourceOrder: false,
+      error: 'Sports configuration is unavailable.'
+    };
+  }
+}
+
+app.post('/api/v1/admin/sports/test', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const status = sportsAdminStatus();
+  res.status(status.ready || !status.enabled ? 200 : 503).json(status);
+});
+
 app.get('/api/v1/admin/services', async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     res.json({
       config: appServices.adminSummary(),
+      sports: sportsAdminStatus(),
       status: await vodGateway.diagnostics()
     });
   } catch (err) {
@@ -478,8 +555,9 @@ app.put('/api/v1/admin/services', express.json({ limit: '16kb' }), async (req, r
   if (!requireAdmin(req, res)) return;
   try {
     const config = appServices.updatePersistentVod(req.body || {});
+    const sports = sportsAdminStatus();
     const status = await vodGateway.diagnostics();
-    res.json({ saved: true, config, status });
+    res.json({ saved: true, config, sports, status });
   } catch (err) {
     const statusCode = ['INVALID_SERVICE_URL', 'INVALID_SERVICE_CONFIG'].includes(err.code) ? 400 : 500;
     res.status(statusCode).json({ error: err.message });
