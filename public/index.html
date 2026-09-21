@@ -35,6 +35,22 @@
     .header-search::placeholder { color: var(--text-muted); }
     .header-search:focus { border-color: var(--accent); background: rgba(255,255,255,0.08); }
     .admin-toolbar { display:flex; justify-content:center; align-items:center; gap:8px; margin:10px auto 0; flex-wrap:wrap; }
+    .admin-icon-button {
+      display:grid !important;
+      place-items:center;
+      width:38px;
+      height:38px;
+      padding:0 !important;
+      line-height:0;
+      flex:0 0 38px;
+    }
+    .admin-icon-button svg {
+      display:block;
+      width:18px;
+      height:18px;
+      margin:0;
+      transform:none;
+    }
     main { padding: 18px 20px 40px; max-width: 1180px; margin: 0 auto; }
     
     .mode-tabs { display:flex; justify-content:center; align-items:center; gap:10px; margin:14px auto 0; width:100%; flex-wrap:nowrap; }
@@ -133,7 +149,7 @@
     <div class="mode-tabs" id="modeTabs"></div>
 
     <div class="admin-toolbar">
-      <a href="/dashboard" class="admin-only" title="Dashboard — caches, warming and health" aria-label="Dashboard" style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; text-decoration: none; transition: all 0.2s;">
+      <a href="/dashboard" class="admin-only admin-icon-button" title="Dashboard — caches, warming and health" aria-label="Dashboard" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; text-decoration: none; transition: all 0.2s;">
         <svg height="17" width="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       </a>
       <a href="/services" class="admin-only" style="display:inline-flex;align-items:center;color:#fff;text-decoration:none;font-weight:700;padding:9px 14px;border:1px solid rgba(255,255,255,.2);border-radius:30px;background:rgba(255,255,255,.08)">Services</a>
