@@ -34,9 +34,13 @@ t(!html.includes('>GitHub<'), 'user header has no GitHub button');
 t(!headerHtml.includes('<span>AIOPlay</span>'), 'user header shows the AIOPlay mark without redundant product text');
 t(html.includes('class="header-row"'), 'logo, search and logout share one top row');
 t(html.includes('grid-template-columns: auto minmax(0, 1fr) auto'), 'top row reserves logo, fluid search and logout columns');
-t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live Movies Series selector is centered to the page');
-t(/<header>[\s\S]*?<div class="mode-tabs" id="modeTabs"><\/div>[\s\S]*?<\/header>/.test(html), 'Live Movies Series selector sits directly in the page header below search');
+t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live VOD selector is centered to the page');
+t(/<header>[\s\S]*?<div class="mode-tabs" id="modeTabs"><\/div>[\s\S]*?<\/header>/.test(html), 'Live VOD selector sits directly in the page header below search');
 t(html.includes("add('sports', 'Live')"), 'Sports mode is labelled Live');
+t(html.includes("add('vod', 'VOD')"), 'Movies and Series are combined into one VOD mode');
+t(!html.includes("add('movie', 'Movies')") && !html.includes("add('series', 'Series')"), 'separate Movies and Series top-level modes are absent');
+t(html.includes('.vod-card .poster-container { aspect-ratio: 2/3; }'), 'web VOD cards use portrait poster proportions');
+t(html.includes("for (const catalog of data.catalogs || [])"), 'web VOD catalog rail preserves AIOMetadata order without sorting');
 t(html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), 'content cards use a two-column grid');
 t(html.includes('overflow-x: auto; overflow-y:hidden'), 'catalog selector remains horizontally scrollable');
 
