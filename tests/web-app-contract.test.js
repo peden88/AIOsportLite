@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const servicesHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'services.html'), 'utf8');
 
 let pass = 0, fail = 0;
 function t(condition, label) {
@@ -25,6 +26,11 @@ t(html.includes('/api/v1/vod/meta/series/'), 'series details load episodes from 
 t(html.includes("fetchAndPlay(video.id, 'episode', 'series')"), 'episodes play through AIOStreams as series resources');
 t(!html.includes('AIOMETADATA_MANIFEST_URL'), 'web page never receives the AIOMetadata manifest URL');
 t(!html.includes('AIOSTREAMS_MANIFEST_URL'), 'web page never receives the AIOStreams manifest URL');
+
+console.log('--- global sports administration contract');
+t(servicesHtml.includes('id="sportsEnabled"'), 'Services page exposes the instance-wide sports enable switch');
+t(servicesHtml.includes('href="/saved/configure"'), 'Services page opens the true default sports profile editor');
+t(servicesHtml.includes('/api/v1/admin/sports/test'), 'Services page can verify the active sports configuration');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
