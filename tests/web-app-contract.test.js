@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const headerHtml = (html.match(/<header>[\s\S]*?<\/header>/) || [''])[0];
 
 let pass = 0, fail = 0;
 function t(condition, label) {
@@ -30,7 +31,7 @@ t(!html.includes('AIOSTREAMS_MANIFEST_URL'), 'web page never receives the AIOStr
 console.log('--- user web layout contract');
 t(!html.includes('Tip on Ko-fi'), 'user header has no Ko-fi button');
 t(!html.includes('>GitHub<'), 'user header has no GitHub button');
-t(!/<header>[\s\S]*?<div class="brand">[\s\S]*?<span>AIOPlay<\/span>/.test(html), 'user header shows the AIOPlay mark without redundant product text');
+t(!headerHtml.includes('<span>AIOPlay</span>'), 'user header shows the AIOPlay mark without redundant product text');
 t(html.includes('class="header-row"'), 'logo, search and logout share one top row');
 t(html.includes('grid-template-columns: auto minmax(0, 1fr) auto'), 'top row reserves logo, fluid search and logout columns');
 t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live Movies Series selector is centered to the page');
