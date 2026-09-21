@@ -4,6 +4,17 @@
 
 # AIOPlay
 
+AIOPlay is the product identity for the first-party web and TV experience. It is intentionally content-neutral: sports, live TV, movies and series all live under one brand.
+
+## Branding
+
+- **Product name:** `AIOPlay`
+- **In-app and web mark:** `public/aioplay-brand.webp`
+- **TV launcher/banner artwork:** `public/aioplay-launcher.webp`
+- Do not introduce sport-specific product names, logos or launcher artwork.
+- Existing repository names, Docker image names, addon IDs, volume names and legacy backup schema keys remain unchanged where required for compatibility.
+
+
 ## AIOPlay branding
 
 AIOPlay is the product identity across the web player and the forthcoming TV app. The application shell is intentionally media-neutral: sports are one content capability alongside Movies, Series, Channels and future services.

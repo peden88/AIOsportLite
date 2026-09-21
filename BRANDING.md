@@ -1,61 +1,38 @@
-# AIOPlay brand system
+# AIOPlay brand guide
 
-## Product name
+## Canonical identity
 
-**AIOPlay** is the only user-facing application name. It represents the complete media experience rather than any single content type.
+The product name is **AIOPlay**.
 
-Do not use AIOSport, AIOSports, AIOSport Lite or sport-specific wording as product branding. Those names may remain only where required as legacy technical identifiers.
+AIOPlay is an all-in-one streaming application. The product identity must remain content-neutral even when an individual screen contains sports, live TV, movies, series or anime.
 
-## Primary assets
+Do not create product variants such as "AIO Sports", "AIOPlay Sports", "AIOSport Lite" or other sport-specific names for first-party UI.
 
-### In-app mark
+## Approved assets
 
-`public/brand/aioplay-mark.svg`
+### In-app / web brand mark
 
-Use for:
-- app navigation/header identity
-- web header
-- login/account surfaces
-- settings and administration
-- player overlay
-- favicons and small marks
-- future Android TV in-app branding
+`public/aioplay-brand.webp`
 
-The mark is the white **AIO** monogram over a cyan → blue → violet play symbol on a dark rounded-square field.
+Use this for:
+- web headers
+- login/account screens
+- admin and services screens
+- favicons / small product identity
+- Android TV in-app branding
+- splash/loading surfaces where a square brand mark is appropriate
 
-### Launcher / splash banner
+### TV launcher / banner
 
-`public/brand/aioplay-launcher.svg`
+`public/aioplay-launcher.webp`
 
-Use as the source for:
+Use this for:
 - Android TV launcher banner
-- launch/splash artwork
-- large branded hero surfaces where a horizontal lockup is needed
-
-For Android builds, rasterize this source into the exact launcher/banner sizes required by the target SDK rather than redrawing it.
-
-## Core palette
-
-- Background: `#020307`
-- Deep navy: `#07122F`
-- Cyan: `#20E8FF`
-- Blue: `#086CFF`
-- Deep blue: `#1537D6`
-- Violet: `#9B2CFF`
-- Foreground: `#FFFFFF`
-
-Gradients should flow cyan → blue → violet. Keep glow restrained outside splash/launcher surfaces.
-
-## Product rule
-
-The global shell must stay content-neutral. Football, Rugby, Racing, MMA, Movies, Series and Channels can have their own imagery inside catalog/content areas, but none of those categories should alter the AIOPlay logo, launcher identity, login screen, navigation shell or player chrome.
+- TV home-screen promotional/launcher artwork
+- wide splash or branded hero surfaces where a 16:9 treatment is required
 
 ## Compatibility
 
-The following are intentionally not renamed during the branding pass:
-- repository: `peden88/AIOsportLite`
-- container/image/service names currently using `aiosportlite`
-- Stremio manifest id: `community.aiosportlite`
-- legacy localStorage/config format identifiers such as `aiosports.profileKeys` and `aiosports.config`
+The public product brand is AIOPlay, but technical identifiers that already have deployed compatibility requirements do not need to be renamed. Examples include the GitHub repository name, GHCR image path, Docker volume names, Stremio addon IDs and legacy backup schema keys.
 
-Changing them would turn a visual branding update into a migration and could break existing installs or backups.
+Internal technical names must not leak into normal first-party user-facing UI.

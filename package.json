@@ -1,7 +1,7 @@
 {
   "name": "aiosportlite",
   "version": "1.6.0-lite.1",
-  "description": "AIOPlay self-hosted media gateway for live events, channels and first-party VOD integration.",
+  "description": "AIOPlay self-hosted all-in-one streaming platform gateway for live TV, events, movies and series.",
   "main": "src/index.js",
   "scripts": {
     "prestart": "npm run build",
@@ -46,6 +46,11 @@
     "node": ">=22.0.0"
   },
   "keywords": [
+    "aioplay",
+    "streaming",
+    "media",
+    "android-tv",
+    "web-player",
     "nuvio",
     "stremio",
     "addon",
