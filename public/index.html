@@ -20,44 +20,33 @@
     }
     * { box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; min-height: 100vh; }
-    header { position: sticky; top: 0; z-index: 50; background: var(--glass); backdrop-filter: blur(16px); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); flex-wrap: wrap; gap: 15px; }
-    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .brand { display: flex; align-items: center; gap: 12px; font-family: 'Outfit', sans-serif; font-size: 1.8rem; font-weight: 900; }
-    .brand span { background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .brand img { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 12px rgba(22, 104, 255, 0.3); }
-    /* Up here rather than beside the tabs, where it took 200px off a row that
-       already scrolls -- the last tab sat underneath it and looked cut off. The
-       tab strip now gets the full width and this gets the space the header has
-       going spare. */
+    header { position: sticky; top: 0; z-index: 50; background: var(--glass); backdrop-filter: blur(16px); padding: 16px 20px 12px; border-bottom: 1px solid var(--card-border); }
+    .header-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; max-width: 1180px; margin: 0 auto; }
+    .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
+    .brand { display: flex; align-items: center; }
+    .brand img { width: 48px; height: 48px; border-radius: 11px; object-fit: cover; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 12px rgba(22, 104, 255, 0.3); }
     .header-search {
-      flex: 1 1 180px; min-width: 140px; max-width: 420px;
-      padding: 10px 18px; border-radius: 30px; font-family: 'Inter', sans-serif;
+      width: 100%; min-width: 0; max-width: none;
+      padding: 11px 18px; border-radius: 30px; font-family: 'Inter', sans-serif;
       font-size: 14px; background: rgba(255,255,255,0.05);
       border: 1px solid var(--card-border); color: #fff; outline: none;
       transition: border-color 0.2s, background 0.2s;
     }
     .header-search::placeholder { color: var(--text-muted); }
     .header-search:focus { border-color: var(--accent); background: rgba(255,255,255,0.08); }
-    main { padding: 40px; max-width: 1600px; margin: 0 auto; }
-    @media (max-width: 768px) {
-      header { padding: 15px 20px; flex-direction: column; align-items: flex-start; }
-      main { padding: 20px; }
-      /* Stacked header: the search gets its own full-width line rather than a
-         420px cap that would leave it stranded against the left edge. */
-      .header-search { width: 100%; max-width: none; flex: none; order: 3; }
-      .header-actions { width: 100%; }
-      .header-actions a { flex: 1; justify-content: center; text-align: center; }
-    }
+    .admin-toolbar { display:flex; justify-content:center; align-items:center; gap:8px; margin:10px auto 0; flex-wrap:wrap; }
+    main { padding: 18px 20px 40px; max-width: 1180px; margin: 0 auto; }
     
-    .mode-tabs { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
-    .mode-tab { padding:9px 18px; border-radius:12px; background:#141418; border:1px solid var(--card-border); color:var(--text-muted); cursor:pointer; font-weight:700; }
+    .mode-tabs { display:flex; justify-content:center; align-items:center; gap:10px; margin:14px auto 0; width:100%; flex-wrap:nowrap; }
+    .mode-tab { padding:9px 18px; border-radius:12px; background:#141418; border:1px solid var(--card-border); color:var(--text-muted); cursor:pointer; font-weight:700; white-space:nowrap; }
     .mode-tab.active { background:#fff; color:#0a0a0c; border-color:#fff; }
-    .tabs { display: flex; gap: 15px; margin-bottom: 30px; overflow-x: auto; padding-bottom: 10px; }
+    .tabs { display: flex; gap: 12px; margin-bottom: 18px; overflow-x: auto; overflow-y:hidden; padding: 2px 0 10px; white-space:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .tabs::-webkit-scrollbar { display:none; }
     .tab { padding: 10px 20px; border-radius: 30px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text-muted); cursor: pointer; font-weight: 600; transition: all 0.2s; white-space: nowrap; }
     .tab:hover { background: rgba(255,255,255,0.1); color: white; }
     .tab.active { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 4px 15px var(--accent-glow); }
     
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 30px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; width:100%; }
     .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; overflow: hidden; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
     .card:hover { transform: translateY(-8px) scale(1.02); border-color: var(--accent); box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 20px var(--accent-glow); z-index: 10; }
     .poster-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #111; overflow: hidden; }
@@ -94,7 +83,27 @@
     .episode-btn { width:100%; text-align:left; background:#1c1c22; border:1px solid var(--card-border); color:#fff; border-radius:10px; padding:12px 14px; cursor:pointer; }
     .episode-btn:hover { border-color:var(--accent); background:#222633; }
     .episode-season { margin:18px 0 7px; color:var(--text-muted); font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
-    @media(max-width:650px){ .details-head{grid-template-columns:1fr}.details-head img{width:130px}.details-shell{padding:18px} }
+    @media(max-width:650px){
+      header { padding: 12px 12px 10px; }
+      .header-row { gap: 9px; }
+      .brand img { width: 44px; height: 44px; }
+      .header-search { padding: 10px 14px; font-size: 14px; }
+      main { padding: 14px 12px 32px; }
+      .mode-tabs { gap:8px; margin-top:12px; }
+      .mode-tab { padding:9px 15px; font-size:13px; }
+      .tabs { gap:10px; margin-bottom:14px; }
+      .tab { padding:9px 16px; font-size:13px; }
+      .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+      .card { border-radius:14px; }
+      .poster { padding:6px; }
+      .logo { top:8px; left:8px; width:34px; height:34px; border-radius:8px; padding:4px; }
+      .live-badge { top:8px; right:8px; font-size:.62rem; padding:3px 7px; }
+      .info { padding:22px 10px 9px; }
+      .card:hover .info { padding-bottom:9px; }
+      .title { font-size:.93rem; margin-bottom:0; }
+      .desc { display:none; }
+      .details-head{grid-template-columns:1fr}.details-head img{width:130px}.details-shell{padding:18px}
+    }
     .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -103,23 +112,20 @@
 <body>
 
   <header>
-    <div class="brand">
-      <img src="/aioplay-brand.webp" alt="AIOPlay">
-      <span>AIOPlay</span>
+    <div class="header-row">
+      <div class="brand">
+        <img src="/aioplay-brand.webp" alt="AIOPlay">
+      </div>
+      <input type="text" id="searchInput" class="header-search" placeholder="Search matches…" aria-label="Search">
+      <div class="header-actions">
+        <button type="button" id="signOutBtn" title="Sign out of this browser" aria-label="Sign out" style="display: none; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; cursor: pointer; padding: 0;">
+          <svg height="18" width="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
+      </div>
     </div>
-    <input type="text" id="searchInput" class="header-search" placeholder="Search matches…" aria-label="Search matches">
-    <div class="header-actions">
-      <a href="https://ko-fi.com/mlp20" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 94, 91, 0.15); border: 1px solid rgba(255, 94, 91, 0.3); color: #FF5E5B; padding: 8px 16px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 13px; transition: all 0.2s;">
-        <svg height="14" viewBox="0 0 24 24" width="14" fill="currentColor"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.966-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.966 1.909.822 1.838 3.197.723 4.314z"/></svg>
-        Tip on Ko-fi
-      </a>
-      <a href="https://github.com/peden88/AIOsportLite" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 8px 16px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 13px; transition: all 0.2s;">
-        <svg height="14" viewBox="0 0 16 16" width="14" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-        GitHub
-      </a>
-      <button type="button" id="signOutBtn" title="Sign out of this browser" aria-label="Sign out" style="display: none; align-items: center; justify-content: center; width: 38px; height: 38px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; cursor: pointer; padding: 0;">
-        <svg height="17" width="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-      </button>
+
+
+    <div class="admin-toolbar">
       <a href="/dashboard" class="admin-only" title="Dashboard — caches, warming and health" aria-label="Dashboard" style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; text-decoration: none; transition: all 0.2s;">
         <svg height="17" width="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       </a>
@@ -234,7 +240,7 @@
         host.appendChild(btn);
       };
 
-      if (bootstrap.services?.sports?.enabled) add('sports', 'Sports');
+      if (bootstrap.services?.sports?.enabled) add('sports', 'Live');
       if (bootstrap.services?.vod?.enabled) {
         add('movie', 'Movies');
         add('series', 'Series');
