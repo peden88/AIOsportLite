@@ -39,6 +39,7 @@ const { PORT, BASE_URL, getRequestBaseUrl } = require('./config');
 const container = require('./container');
 const appServices = require('./services/AppServiceRegistry');
 const opaquePlayback = require('./services/OpaquePlayback');
+const externalPlayback = require('./services/ExternalPlaybackBridge');
 const userAuth = require('./services/UserAuth');
 const vodGateway = require('./services/VodGateway');
 
@@ -144,6 +145,7 @@ const RATE_RULES = [
   { prefix: '/api/manifest', perMinute: 1200 },
   // A live viewer fetches a segment every few seconds: twenty-odd a minute.
   { prefix: '/api/segment', perMinute: 1200 },
+  { prefix: '/api/v1/external-play', perMinute: 2400 },
   { prefix: '/api/proxy-embed', perMinute: 60 }
 ];
 const rateHits = new Map();   // "rule|address" -> { start, count }
@@ -1142,6 +1144,36 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
 app.post('/api/v1/playback/:sessionId/next', requirePage, (req, res) => {
   const result = opaquePlayback.nextPlayback(req.params.sessionId);
   res.status(result.ok ? 200 : (result.reason === 'PLAYBACK_SESSION_EXPIRED' ? 410 : 404)).json(result);
+});
+
+app.post('/api/v1/playback/:sessionId/external', requirePage, (req, res) => {
+  const target = opaquePlayback.currentTarget(req.params.sessionId);
+  if (!target) {
+    return res.status(410).json({ error: 'Playback session expired.' });
+  }
+  if (target.kind !== 'direct' || !target.url) {
+    return res.status(409).json({ error: 'This playback target cannot be opened externally.' });
+  }
+
+  const issued = externalPlayback.issue(target);
+  if (!issued) {
+    return res.status(409).json({ error: 'External playback is unavailable for this source.' });
+  }
+
+  const base = getRequestBaseUrl(req).replace(/\/$/, '');
+  return res.json({
+    ok: true,
+    url: base + '/api/v1/external-play/' + encodeURIComponent(issued.token),
+    expiresAt: new Date(issued.expiresAt).toISOString()
+  });
+});
+
+app.all('/api/v1/external-play/:token', (req, res) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.setHeader('Allow', 'GET, HEAD');
+    return res.status(405).send('Method not allowed.');
+  }
+  return externalPlayback.handle(req, res);
 });
 
 app.delete('/api/v1/playback/:sessionId', requirePage, (req, res) => {
