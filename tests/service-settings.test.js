@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'aiosportlite-services-'));
+process.env.SPORTS_ENABLED = 'false';
 process.env.VOD_ENABLED = 'false';
 process.env.AIOMETADATA_MANIFEST_URL = 'https://env-meta.example/stremio/env/manifest.json';
 process.env.AIOSTREAMS_MANIFEST_URL = 'https://env-streams.example/stremio/env/manifest.json';
@@ -21,23 +22,29 @@ function t(want,got,label){
 
 console.log('--- environment fallback');
 let summary=registry.adminSummary();
+t(false,summary.sports.enabled,'sports follows environment before an admin override');
+t('environment',summary.sports.source,'sports enable state initially comes from environment');
 t(false,summary.vodRequested,'VOD follows environment before an admin override');
 t('environment',summary.metadata.source,'AIOMetadata initially comes from environment');
 t('env-meta.example',summary.metadata.host,'admin summary exposes host but not full manifest URL');
 
 console.log('--- persisted global override');
 registry.updatePersistentVod({
+  sportsEnabled:true,
   vodEnabled:true,
   aiometadataManifestUrl:'stremio://persist-meta.example/stremio/app/manifest.json',
   aiostreamsManifestUrl:'https://persist-streams.example/stremio/app/manifest.json'
 });
 summary=registry.adminSummary();
+t(true,summary.sports.enabled,'saved service settings enable sports immediately');
+t('data',summary.sports.source,'saved sports enable state overrides environment');
 t(true,summary.vodEnabled,'saved service settings enable VOD immediately');
 t('data',summary.metadata.source,'saved AIOMetadata overrides environment');
 t('persist-meta.example',summary.metadata.host,'stremio URL normalises to an HTTPS host');
 t('persist-streams.example',summary.streams.host,'saved AIOStreams host is reported safely');
 
 const saved=JSON.parse(fs.readFileSync(settings.FILE,'utf8'));
+t(true,saved.sportsEnabled,'sports enabled flag persists under DATA_DIR');
 t(true,saved.vodEnabled,'VOD flag persists under DATA_DIR');
 t('https://persist-meta.example/stremio/app/manifest.json',saved.aiometadataManifestUrl,'normalised AIOMetadata URL persists');
 if(process.platform!=='win32'){
