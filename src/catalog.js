@@ -192,9 +192,94 @@ const CHANNEL_CATALOG_GENRES = {
   channel_entertainment: 'Entertainment',
   channel_movies: 'Movies',
   channel_documentary: 'Documentary',
-  channel_kids: 'Kids',
-  channel_sport: 'Sports'
+  channel_kids: 'Kids'
 };
+
+const SPORT_CHANNEL_CATALOGS = new Set([
+  'channel_sport_uk',
+  'channel_sport_us',
+  'channel_sport_international'
+]);
+
+const EXCLUDED_SPORT_REGIONS = new Set([
+  'CA', 'NZ', 'AU', 'IN', 'AR', 'NL', 'IL', 'MX', 'TR', 'GR'
+]);
+
+/**
+ * Country/region for a sports channel.
+ *
+ * Most providers already carry a region. A minority of TimStreams and
+ * Streamed.pk rows do not, so the remaining well-known networks are mapped
+ * explicitly. This keeps the split deterministic instead of guessing from
+ * whatever language or title happens to be present on a given refresh.
+ */
+function sportChannelRegion(m) {
+  const existing = String((m && m.region) || '').trim().toUpperCase();
+  if (existing) return existing;
+
+  const id = String((m && m.id) || '');
+  const title = String((m && (m.baseTitle || m.title)) || '').trim();
+
+  let hit = /^cdn_ch_([a-z]{2})_/i.exec(id);
+  if (hit) return hit[1].toUpperCase();
+
+  hit = /\.([a-z]{2})$/i.exec(id);
+  if (hit) return hit[1].toUpperCase();
+
+  if (/^ustv_/i.test(id)) return 'US';
+
+  const rules = [
+    [/^beIN Sports Francais [1-3]$/i, 'FR'],
+    [/^Big Ten Network$/i, 'US'],
+    [/^CANAL\+ Extra [12]$/i, 'PL'],
+    [/^CBS Sports Golazo Network$/i, 'US'],
+    [/^DAZN (?:F1|LaLiga)$/i, 'ES'],
+    [/^Eleven Sports [1-4]$/i, 'PL'],
+    [/^(?:ESPN Deportes|ESPNEWS|ESPNU)$/i, 'US'],
+    [/^Fox Cricket$/i, 'AU'],
+    [/^Fox Deportes$/i, 'US'],
+    [/^Fox Sports 1$/i, 'US'],
+    [/^Fox Sports 50[1-7]\b/i, 'AU'],
+    [/^Go3 Sport [1-3]$/i, 'BLT'],
+    [/^GOLF Channel$/i, 'US'],
+    [/^(?:MLB Network|NBA TV|NFL Network|NHL Network)$/i, 'US'],
+    [/^MotoGP Channel$/i, 'GLOBAL'],
+    [/^Movistar/i, 'ES'],
+    [/^NBC Sports (?:Bay Area|Philadelphia)$/i, 'US'],
+    [/^Polsat Sport/i, 'PL'],
+    [/^Premiere$/i, 'BR'],
+    [/^RACER Network$/i, 'US'],
+    [/^Rally TV$/i, 'GLOBAL'],
+    [/^SEC Network$/i, 'US'],
+    [/^Sky Sport 24$/i, 'IT'],
+    [/^Sky Sport Bundesliga$/i, 'DE'],
+    [/^Sky Sport Uno$/i, 'IT'],
+    [/^Sky Sports/i, 'GB'],
+    [/^Sony Sports Network/i, 'IN'],
+    [/^Sport TV[1-5]$/i, 'PT'],
+    [/^SPORTDIGITAL/i, 'DE'],
+    [/^Tennis Channel$/i, 'US'],
+    [/^TNT Sports [1-4]$/i, 'GB'],
+    [/^TSN1$/i, 'CA'],
+    [/^TUDN$/i, 'US'],
+    [/^TYC Sports Internacional$/i, 'AR'],
+    [/^UFC Fight Pass 24\/7$/i, 'GLOBAL'],
+    [/^USA Network$/i, 'US'],
+    [/^Willow Cricket(?: 2)?$/i, 'US'],
+    [/^Sky Sports F1$/i, 'GB']
+  ];
+  for (const [re, region] of rules) if (re.test(title)) return region;
+
+  return 'INTL';
+}
+
+function sportChannelCatalog(m) {
+  const region = sportChannelRegion(m);
+  if (EXCLUDED_SPORT_REGIONS.has(region)) return null;
+  if (region === 'US') return 'channel_sport_us';
+  if (region === 'GB' || region === 'IE' || region === 'GLOBAL') return 'channel_sport_uk';
+  return 'channel_sport_international';
+}
 
 const COMPETITION_LABEL = { nfl: 'NFL', cfl: 'CFL', afl: 'AFL' };
 
@@ -1234,9 +1319,8 @@ async function handleCatalog(type, id, extra, config, opts = {}) {
     // whose competition could not be named.
     filteredMatches = matches.filter(m => m.category === 'american_football' && !isChannel(m) && m._competition !== 'nfl');
   } else if (CHANNEL_CATALOG_GENRES[categoryMatch]) {
-    // Focused 24/7 television catalogs. Only the five explicitly published
-    // genres are exposed; News, Local, Music, Lifestyle and International are
-    // intentionally absent even though providers may still cache them.
+    // Focused 24/7 television catalogs. Only the explicitly published genres
+    // are exposed; News, Local, Music, Lifestyle and International are absent.
     const wantedGenre = CHANNEL_CATALOG_GENRES[categoryMatch];
     const channels = matches.filter(m =>
       isChannel(m)
@@ -1245,7 +1329,19 @@ async function handleCatalog(type, id, extra, config, opts = {}) {
       && channelGenre(m) === wantedGenre
     );
 
-    // Health-check only the channels that can actually appear in this catalog.
+    channelHealth.sweep(channels, (m) => countChannelStreams(m.id));
+    filteredMatches = channels.filter(m => !channelHealth.isDead(m.id));
+  } else if (SPORT_CHANNEL_CATALOGS.has(categoryMatch)) {
+    // Sport is split by region. Countries the viewer does not want are dropped
+    // entirely rather than being shuffled into International.
+    const channels = matches.filter(m =>
+      isChannel(m)
+      && !isTeamChannel(m)
+      && !exclusionReason(m)
+      && channelGenre(m) === 'Sports'
+      && sportChannelCatalog(m) === categoryMatch
+    );
+
     channelHealth.sweep(channels, (m) => countChannelStreams(m.id));
     filteredMatches = channels.filter(m => !channelHealth.isDead(m.id));
   } else if (categoryMatch === 'other') {
@@ -1299,7 +1395,7 @@ async function handleCatalog(type, id, extra, config, opts = {}) {
   // Sport 10. Grouping by genre made "All" jump from sports to news partway
   // down; the genre picker is how to see one group. Before the per-tab shuffle
   // and reverse below, which still have the last word.
-  if (CHANNEL_CATALOG_GENRES[categoryMatch]) {
+  if (CHANNEL_CATALOG_GENRES[categoryMatch] || SPORT_CHANNEL_CATALOGS.has(categoryMatch)) {
     filteredMatches.sort((a, b) =>
       String(a.title).localeCompare(String(b.title), 'en', { sensitivity: 'base', numeric: true }));
   }
