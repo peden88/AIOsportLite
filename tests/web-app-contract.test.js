@@ -26,5 +26,17 @@ t(html.includes("fetchAndPlay(video.id, 'episode', 'series')"), 'episodes play t
 t(!html.includes('AIOMETADATA_MANIFEST_URL'), 'web page never receives the AIOMetadata manifest URL');
 t(!html.includes('AIOSTREAMS_MANIFEST_URL'), 'web page never receives the AIOStreams manifest URL');
 
+
+console.log('--- user web layout contract');
+t(!html.includes('Tip on Ko-fi'), 'user header has no Ko-fi button');
+t(!html.includes('>GitHub<'), 'user header has no GitHub button');
+t(!html.includes('<span>AIOPlay</span>'), 'user header shows the AIOPlay mark without redundant product text');
+t(html.includes('class="header-row"'), 'logo, search and logout share one top row');
+t(html.includes('grid-template-columns: auto minmax(0, 1fr) auto'), 'top row reserves logo, fluid search and logout columns');
+t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live Movies Series selector is centered to the page');
+t(html.includes("add('sports', 'Live')"), 'Sports mode is labelled Live');
+t(html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), 'content cards use a two-column grid');
+t(html.includes('overflow-x: auto; overflow-y:hidden'), 'catalog selector remains horizontally scrollable');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
