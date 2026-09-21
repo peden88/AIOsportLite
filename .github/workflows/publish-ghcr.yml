@@ -15,9 +15,32 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/aiosportlite
+  IMAGE_NAME: peden88/aiosportlite
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Upstream's committed lockfile does not yet contain Sharp, so npm ci
+      # would reject it as out of sync. Keep install semantics aligned with the
+      # Dockerfile until the lockfile is regenerated from npm.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npm test
+
   # Each architecture is built on a runner of that architecture, and neither
   # knows about the other. The alternative is one runner emulating the other
   # through QEMU, which turns an npm install and a bundler run into the better
@@ -28,6 +51,7 @@ jobs:
   # viewer pulls has to be the index naming both -- so the halves are pushed by
   # digest here and the merge job below is what gives them a name.
   build:
+    needs: test
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +130,11 @@ jobs:
             exit 1
           fi
 
-          docker run -d --name smoke -e DATA_DIR=/data -p 7000:7000 "$ref"
+          docker run -d --name smoke \
+            -e DATA_DIR=/data \
+            -e APP_ADMIN_USERNAME=smokeadmin \
+            -e APP_ADMIN_PASSWORD='Smoke-test-password-2026!' \
+            -p 7000:7000 "$ref"
 
           ok=
           for _ in $(seq 1 90); do
@@ -130,6 +158,33 @@ jobs:
             exit 1
           fi
           echo "health: $(curl -fsS --max-time 3 http://127.0.0.1:7000/health || echo '(a second read failed; the first passed)')"
+
+          # Exercise the first-party account contract in the built image. A TV
+          # client signs in once, stores the opaque token, then uses Bearer auth
+          # for bootstrap/playback. Do not print the token into the Actions log.
+          login_json=$(curl -fsS --max-time 5 \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"smokeadmin","password":"Smoke-test-password-2026!","deviceName":"CI smoke"}' \
+            http://127.0.0.1:7000/api/v1/auth/login)
+          access_token=$(jq -r '.accessToken // empty' <<<"$login_json")
+          token_type=$(jq -r '.tokenType // empty' <<<"$login_json")
+          if [ -z "$access_token" ] || [ "$token_type" != "Bearer" ]; then
+            echo "::error::native login did not return a Bearer access token"
+            exit 1
+          fi
+          curl -fsS --max-time 5 \
+            -H "Authorization: Bearer $access_token" \
+            http://127.0.0.1:7000/api/v1/bootstrap >/dev/null
+          echo "first-party auth: Bearer token accepted"
+
+          # A raw/copy-pasted internal player URL must not bypass account auth.
+          watch_code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 \
+            'http://127.0.0.1:7000/watch?url=https%3A%2F%2Fexample.com%2Flive')
+          if [ "$watch_code" != "403" ]; then
+            echo "::error::unsigned /watch URL returned HTTP $watch_code instead of 403"
+            exit 1
+          fi
+          echo "watch handoff: unsigned link rejected"
 
           # impit is probed lazily -- getImpit() loads it on first use, not at
           # startup -- so /health answers about a second before either verdict is

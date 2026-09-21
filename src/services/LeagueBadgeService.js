@@ -78,7 +78,7 @@ function competitionFor(aLogo, bLogo) {
 /**
  * Competitions whose own mark this addon serves, because ESPN publishes none
  * worth showing. Every rugby competition's ESPN "crest" is the same generic
- * ball pictogram, and the CFL has no ESPN crest at all.
+ * ball pictogram.
  */
 const BUNDLED = {
   'rugby-league': 'rugby-league.png',
@@ -100,8 +100,8 @@ const BUNDLED = {
   'rugby-championship': 'rugby-international.png',
   'rugby-lions': 'rugby-international.png',
   'rugby-tri-nations': 'rugby-international.png',
-  'rugby-wwc': 'rugby-international.png',
-  cfl: 'cfl.png'
+  'rugby-wwc': 'rugby-international.png'
+
 };
 
 /**

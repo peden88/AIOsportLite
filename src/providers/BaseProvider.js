@@ -7,6 +7,7 @@ const CF_PROXY_POOL = String(process.env.CF_PROXY_URL || '')
 // Safe impit wrapper — falls back to undici when impit native binary is
 // unavailable (ARM64 VPS, Alpine/musl Linux, certain Windows Server builds).
 const { safeFetch: _safeFetch } = require('../impitClient');
+const { isRetainedEventCategory } = require('../sportsPolicy');
 
 // Pick a random proxy from the pool
 function getCfProxyUrl() {
@@ -72,6 +73,11 @@ class BaseProvider {
     if (cat.includes('darts')) return 'darts';
     if (cat.includes('liveshow') || cat.includes('uncategorized')) return 'other';
     return cat;
+  }
+
+  /** True when a fixture category belongs in the Lite build. */
+  isRetainedEventCategory(category) {
+    return isRetainedEventCategory(category);
   }
 
   /**

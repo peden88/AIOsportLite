@@ -1,10 +1,32 @@
 <p align="center">
-  <img src="public/logo-v2.png" width="120" height="120" alt="AIOSports logo">
+  <img src="public/aioplay-brand.webp" width="120" height="120" alt="AIOPlay logo">
 </p>
 
-# AIOSports
+# AIOPlay
 
-[![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen.svg)](https://github.com/mlp2069/aiosports/releases/latest)
+AIOPlay is the product identity for the first-party web and TV experience. It is intentionally content-neutral: sports, live TV, movies and series all live under one brand.
+
+## Branding
+
+- **Product name:** `AIOPlay`
+- **In-app and web mark:** `public/aioplay-brand.webp`
+- **TV launcher/banner artwork:** `public/aioplay-launcher.webp`
+- Do not introduce sport-specific product names, logos or launcher artwork.
+- Existing repository names, Docker image names, addon IDs, volume names and legacy backup schema keys remain unchanged where required for compatibility.
+
+
+## AIOPlay branding
+
+AIOPlay is the product identity across the web player and the forthcoming TV app. The application shell is intentionally media-neutral: sports are one content capability alongside Movies, Series, Channels and future services.
+
+- **In-app mark:** `public/aioplay-brand.webp` — the AIO letters over the blue/cyan/violet play symbol. Use this for navigation chrome, login, settings, player branding and favicons.
+- **Launcher/banner:** `public/aioplay-launcher.webp` — the wide AIOPlay lockup. This is the source artwork for Android TV launcher banners and splash/launch surfaces.
+- Do not add football, racing, MMA, rugby or other category imagery to the global AIOPlay logo. Category-specific artwork belongs inside content rows only.
+- Technical compatibility names such as `community.aiosportlite`, the GHCR image/repository name and legacy config/storage keys remain unchanged so branding updates do not break existing installs.
+
+
+
+[![Version](https://img.shields.io/badge/version-v1.6.0--lite.1-brightgreen.svg)](https://github.com/peden88/AIOsportLite/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Forked from](https://img.shields.io/badge/forked_from-rajhodedara%2Flive--sport--plugin-6e7681?logo=github&logoColor=white)](https://github.com/rajhodedara/live-sport-plugin)
 [![Ko-fi](https://img.shields.io/badge/Support_on_Ko--fi-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/mlp20)
@@ -14,11 +36,13 @@ A self-hosted addon for [Stremio](https://www.stremio.com/) and [Nuvio](https://
 - **One tile per event.** When several sources carry the same fixture or channel, their streams are merged onto a single tile.
 - **Covers for everything.** Fixtures are drawn from both teams' crests, and channels get a cover with their logo. The server renders them, so every player shows the same thing.
 - **A tidy Channels tab.** It's sorted A to Z, and channels with nothing playing are hidden until they come back.
-- **Your settings, one install link.** Save sports, sources, teams and timezone as a profile, and the install link stays the same when you change them.
+- **One application configuration.** Sports, metadata and stream services are configured once by an administrator and apply to every user.
+- **Multi-user access.** The first-party web app has real user accounts, revocable sessions and separate administrator permissions.
+- **One-button playback.** First-party clients never show a stream/source picker. The server chooses the best candidate and automatically falls through private alternatives when playback fails.
 
 This is a fork of [rajhodedara/live-sport-plugin](https://github.com/rajhodedara/live-sport-plugin). Credit for the original project goes there.
 
-> **Streams come from third-party websites.** AIOSports hosts no video. Sources change and go offline often, so a fixture with no working stream is normal and usually not a problem with your setup.
+> **Streams come from third-party websites.** AIOPlay hosts no video. Sources change and go offline often, so a fixture with no working stream is normal and usually not a problem with your setup.
 
 ## Contents
 
@@ -27,7 +51,8 @@ This is a fork of [rajhodedara/live-sport-plugin](https://github.com/rajhodedara
 - [Updating](#updating)
 - [Other ways to run it](#other-ways-to-run-it)
 - [Settings](#settings)
-- [Passwords, profiles and the dashboard](#passwords-profiles-and-the-dashboard)
+- [Accounts and administration](#accounts-and-administration)
+- [Optional VOD with AIOMetadata and AIOStreams](#optional-vod-with-aiometadata-and-aiostreams)
 - [Catalog tabs](#catalog-tabs)
 - [Sources](#sources)
 - [FAQ and troubleshooting](#faq-and-troubleshooting)
@@ -40,15 +65,15 @@ This is a fork of [rajhodedara/live-sport-plugin](https://github.com/rajhodedara
 You need Docker with Compose v2.24 or newer.
 
 ```bash
-git clone https://github.com/mlp2069/aiosports.git
-cd aiosports
+git clone https://github.com/peden88/AIOsportLite.git
+cd AIOsportLite
 cp .env.example .env
 docker compose up -d --build
 ```
 
-The first build takes a few minutes. Then open `http://<your computer's IP address>:7000/configure` in a browser on the same network. On Windows, `ipconfig` shows the address; on macOS or Linux, use `ipconfig getifaddr en0` or `ip a`.
+The first build takes a few minutes. For a real deployment, set `APP_ADMIN_USERNAME` and `APP_ADMIN_PASSWORD` in `.env` before first boot, then open `http://<your computer's IP address>:7000/`. The first administrator is created once and the password is stored only as a salted scrypt hash in the data volume.
 
-The server only needs to reach the internet, not be reachable from it. Anything that can open the address can use the addon, though, so read [Passwords, profiles and the dashboard](#passwords-profiles-and-the-dashboard) before you expose it.
+The first-party web player fails closed when no account exists unless `ALLOW_OPEN_ACCESS=true` is explicitly set for local development. Read [Accounts and administration](#accounts-and-administration) before exposing the service.
 
 ## Install it in Stremio or Nuvio
 
@@ -75,7 +100,7 @@ git pull
 docker compose up -d --build --remove-orphans
 ```
 
-`--build` matters: without it, Compose keeps running the old image. Saved profiles live in the `aiosports-data` volume and survive updates. `--remove-orphans` clears out the container from older versions, which used a different service name.
+`--build` matters: without it, Compose keeps running the old image. Saved profiles live in the `aiosportlite-data` volume and survive updates. `--remove-orphans` clears out the container from older versions, which used a different service name.
 
 If the manifest id or the tabs changed in a release, the release notes say so. In that case, reinstall the addon in your player.
 
@@ -83,12 +108,12 @@ If the manifest id or the tabs changed in a release, the release notes say so. I
 
 ### Prebuilt image
 
-Every push to `main` publishes `ghcr.io/mlp2069/aiosports:latest` for **linux/amd64 and linux/arm64**. The command below is the same on either: Docker reads your machine's architecture and pulls the matching one. That covers an Oracle Cloud Ampere instance, a Raspberry Pi 4 or 5, and an Apple Silicon Mac, as well as an ordinary x86 server.
+Every push to `main` publishes `ghcr.io/peden88/aiosportlite:latest` for **linux/amd64 and linux/arm64**. The command below is the same on either: Docker reads your machine's architecture and pulls the matching one. That covers an Oracle Cloud Ampere instance, a Raspberry Pi 4 or 5, and an Apple Silicon Mac, as well as an ordinary x86 server.
 
 ```bash
-docker run -d --name aiosports -p 7000:7000 \
-  --env-file .env -e DATA_DIR=/data -v aiosports-data:/data \
-  --restart unless-stopped ghcr.io/mlp2069/aiosports:latest
+docker run -d --name aiosportlite -p 7000:7000 \
+  --env-file .env -e DATA_DIR=/data -v aiosportlite-data:/data \
+  --restart unless-stopped ghcr.io/peden88/aiosportlite:latest
 ```
 
 ### Oracle Cloud, and other ARM servers
@@ -109,18 +134,18 @@ If you would rather not expose a port at all, put the instance behind a Cloudfla
 Node.js 22 or newer is required.
 
 ```bash
-git clone https://github.com/mlp2069/aiosports.git
-cd aiosports
+git clone https://github.com/peden88/AIOsportLite.git
+cd AIOsportLite
 cp .env.example .env
 npm install
 npm start
 ```
 
-`npm start` builds before it starts, so a separate build step isn't needed. To keep it running in the background with PM2, start it from the `aiosports` folder, because the internal resolver is found relative to that folder:
+`npm start` builds before it starts, so a separate build step isn't needed. To keep it running in the background with PM2, start it from the `AIOsportLite` folder, because the internal resolver is found relative to that folder:
 
 ```bash
 npm install -g pm2
-pm2 start npm --name aiosports -- start
+pm2 start npm --name aiosportlite -- start
 pm2 save
 ```
 
@@ -131,8 +156,12 @@ Settings live in `.env`. Copy `.env.example` and edit it, and restart after a ch
 | Variable | What it does |
 |---|---|
 | `ADDON_URL` | Your public address, e.g. `https://sports.example.com`. Needed for Stremio (see [https](#stremio-needs-https)). |
-| `AUTH_KEY` | Password for the catalog and `/configure` pages. |
-| `ADMIN_TOKEN` | Password for `/dashboard`. The dashboard stays closed until this is set. |
+| `APP_ADMIN_USERNAME` | Username used to create the first administrator when the account store is empty. |
+| `APP_ADMIN_PASSWORD` | First administrator password. It is hashed into `DATA_DIR` on first boot and is not used again once accounts exist. |
+| `ADMIN_TOKEN` | Optional emergency/legacy administrator credential. Admin accounts can use the dashboard without it. |
+| `VOD_ENABLED` | Enables Movies/Series only when both global VOD manifest URLs below are configured. |
+| `AIOMETADATA_MANIFEST_URL` | One app-wide AIOMetadata manifest used for VOD catalogs, search and metadata. |
+| `AIOSTREAMS_MANIFEST_URL` | One app-wide AIOStreams manifest used for ranked VOD playback and failover. |
 | `TZ` | Timezone for kickoff times, for viewers who haven't picked one. |
 | `HIDE_EMPTY_CHANNELS` | `0` lists every channel, even ones with no streams right now. |
 | `TRUST_PROXY` | Only for a reverse proxy on a public address. See `.env.example`. |
@@ -141,38 +170,77 @@ Settings live in `.env`. Copy `.env.example` and edit it, and restart after a ch
 
 `.env.example` explains the rest, including `DATA_DIR`, `LINK_SECRET` and the source-specific options.
 
-## Passwords, profiles and the dashboard
+## Accounts and administration
 
-| | Without it | With it |
-|---|---|---|
-| `AUTH_KEY` | Anyone who can open the address can browse the catalog and `/configure`. | Visitors sign in at `/login` first. |
-| `ADMIN_TOKEN` | `/dashboard` is closed to everyone. | Open `/dashboard` and sign in with the token. |
+The first-party web player and future TV app use the same account store. Ordinary users have a username/password, a role, and revocable device/browser sessions. They do **not** have addon URLs, provider credentials or independent content configurations.
 
-**Use long random values**, for example the output of `openssl rand -base64 24`. After eight wrong guesses from one address, sign-in pauses for five minutes.
+Set these before the first production boot:
 
-**Saved profiles.** Every profile has its own install link, so two people can keep different settings on one server.
+```env
+APP_ADMIN_USERNAME=admin
+APP_ADMIN_PASSWORD=use-a-long-random-password
+```
 
-- With `AUTH_KEY` set, anyone who has signed in can see and change every profile.
-- Without it, a profile can only be changed from the browser that saved it. To change it from another device, use that profile's **edit link**, shown under the install link on `/configure`. Keep the edit link private.
+The initial administrator can then open `/users` to create or disable users, change roles/passwords, and sign every device out of an account. `/configure`, `/users` and `/dashboard` are administrator-only once accounts exist.
 
-**What stays open.** The manifest, catalogs, streams and artwork are never behind a password, because Stremio and Nuvio have no way to sign in. Someone who has your install link can therefore use the addon. To keep the addon itself private, put an IP allowlist or a VPN in front of it.
+Existing installations can migrate from the old single `AUTH_KEY`: when the account store is empty and no `APP_ADMIN_PASSWORD` is supplied, the server can create an `admin` account whose initial password is the old `AUTH_KEY`. New installations should use `APP_ADMIN_*` instead.
 
-**Behind a reverse proxy.** Caddy, nginx and Traefik on the same machine or network work without extra setup. If your proxy sits on a public address, set `TRUST_PROXY` as `.env.example` describes, and never set it to `true`.
+Browser sessions are HttpOnly cookies. Native/TV clients use the same credentials but receive an opaque revocable Bearer token from `/api/v1/auth/login`. The raw passwords and application manifest URLs are never returned to the client.
+
+The Stremio-compatible addon resources remain usable through their install URLs because Stremio cannot perform the application login. Internal `/watch` handoffs are separately HMAC-signed and expiring, so copying an unsigned web-player URL does not bypass the account gate.
+
+### Application-wide content configuration
+
+There are no user-specific addons in the first-party app. The administrator owns the service configuration and every authenticated user sees the same content backends.
+
+Sports can use the default/saved AIOPlay configuration or one explicit app-wide `AIOSPORT_MANIFEST_URL`. User accounts contain personal state such as favourites/watch progress later, not addon/service settings.
+
+## Optional VOD with AIOMetadata and AIOStreams
+
+VOD is intentionally split by responsibility:
+
+- **AIOMetadata** supplies Movies/Series catalogs, search, artwork, title metadata and episode lists.
+- **AIOStreams** supplies ranked stream results and its native playback/failover chain.
+- **AIOPlay** is the authenticated gateway. It keeps both manifest URLs server-side and exposes a first-party API to the web/TV clients.
+
+Configure one manifest for each service:
+
+```env
+VOD_ENABLED=true
+AIOMETADATA_MANIFEST_URL=https://metadata.example/stremio/<uuid>/manifest.json
+AIOSTREAMS_MANIFEST_URL=https://streams.example/<configured-path>/manifest.json
+```
+
+`http://`, `https://` and `stremio://` install URLs are accepted; `stremio://` is normalised to HTTPS. Internal Docker-network HTTP URLs are also valid if AIOPlay can reach them.
+
+When VOD is enabled, the first-party web app automatically adds **Movies** and **Series**. Search is sent only through AIOMetadata. Series metadata supplies the episode list. Pressing a movie or episode calls the opaque playback API; the user never receives a stream list, addon name, provider name, score or ranking.
+
+AIOStreams remains the authority for stream ordering and resolution. Its owned playback URLs contain its native failover-chain key, so the first playback target can move through AIOStreams' configured debrid/Usenet/fallback policy without the client knowing which provider won. AIOPlay keeps additional AIOStreams-ranked media URLs server-side as a second recovery layer for a player-detected failure. VOD `externalUrl` entries are deliberately ignored because they mean “open another page/app”, not guaranteed in-player media.
+
+### Configure VOD from the admin UI
+
+The preferred deployment path is the admin-only **Services** page at `/services`. It stores the two app-wide manifests in `DATA_DIR/app-services.json` with owner-only file permissions. Saved values override environment variables, so they can be changed without rebuilding the image or exposing them to ordinary accounts.
+
+The page can enable/disable VOD, replace or clear either global manifest, and test both services from inside the running container. Only the service host/name/version/reachability are displayed back; ordinary users never receive either manifest URL.
+
+Administrators can verify the two configured services without exposing their URLs:
+
+```text
+GET /api/v1/admin/vod/status
+```
+
+The response reports whether each service is configured/reachable plus manifest id/version/resources/types/catalog count. It never includes either manifest URL.
 
 ## Catalog tabs
 
 | Tab | Holds |
 |---|---|
 | 🔴 Live Now | Fixtures in progress. Channels are not mixed in. |
-| ⚽ Soccer | Association football |
-| 🏈 NFL | The NFL |
-| 🏈 Other Football | The CFL, the AFL, and gridiron whose league can't be named |
-| 🎓 College | College fixtures in any sport |
+| ⚽ Football | Association football |
 | 🏉 Rugby | NRL, Premiership, URC, Top 14, Super Rugby and test rugby |
 | 🏎️ Racing | Motorsport |
 | 📺 Channels | Every 24/7 channel, A to Z, with a genre filter |
-| 🏏 🏀 🏒 ⚾ 🥊 ⛳ 🎾 🎯 | Cricket, basketball, hockey, baseball, MMA, golf, tennis, darts |
-| 🏅 Other Sports | Anything that fits no tab above |
+| 🥊 MMA | MMA, boxing and combat-sport events |
 | ⏱️ Upcoming · ⭐ Your Teams | Everything ahead, and the teams you follow in `/configure` (including games nobody streams yet -- see below) |
 | 📍 Local | The channels of the cities you name in `/configure` (see below) |
 
@@ -202,13 +270,13 @@ What a network station streams free is its 24/7 **news** channel (FOX LOCAL, NBC
 
 StreamFree, TimStreams, Streamed.pk, SportyHunter, WatchFooty, CDNLive, StreamSports99, Streamic, TotalSportek, USA TV and iptv-org. Turn each one on or off in `/configure`, and drag them into the order you prefer.
 
-**Sort Streams By** decides what that order is worth. *Rating* ranks every stream on what was measured about it — the resolution and bitrate read from the stream itself, and whether that source has been answering lately. *Source order* hands you your own order instead, best stream first within each source. Dragging the sources selects the second on its own; either can be chosen outright.
+**Sort Streams By** still controls the server-side ranking. *Rating* ranks streams using measured characteristics such as resolution/bitrate and source health; *Source order* prioritises the administrator's configured source order. In the first-party web/TV clients that ranking is never displayed: pressing Play simply starts the highest-ranked working candidate.
 
 ## FAQ and troubleshooting
 
-**A fixture has no streams.** The source sites haven't posted one yet, or took it down. Streams often appear shortly before kickoff. Try again closer to the start, or pick another source's tile. A tile in ⭐ Your Teams marked `⏳ No streams listed yet` is this, said in advance: the game is on ESPN's schedule and no site has posted a link to it.
+**A fixture has no streams.** The source sites haven't posted one yet, or took it down. Streams often appear shortly before kickoff. Try again closer to the start. The first-party player chooses and retries available sources automatically; there is no source picker. A tile in ⭐ Your Teams marked `⏳ No streams listed yet` is this, said in advance: the game is on ESPN's schedule and no site has posted a link to it.
 
-**Two streams buffer at the same moment.** They are probably the same machine reached two ways. The list puts the best stream from each server at the top for that reason, so the second row down is a genuinely different server rather than a second link to the first one.
+**What happens when the chosen stream fails?** First-party clients never show the alternatives. AIOPlay keeps the ranked candidates private and requests the next one after a fatal startup/playback error. For VOD, the preferred AIOStreams URL also carries AIOStreams' own native failover chain, so debrid/Usenet failover happens before the client-level recovery path is needed.
 
 **Stremio won't install the addon.** It needs an https address; see [Stremio needs https](#stremio-needs-https).
 
@@ -222,7 +290,7 @@ StreamFree, TimStreams, Streamed.pk, SportyHunter, WatchFooty, CDNLive, StreamSp
 
 **A stream microbuffers -- it never really breaks, but it keeps catching itself.** Usually the source, not the connection. Sources here publish a four-segment playlist and some of them publish in bursts: measured on two of three, eight seconds of nothing and then two segments at once. A player starts three segments from the end of a playlist, which is about twelve seconds of video, so an eight-second pause spends most of the cushion and anything else on top of it stalls. Set **Extra Buffer** in `/configure` (or `LIVE_BUFFER_SECONDS` for everyone) and the server hands the player a deeper window of what the source has already published, and tells it to start further back in it. You see the game that much later, and the bursts stop mattering. Sources that delete a segment the moment they stop listing it are found out and left alone.
 
-**My saved settings were lost after an update.** Profiles are stored in `DATA_DIR`. Compose keeps them on the `aiosports-data` volume. With `docker run`, add `-v aiosports-data:/data -e DATA_DIR=/data`.
+**My saved settings were lost after an update.** Profiles are stored in `DATA_DIR`. Compose keeps them on the `aiosportlite-data` volume. With `docker run`, add `-v aiosportlite-data:/data -e DATA_DIR=/data`.
 
 **Port 7000 is already in use.** Change the left side of `"7000:7000"` in `docker-compose.yml`, for example to `"7100:7000"`.
 
@@ -243,13 +311,13 @@ Built with Node.js, Express and [stremio-addon-sdk](https://github.com/Stremio/s
 
 ## Getting help
 
-- **Bugs and questions:** open an [issue](https://github.com/mlp2069/aiosports/issues). The template asks for what's needed.
+- **Bugs and questions:** open an [issue](https://github.com/peden88/AIOsportLite/issues). The template asks for what's needed.
 - **Security problems:** report them privately; see [SECURITY.md](SECURITY.md).
 - **Support the project:** [this fork on Ko-fi](https://ko-fi.com/mlp20), or [the upstream project](https://ko-fi.com/rajodedara) it's built on.
 
 ## License and disclaimer
 
-AIOSports is released under the [MIT License](LICENSE). It is free, with no paid tiers, and anyone selling access to it is not connected to this project.
+AIOPlay is released under the [MIT License](LICENSE). It is free, with no paid tiers, and anyone selling access to it is not connected to this project.
 
 - **No hosted media.** The addon doesn't host, store or broadcast video. It lists links that third-party websites already publish and passes them to your player.
 - **Not affiliated.** It isn't affiliated with or endorsed by any league, team, broadcaster or streaming service. Their names and logos belong to their owners and appear only to identify content.

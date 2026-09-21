@@ -46,6 +46,8 @@ class StreamFreeProvider extends BaseProvider {
       if (!data || !data.streams) return [];
 
       Object.entries(data.streams).forEach(([category, streams]) => {
+        const normalizedCategory = this.normalizeCategory(category);
+        if (!this.isRetainedEventCategory(normalizedCategory)) return;
         if (Array.isArray(streams)) {
           streams.forEach(s => {
             const id = s.stream_key || s.id;
@@ -53,7 +55,7 @@ class StreamFreeProvider extends BaseProvider {
             matches.push(new MatchEntity({
               id: 'sf_' + id,
               title: s.name,
-              category: this.normalizeCategory(category),
+              category: normalizedCategory,
               date: s.match_timestamp ? (s.match_timestamp * 1000).toString() : null,
               popular: (s.viewers || 0) > 100 ? '1' : '0',
               league: s.league,

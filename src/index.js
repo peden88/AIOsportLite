@@ -37,6 +37,10 @@ const { handleCatalog, handleMeta } = require('./catalog');
 const { handleStream, remintUpstream } = require('./streams');
 const { PORT, BASE_URL, getRequestBaseUrl } = require('./config');
 const container = require('./container');
+const appServices = require('./services/AppServiceRegistry');
+const opaquePlayback = require('./services/OpaquePlayback');
+const userAuth = require('./services/UserAuth');
+const vodGateway = require('./services/VodGateway');
 
 
 
@@ -234,7 +238,10 @@ app.use((req, res, next) => {
     // The redirect carries the whole config in its Location, so it goes only
     // to someone allowed to open the configure page. Before this, a signed-out
     // visitor read /saved/configure's settings straight out of the 302.
-    if (process.env.AUTH_KEY && !isAuthed(req)) return res.redirect(302, '/login');
+    if (!ownsEverything(req)) {
+      if (!isAuthed(req)) return res.redirect(302, '/login');
+      return res.status(403).send('Administrator access required.');
+    }
     const extra = asPage[2] ? '&' + asPage[2] : '';
     return res.redirect(302, '/' + encoded + '/configure?profile=' + encodeURIComponent(id) + extra);
   }
@@ -251,8 +258,8 @@ app.use((req, res, next) => {
  */
 async function collectWarmUrls() {
   const { manifest } = require('./manifest');
-  // Your Teams draws on a viewer's config; its tiles are in the other tabs
-  // already.
+  // Your Teams and Local draw on a viewer's config; their tiles are in the
+  // other tabs already.
   const ids = (manifest.catalogs || []).map(c => c.id).filter(id => !/_teams$/.test(id));
   const perCatalog = [];
   for (const id of ids) {
@@ -291,24 +298,70 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
 });
 
-/** Exchange AUTH_KEY for the site cookie. */
-app.post('/api/login', (req, res) => {
-  const key = process.env.AUTH_KEY;
-  if (!key) return res.json({ authenticated: true, keyRequired: false });
-  if (throttled(req)) return res.status(429).json({ error: 'Too many failed sign-ins. Wait a few minutes.' });
-  if (!isAuthed(req)) {
-    noteFailureOnce(req);
-    return res.status(403).json({ error: 'That password was not accepted.' });
+async function accountLoginHandler(req, res) {
+  if (throttled(req)) {
+    return res.status(429).json({ error: 'Too many failed sign-ins. Wait a few minutes.' });
   }
-  FAILURES.delete(failureKey(req));
-  res.cookie(AUTH_COOKIE, mintTicket(key), {
-    httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 30 * 24 * 3600 * 1000
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  // x-auth-key is accepted only as a migration convenience for the old login
+  // form/API. Once AUTH_KEY has bootstrapped the first admin it authenticates
+  // exactly the same account as username=admin/password=<old AUTH_KEY>.
+  const legacyKey = req.get('x-auth-key') || '';
+  const username = String(body.username || (legacyKey ? 'admin' : '')).trim();
+  const password = String(body.password || legacyKey || '');
+  const isAppClient = req.path === '/api/v1/auth/login';
+  const deviceName = String(body.deviceName || (isAppClient ? 'TV app' : 'Web browser'));
+
+  const session = await userAuth.login(username, password, {
+    kind: isAppClient ? 'app' : 'web',
+    deviceName
   });
-  res.json({ authenticated: true, keyRequired: true });
+  if (!session) {
+    noteFailureOnce(req);
+    return res.status(403).json({ error: 'Username or password was not accepted.' });
+  }
+
+  FAILURES.delete(failureKey(req));
+
+  if (isAppClient) {
+    // Native clients receive the opaque token once and store it in platform
+    // secure storage. They send it as Authorization: Bearer <token>.
+    return res.json({
+      authenticated: true,
+      tokenType: 'Bearer',
+      accessToken: session.token,
+      expiresAt: session.expiresAt,
+      user: session.user
+    });
+  }
+
+  // Browsers keep the same token HttpOnly so page JavaScript never sees it.
+  res.cookie(APP_SESSION_COOKIE, session.token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: req.secure,
+    maxAge: Math.max(0, session.expiresAt - Date.now())
+  });
+  return res.json({
+    authenticated: true,
+    user: session.user,
+    expiresAt: session.expiresAt
+  });
+}
+
+app.post(['/api/login', '/api/v1/auth/login'], express.json({ limit: '8kb' }), (req, res) => {
+  accountLoginHandler(req, res).catch(err => {
+    console.error('[auth] login failed:', err.message);
+    res.status(500).json({ error: 'Sign-in failed.' });
+  });
 });
 
-app.post('/api/logout', (req, res) => {
-  res.clearCookie(AUTH_COOKIE);
+app.post(['/api/logout', '/api/v1/auth/logout'], (req, res) => {
+  const token = userAuth.tokenFromRequest(req, APP_SESSION_COOKIE);
+  if (token) userAuth.revokeToken(token);
+  res.clearCookie(APP_SESSION_COOKIE);
+  res.clearCookie(AUTH_COOKIE); // legacy cookie from pre-account builds
   res.clearCookie(ADMIN_COOKIE);
   res.json({ authenticated: false });
 });
@@ -345,7 +398,123 @@ const BUILD_INFO = (() => {
 app.get('/api/version', (req, res) => res.json(BUILD_INFO));
 
 app.get('/api/site/auth', (req, res) => {
-  res.json({ authenticated: isAuthed(req), keyRequired: !!process.env.AUTH_KEY });
+  const account = currentAccount(req);
+  res.json({
+    authenticated: isAuthed(req),
+    accountRequired: userAuth.hasUsers(),
+    user: account ? account.user : null
+  });
+});
+
+app.get('/api/v1/account', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  res.json({ user: account ? account.user : null });
+});
+
+app.get('/api/v1/account/sessions', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'Sign in first.' });
+  res.json({ sessions: userAuth.listSessionsForUser(account.user.id) });
+});
+
+app.delete('/api/v1/account/sessions/:sessionId', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'Sign in first.' });
+  const ok = userAuth.revokeSessionById(
+    req.params.sessionId,
+    account.user.id,
+    account.user.role === 'admin'
+  );
+  res.status(ok ? 204 : 404).end();
+});
+
+app.get('/api/v1/admin/users', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json({ users: userAuth.listUsers() });
+});
+
+app.get('/api/v1/admin/vod/status', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    res.json(await vodGateway.diagnostics());
+  } catch (err) {
+    console.error('[app-vod] diagnostics failed:', err.message);
+    res.status(500).json({ error: 'Could not check VOD services.' });
+  }
+});
+
+app.post('/api/v1/admin/vod/probe', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    res.json(await vodGateway.probe({
+      type: body.type,
+      id: body.id
+    }));
+  } catch (err) {
+    console.error('[app-vod] end-to-end probe failed:', err.message);
+    res.status(err.statusCode || 502).json({
+      ok: false,
+      error: err.message,
+      code: err.code || 'VOD_PROBE_FAILED'
+    });
+  }
+});
+
+app.get('/api/v1/admin/services', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    res.json({
+      config: appServices.adminSummary(),
+      status: await vodGateway.diagnostics()
+    });
+  } catch (err) {
+    console.error('[services] status failed:', err.message);
+    res.status(500).json({ error: 'Could not load service configuration.' });
+  }
+});
+
+app.put('/api/v1/admin/services', express.json({ limit: '16kb' }), async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const config = appServices.updatePersistentVod(req.body || {});
+    const status = await vodGateway.diagnostics();
+    res.json({ saved: true, config, status });
+  } catch (err) {
+    const statusCode = ['INVALID_SERVICE_URL', 'INVALID_SERVICE_CONFIG'].includes(err.code) ? 400 : 500;
+    res.status(statusCode).json({ error: err.message });
+  }
+});
+
+app.post('/api/v1/admin/users', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const user = await userAuth.createUser(req.body || {});
+    res.status(201).json({ user });
+  } catch (err) {
+    const status = ['INVALID_USERNAME', 'INVALID_PASSWORD', 'USERNAME_EXISTS'].includes(err.code) ? 400 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+app.patch('/api/v1/admin/users/:id', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const user = await userAuth.updateUser(req.params.id, req.body || {});
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    res.json({ user });
+  } catch (err) {
+    const status = ['INVALID_PASSWORD', 'LAST_ADMIN'].includes(err.code) ? 400 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+app.delete('/api/v1/admin/users/:id/sessions', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const user = userAuth.listUsers().find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const revoked = userAuth.revokeUserSessions(req.params.id);
+  res.json({ revoked });
 });
 
 /**
@@ -356,6 +525,9 @@ app.get('/api/site/auth', (req, res) => {
  * that before they rely on it rather than after they lose their settings.
  */
 app.get('/api/config/saved', (req, res) => {
+  if (userAuth.hasUsers() && !isAdmin(req)) {
+    return res.status(403).json({ error: 'Administrator access required.' });
+  }
   // Which profile the page is asking about; absent means the legacy one.
   const id = typeof req.query.id === 'string' && req.query.id ? req.query.id : LEGACY_ID;
   const saved = loadProfile(id);
@@ -368,8 +540,9 @@ app.get('/api/config/saved', (req, res) => {
     // Whether this caller may change it: signed in with a real key, or holding
     // the profile's own edit key (see mayEditProfile).
     canEdit: !!saved && mayEditProfile(req, id),
-    // No AUTH_KEY: profiles are guarded by their edit keys alone.
-    open: !process.env.AUTH_KEY,
+    // An account-less development install may still use the old open profile
+    // workflow. Once accounts exist, application configuration is admin-owned.
+    open: !userAuth.hasUsers() && !process.env.AUTH_KEY,
     // Only to someone signed in with a real key. The uuid IS the secret -- it
     // is the entire reason a profile is private -- so handing the list to
     // anyone who asks would give away every profile on the server. On an
@@ -391,8 +564,11 @@ let lastMarketSyncAt = 0;
 const MARKET_SYNC_EVERY_MS = 5 * 60 * 1000;
 
 app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
-  // The configure page is what AUTH_KEY guards, and this is that page's save
-  // button, so it is gated the same way: signed in, or the site is open anyway.
+  // First-party application configuration is installation-wide. Once account
+  // mode is enabled, only an administrator can create/change addon profiles.
+  if (userAuth.hasUsers() && !isAdmin(req)) {
+    return res.status(403).json({ error: 'Administrator access required.' });
+  }
   if (!isAuthed(req)) {
     return res.status(403).json({ error: 'Sign in before saving.' });
   }
@@ -464,6 +640,9 @@ app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
 });
 
 app.delete('/api/config/saved', (req, res) => {
+  if (userAuth.hasUsers() && !isAdmin(req)) {
+    return res.status(403).json({ error: 'Administrator access required.' });
+  }
   if (!isAuthed(req)) return res.status(403).json({ error: 'Sign in first.' });
   const id = typeof req.query.id === 'string' ? req.query.id : '';
   const file = profilePath(id);
@@ -477,8 +656,12 @@ app.delete('/api/config/saved', (req, res) => {
   res.json({ deleted: true, id });
 });
 
-app.get('/dashboard', requirePage, (req, res) => {
+app.get('/dashboard', requireAdminPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
+});
+
+app.get('/services', requireAdminPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'services.html'));
 });
 
 /**
@@ -585,10 +768,18 @@ function cookieValue(req, name) {
 // Two doors with two keys. AUTH_KEY opens the site -- the catalog page and the
 // configure page. ADMIN_TOKEN opens the dashboard and the buttons that change
 // state. Someone you let in to browse is not thereby allowed to empty a cache.
-const AUTH_COOKIE = 'ls_auth';
+const AUTH_COOKIE = 'ls_auth'; // legacy pre-account cookie
+const APP_SESSION_COOKIE = 'als_session';
 const ADMIN_COOKIE = 'ls_admin';
 
+function currentAccount(req) {
+  return userAuth.authenticateRequest(req, APP_SESSION_COOKIE);
+}
+
 function isAdmin(req) {
+  const account = currentAccount(req);
+  if (account && account.user.role === 'admin') return true;
+
   const token = process.env.ADMIN_TOKEN;
   if (token) {
     if (ticketValid(cookieValue(req, ADMIN_COOKIE), token)) return true;
@@ -666,11 +857,23 @@ app.post('/api/cache/logout', (req, res) => {
 
 /** May this caller see the site at all? The admin key opens every door. */
 function isAuthed(req) {
+  if (currentAccount(req)) return true;
+  if (isAdmin(req)) return true;               // legacy ADMIN_TOKEN cookie/header
+
+  // Account-less installs fail closed by default. Open mode exists only for
+  // deliberate local development and must be opted into explicitly.
+  if (!userAuth.hasUsers() && !process.env.AUTH_KEY) {
+    return ['1', 'true', 'yes', 'on'].includes(
+      String(process.env.ALLOW_OPEN_ACCESS || '').trim().toLowerCase()
+    );
+  }
+
+  // Legacy cookie remains valid only while no account store exists. In normal
+  // operation bootstrap converts AUTH_KEY into the initial admin account before
+  // the HTTP listener is opened.
   const key = process.env.AUTH_KEY;
-  if (!key) return true;                       // no site key configured: open
-  if (isAdmin(req)) return true;               // admin implies access
-  if (ticketValid(cookieValue(req, AUTH_COOKIE), key)) return true;
-  return suppliedSecretMatches(req, req.get('x-auth-key') || req.query.key || '', key);
+  if (!userAuth.hasUsers() && key && ticketValid(cookieValue(req, AUTH_COOKIE), key)) return true;
+  return false;
 }
 
 /**
@@ -694,6 +897,9 @@ function requirePage(req, res, next) {
 function guardStaticPages(req, res, next) {
   if (!/\.html?$/i.test(req.path)) return next();
   if (/^\/login\.html?$/i.test(req.path)) return next();
+  if (/^\/(?:dashboard|users|services|configure)\.html?$/i.test(req.path)) {
+    return requireAdminPage(req, res, next);
+  }
   return requirePage(req, res, next);
 }
 
@@ -744,13 +950,202 @@ app.post('/api/cache/warm/cancel', (req, res) => {
   res.json({ cancelled: true, warmer: cardWarmer.status() });
 });
 
-app.get(['/configure', '/:config/configure'], requirePage, (req, res) => {
+function requireAdminPage(req, res, next) {
+  if (ownsEverything(req)) return next();
+  if (!isAuthed(req)) return res.redirect('/login');
+  return res.status(403).send('Administrator access required.');
+}
+
+app.get(['/configure', '/:config/configure'], requireAdminPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'configure.html'));
+});
+
+app.get('/users', requireAdminPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'users.html'));
 });
 
 app.get('/api/matches', requirePage, (req, res) => {
   const matches = container.resolve('cacheService').getMatches();
   res.json(matches);
+});
+
+app.get('/api/v1/sports/catalogs', requirePage, (req, res) => {
+  try {
+    const config = resolveAppSportsConfig();
+    const configured = buildConfiguredManifest(config);
+    // First-party home navigation only lists catalogs that can be loaded
+    // without a required Stremio extra. Search-only/discover-only twins are
+    // still available through the public addon protocol, not as empty tabs.
+    const catalogs = (configured.catalogs || []).filter(cat => {
+      const extra = Array.isArray(cat.extra) ? cat.extra : [];
+      return !extra.some(item => item && item.isRequired);
+    });
+    res.json({ catalogs });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: 'Sports configuration is unavailable.' });
+  }
+});
+
+app.get('/api/v1/sports/catalog/:catalogId', requirePage, async (req, res) => {
+  try {
+    const config = resolveAppSportsConfig();
+    const configured = buildConfiguredManifest(config);
+    const catalogId = String(req.params.catalogId || '');
+    const allowed = (configured.catalogs || []).some(cat => cat.id === catalogId);
+    if (!allowed) return res.status(404).json({ error: 'Catalog is not enabled.' });
+
+    const extra = {};
+    for (const key of ['search', 'genre', 'skip']) {
+      if (typeof req.query[key] === 'string') extra[key] = req.query[key];
+    }
+    const result = await handleCatalog('tv', catalogId, extra, config);
+    res.json(result);
+  } catch (err) {
+    console.error('[app-sports] catalog failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'Could not load sports catalog.' });
+  }
+});
+
+app.get('/api/v1/sports/meta/:id', requirePage, async (req, res) => {
+  try {
+    const config = resolveAppSportsConfig();
+    const result = await handleMeta('tv', String(req.params.id || ''), config);
+    res.json(result);
+  } catch (err) {
+    console.error('[app-sports] metadata failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'Could not load sports metadata.' });
+  }
+});
+
+function vodExtraFromQuery(query) {
+  const out = {};
+  let count = 0;
+  for (const [key, value] of Object.entries(query || {})) {
+    if (count >= 16 || typeof value !== 'string') continue;
+    const safeKey = String(key).trim().slice(0, 64);
+    const safeValue = String(value).trim().slice(0, 1000);
+    if (!safeKey || !safeValue || /[\u0000-\u001f\u007f]/.test(safeKey + safeValue)) continue;
+    out[safeKey] = safeValue;
+    count++;
+  }
+  return out;
+}
+
+app.get('/api/v1/vod/catalogs', requirePage, async (req, res) => {
+  try {
+    res.json(await vodGateway.catalogs());
+  } catch (err) {
+    console.error('[app-vod] catalog manifest failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'VOD catalogs are unavailable.' });
+  }
+});
+
+app.get('/api/v1/vod/catalog/:type/:catalogId', requirePage, async (req, res) => {
+  try {
+    const result = await vodGateway.catalog(
+      req.params.type,
+      req.params.catalogId,
+      vodExtraFromQuery(req.query)
+    );
+    res.json(result);
+  } catch (err) {
+    console.error('[app-vod] catalog failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'Could not load VOD catalog.' });
+  }
+});
+
+app.get('/api/v1/vod/search', requirePage, async (req, res) => {
+  try {
+    const query = typeof req.query.q === 'string' ? req.query.q : '';
+    const type = typeof req.query.type === 'string' ? req.query.type : undefined;
+    res.json(await vodGateway.search(query, type));
+  } catch (err) {
+    console.error('[app-vod] search failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'VOD search is unavailable.' });
+  }
+});
+
+app.get('/api/v1/vod/meta/:type/:id', requirePage, async (req, res) => {
+  try {
+    res.json(await vodGateway.meta(req.params.type, req.params.id));
+  } catch (err) {
+    console.error('[app-vod] metadata failed:', err.message);
+    res.status(err.statusCode || 502).json({ error: 'VOD metadata is unavailable.' });
+  }
+});
+
+// ─── First-party app API ──────────────────────────────────────────────────────
+// Stremio-compatible routes intentionally continue returning stream arrays.
+// Our own web/TV clients never call them. They use this API, which exposes one
+// playback target at a time and keeps provider/source choices server-side.
+app.get('/api/v1/bootstrap', requirePage, (req, res) => {
+  res.json(appServices.publicBootstrap());
+});
+
+app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const contentType = String(body.contentType || body.kind || '').trim().toLowerCase();
+  const id = String(body.id || '').trim();
+
+  if (!id) return res.status(400).json({ error: 'Missing content id.' });
+
+  try {
+    if (contentType === 'sport' || contentType === 'sport_event' || contentType === 'live_channel') {
+      const services = appServices.publicBootstrap();
+      if (!services.services.sports.enabled) {
+        return res.status(503).json({ error: 'Sports playback is disabled.' });
+      }
+
+      // The first-party app has one installation-wide sports configuration.
+      // Existing named profiles remain available to Stremio/Nuvio installs, but
+      // an app user never supplies an addon/config choice here.
+      const appConfig = resolveAppSportsConfig();
+      const result = await opaquePlayback.startSportsPlayback(id, appConfig);
+      return res.status(result.ok ? 200 : 404).json(result);
+    }
+
+    if (['movie', 'series', 'anime', 'episode'].includes(contentType)) {
+      const services = appServices.publicBootstrap();
+      if (!services.services.vod.enabled) {
+        return res.status(503).json({ error: 'VOD is not enabled on this installation.' });
+      }
+
+      // AIOMetadata owns discovery/meta. AIOStreams owns ranking and embeds its
+      // failover chain into the playback URLs it returns. We preserve that order
+      // server-side and expose only the current target to the client.
+      let stremioType = String(body.stremioType || body.type || '').trim().toLowerCase();
+      if (!stremioType) {
+        if (contentType === 'movie') stremioType = 'movie';
+        else if (contentType === 'series' || contentType === 'episode') stremioType = 'series';
+      }
+      if (!stremioType) {
+        return res.status(400).json({ error: 'VOD playback requires movie or series type.' });
+      }
+
+      const candidates = await vodGateway.playbackCandidates(stremioType, id);
+      const result = opaquePlayback.startOpaquePlayback(
+        'vod',
+        stremioType + ':' + id,
+        candidates
+      );
+      return res.status(result.ok ? 200 : 404).json(result);
+    }
+
+    return res.status(400).json({ error: 'Unsupported content type.' });
+  } catch (err) {
+    console.error('[app-playback] start failed:', err.message);
+    return res.status(err.statusCode || 502).json({ error: 'Could not start playback.' });
+  }
+});
+
+app.post('/api/v1/playback/:sessionId/next', requirePage, (req, res) => {
+  const result = opaquePlayback.nextPlayback(req.params.sessionId);
+  res.status(result.ok ? 200 : (result.reason === 'PLAYBACK_SESSION_EXPIRED' ? 410 : 404)).json(result);
+});
+
+app.delete('/api/v1/playback/:sessionId', requirePage, (req, res) => {
+  opaquePlayback.finishPlayback(req.params.sessionId);
+  res.status(204).end();
 });
 
 // ─── Self-hosted image pipeline ───────────────────────────────────────
@@ -991,7 +1386,7 @@ app.get('/img/matchup', async (req, res) => {
 // absent, all fetches silently use undici — streams continue to work.
 const { safeFetch: _safeFetch, getImpit: _getImpit } = require('./impitClient');
 const { assertPublicUrl, publicAgent } = require('./netGuard');
-const { verifyManifestQuery, verifySegmentQuery } = require('./manifestLink');
+const { verifyManifestQuery, verifySegmentQuery, verifyWatchQuery } = require('./manifestLink');
 const { rewritePlaylist, absoluteEntry } = require('./playlistRewrite');
 const liveDelay = require('./liveDelay');
 const remint = require('./remint');
@@ -1739,7 +2134,11 @@ const OPEN_PROFILE_LIMIT = Number(process.env.PROFILE_LIMIT) || 500;
 
 /** Signed in with a real key -- AUTH_KEY set and given, or ADMIN_TOKEN. */
 function ownsEverything(req) {
-  return (!!process.env.AUTH_KEY && isAuthed(req)) || isAdmin(req);
+  if (isAdmin(req)) return true;
+  if (userAuth.hasUsers() || process.env.AUTH_KEY) return false;
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(process.env.ALLOW_OPEN_ACCESS || '').trim().toLowerCase()
+  );
 }
 
 function editKeyPath(id) {
@@ -1868,6 +2267,68 @@ function encodeConfigSegment(config) {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/**
+ * Resolve the single installation-wide AIOSport manifest into the config object
+ * used by first-party web/TV playback.
+ *
+ * Supported local manifest shapes:
+ *   /manifest.json                 base/default config
+ *   /saved/manifest.json           legacy saved app profile
+ *   /p/<uuid>/manifest.json        one centrally selected saved profile
+ *   /<encoded-config>/manifest.json an explicit immutable config
+ *
+ * The hostname is intentionally ignored: ADDON_URL is commonly the public
+ * Pangolin address while this process is reached internally by another name.
+ * The path is the stable identity of the local config.
+ */
+function resolveAppSportsConfig() {
+  const configured = appServices.manifestUrl('sports');
+
+  // Migration/default: before the app-wide manifest setting exists, the old
+  // singleton saved config remains the installation-wide sports config.
+  if (!configured) return loadProfile(LEGACY_ID) || {};
+
+  let pathname;
+  try {
+    pathname = new URL(configured, BASE_URL).pathname;
+  } catch {
+    const err = new Error('AIOSPORT_MANIFEST_URL is invalid.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  if (pathname === '/manifest.json') return {};
+
+  if (pathname === '/saved/manifest.json') {
+    const config = loadProfile(LEGACY_ID);
+    if (config) return config;
+    const err = new Error('AIOSPORT_MANIFEST_URL points to a saved profile that does not exist.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  const profile = pathname.match(/^\/p\/([^/]+)\/manifest\.json$/);
+  if (profile) {
+    let id = '';
+    try { id = decodeURIComponent(profile[1]); } catch (_) {}
+    const config = loadProfile(id);
+    if (config) return config;
+    const err = new Error('AIOSPORT_MANIFEST_URL points to a profile that does not exist.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  const encoded = pathname.match(/^\/([^/]+)\/manifest\.json$/);
+  if (encoded) {
+    const config = decodeConfigSegment(encoded[1]);
+    if (config) return config;
+  }
+
+  const err = new Error('AIOSPORT_MANIFEST_URL is not a supported AIOSport Lite manifest URL.');
+  err.statusCode = 503;
+  throw err;
+}
+
 function decodeConfigSegment(configStr) {
   try {
     let parsed;
@@ -1886,31 +2347,18 @@ function decodeConfigSegment(configStr) {
     return null;
   }
 }
-app.get('/:config?/manifest.json', (req, res, next) => {
+function buildConfiguredManifest(parsedConfig = {}) {
   const { manifest, SEARCH_TWIN_SUFFIX } = require('./manifest');
-  let parsedConfig = {};
-  if (req.params.config) {
-    parsedConfig = decodeConfigSegment(req.params.config);
-    if (parsedConfig === null) return next();
-  }
-
   // Clone manifest catalogs
   const newManifest = JSON.parse(JSON.stringify(manifest));
   
   if (typeof parsedConfig.sports === 'string' && parsedConfig.sports !== 'all') {
     const enabled = new Set(parsedConfig.sports.split(',').map(x => x.trim()).filter(Boolean));
 
-    // Which sport a tab belongs to, worked out from its own id rather than from
-    // a list kept alongside. The list fell behind as tabs were added, and the
-    // failure was silent and backwards: College, Other Football and Channels
-    // were dropped by any sports filter, including one that had them ticked.
-    const ALWAYS = new Set([
-      'live', 'upcoming', 'teams',
-      'channel_entertainment', 'channel_movies', 'channel_documentary',
-      'channel_kids', 'channel_sport_uk', 'channel_sport_us',
-      'channel_sport_international'
-    ]);
-    const SPORT_FOR_CATALOG = { other_football: 'american_football' };
+    // Lite catalog ids name their retained sport directly. Utility catalogs
+    // stay visible independently of the event-sport selection.
+    const ALWAYS = new Set(['live', 'upcoming', 'teams', 'channel_entertainment', 'channel_movies', 'channel_documentary', 'channel_kids', 'channel_sport_uk', 'channel_sport_us', 'channel_sport_international']);
+    const SPORT_FOR_CATALOG = {};
 
     newManifest.catalogs = newManifest.catalogs.filter(c => {
       const key = String(c.id).replace(/^nuvio_sports_/, '');
@@ -2075,6 +2523,19 @@ app.get('/:config?/manifest.json', (req, res, next) => {
     newManifest.catalogs.splice(i + 1, 0, t.cat);
   }
 
+
+  return newManifest;
+}
+
+app.get('/:config?/manifest.json', (req, res, next) => {
+  let parsedConfig = {};
+  if (req.params.config) {
+    parsedConfig = decodeConfigSegment(req.params.config);
+    if (parsedConfig === null) return next();
+  }
+
+  const newManifest = buildConfiguredManifest(parsedConfig);
+
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', '*');
   res.setHeader('Content-Type', 'application/json');
@@ -2108,6 +2569,13 @@ app.use(getRouter(builder.getInterface()));
 //   ?title=<encoded match title> shown in the page heading
 
 app.get('/watch', (req, res) => {
+  // Human web-player access requires a signed-in account. Stremio/Nuvio
+  // handoffs receive an expiring signed capability when the stream is minted,
+  // so third-party players keep working without learning user credentials.
+  if (!isAuthed(req) && !verifyWatchQuery(req.query)) {
+    return res.status(403).send('Sign in or use a valid signed playback link.');
+  }
+
   const mode     = req.query.mode;
   const title    = req.query.title || 'Live Sports';
   // A web player plays straight from the CDN, so its playlist is not this
@@ -2540,7 +3008,7 @@ app.get('/health', (_, res) => {
   // Alive, and nothing else. The cache counts that used to ride along named
   // every provider and how busy each was, to anyone who asked; the dashboard
   // has them, behind ADMIN_TOKEN.
-  res.json({ status: 'ok', service: 'aiosports' });
+  res.json({ status: 'ok', service: 'aiosportlite' });
 });
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
@@ -2561,10 +3029,11 @@ container.resolve('cronService').onSynced = matches => {
 container.resolve('cronService').start();
 
 const BIND_HOST = process.env.HOST || process.env.IP || '0.0.0.0';
+userAuth.bootstrap().then(authBoot => {
 app.listen(PORT, BIND_HOST, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════╗');
-  console.log('║          🔴 AIOSports                              ║');
+  console.log('║          🔴 AIOSport Lite                         ║');
   console.log('╠══════════════════════════════════════════════════════╣');
   console.log(`║  Port       : ${String(PORT).padEnd(39)}║`);
   console.log('╚══════════════════════════════════════════════════════╝');
@@ -2580,19 +3049,17 @@ app.listen(PORT, BIND_HOST, () => {
   }
   console.log('');
 
-  // Say out loud which gates are actually on. Both of these fail open when
-  // unset, which is the right default for someone trying the addon on their own
-  // machine and the wrong one for a box on the internet -- and the difference
-  // was invisible, because an owner's own browser sees a login page either way.
-  const siteKey = process.env.AUTH_KEY;
   const adminKey = process.env.ADMIN_TOKEN;
-  console.log(`  Sign-in   : ${siteKey ? 'AUTH_KEY set' : 'NOT SET — anyone who can reach this can browse it'}`);
-  console.log(`  Dashboard : ${adminKey ? 'ADMIN_TOKEN set' : 'NOT SET — dashboard is closed until you set one'}`);
+  const userCount = userAuth.listUsers().length;
+  const openDevelopment = ['1', 'true', 'yes', 'on'].includes(String(process.env.ALLOW_OPEN_ACCESS || '').trim().toLowerCase());
+  console.log(`  Accounts  : ${userCount ? userCount + ' configured' : (openDevelopment ? 'NONE — explicit open-development mode' : 'NONE — web access is closed')}`);
+  if (authBoot && authBoot.created) {
+    console.log(`  Auth init  : created initial admin from ${authBoot.source}`);
+  }
+  console.log(`  Dashboard : admin account${adminKey ? ' or ADMIN_TOKEN' : ''}`);
   console.log(`  Proxies   : trust proxy = ${TRUST_PROXY || 'loopback/private only (default)'}`);
-  for (const [name, value] of [['AUTH_KEY', siteKey], ['ADMIN_TOKEN', adminKey]]) {
-    if (value && value.length < 16) {
-      console.log(`  ! ${name} is only ${value.length} characters. Use 16 or more random ones on anything the internet can reach.`);
-    }
+  if (adminKey && adminKey.length < 16) {
+    console.log(`  ! ADMIN_TOKEN is only ${adminKey.length} characters. Use 16 or more random ones on anything the internet can reach.`);
   }
   // Said out loud at every boot, because the failure it warns about only shows
   // up on the *next* deploy -- by which time the settings are already gone.
@@ -2603,8 +3070,8 @@ app.listen(PORT, BIND_HOST, () => {
   if (!durable) {
     console.log('  → Mount a volume there to keep saved settings (see the README).');
   }
-  if (!siteKey || !adminKey) {
-    console.log('  → Set these in .env (or the environment) if this port is reachable from the internet.');
+  if (!userCount && !openDevelopment) {
+    console.log('  → Set APP_ADMIN_USERNAME and APP_ADMIN_PASSWORD, then restart to create the first administrator.');
   }
   console.log('');
 
@@ -2619,6 +3086,7 @@ app.listen(PORT, BIND_HOST, () => {
   // fixtures all day, also ask for a pass (wired where the cron starts).
   cardWarmer.schedule(collectWarmUrls, WARM_INTERVAL_MS);
 });
-
-
-
+}).catch(err => {
+  console.error('[auth] failed to initialise account store:', err);
+  process.exit(1);
+});
