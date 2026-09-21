@@ -15,7 +15,6 @@ const channelLogoIndex = require('./services/ChannelLogoIndex');
 const { inferGenre } = require('./channelGenres');
 const channelHealth = require('./services/ChannelHealth');
 const { exclusionReason } = require('./channelExclusions');
-const { parseMarkets, marketsSetting, isLocalTo } = require('./services/LocalMarkets');
 
 // Titles that already name the visiting side first: "Rockies @ Yankees",
 // "Missouri at Kansas". Anything else ("A vs B", "A - B") conventionally names
@@ -185,6 +184,17 @@ function formatKickoff(dateObj, timeZone, hour12 = true) {
 // keeping two copies is how they came to disagree.
 const TOP_LEVEL_CATEGORIES = ['football', 'cricket', 'basketball', 'motorsport', 'hockey',
   'baseball', 'mma', 'golf', 'tennis', 'rugby', 'american_football', 'darts', 'networks', 'college'];
+
+// The old all-in-one Channels catalog has been replaced with these five focused
+// 24/7 TV catalogs. Everything else (News, Local, Music, Lifestyle,
+// International) is deliberately omitted from published channel catalogs.
+const CHANNEL_CATALOG_GENRES = {
+  channel_entertainment: 'Entertainment',
+  channel_movies: 'Movies',
+  channel_documentary: 'Documentary',
+  channel_kids: 'Kids',
+  channel_sport: 'Sports'
+};
 
 const COMPETITION_LABEL = { nfl: 'NFL', cfl: 'CFL', afl: 'AFL' };
 
@@ -1223,34 +1233,21 @@ async function handleCatalog(type, id, extra, config, opts = {}) {
     // Everything else under that heading: the CFL, the AFL, and any fixture
     // whose competition could not be named.
     filteredMatches = matches.filter(m => m.category === 'american_football' && !isChannel(m) && m._competition !== 'nfl');
-  } else if (categoryMatch === 'channels') {
-    // Always-on channels, gathered in one place. A channel has no kickoff, which
-    // is what separates it from a fixture.
-    // Team channels and the listings in channelExclusions are not channels for
-    // this tab; everything else is listed, and the health check below decides
-    // what plays.
-    const allChannels = matches.filter(m => isChannel(m) && !isTeamChannel(m) && !exclusionReason(m));
-    // Check, in the background, which channels actually open to a stream. The
-    // viewer's own source choices are left out: whether a channel is dead is a
-    // fact about the channel, and one viewer turning a source off should not
-    // hide it for everyone else.
-    channelHealth.sweep(allChannels, (m) => countChannelStreams(m.id));
-    // A channel the last check found with no streams at all stays out of the
-    // tab until a later check finds it playing. Unchecked channels are shown.
-    filteredMatches = allChannels.filter(m => !channelHealth.isDead(m.id));
-    // The genre picker. "All" is what a player sends when the genre is required
-    // only to keep the tab off the home board, so it means no filter.
-    const wantedGenre = extra && typeof extra.genre === 'string' && extra.genre !== 'All' ? extra.genre : null;
-    if (wantedGenre) filteredMatches = filteredMatches.filter(m => channelGenre(m) === wantedGenre);
-  } else if (categoryMatch === 'local') {
-    // The viewer's own cities, from the "markets" setting: their stations'
-    // tiles, and any channel whose name says the city -- CBS News Chicago,
-    // Chicago Sports Network. Empty until a city is named.
-    const markets = parseMarkets(marketsSetting(conf));
-    filteredMatches = markets.length
-      ? matches.filter(m => isChannel(m) && !isTeamChannel(m) && !exclusionReason(m)
-        && !channelHealth.isDead(m.id) && isLocalTo(m, markets))
-      : [];
+  } else if (CHANNEL_CATALOG_GENRES[categoryMatch]) {
+    // Focused 24/7 television catalogs. Only the five explicitly published
+    // genres are exposed; News, Local, Music, Lifestyle and International are
+    // intentionally absent even though providers may still cache them.
+    const wantedGenre = CHANNEL_CATALOG_GENRES[categoryMatch];
+    const channels = matches.filter(m =>
+      isChannel(m)
+      && !isTeamChannel(m)
+      && !exclusionReason(m)
+      && channelGenre(m) === wantedGenre
+    );
+
+    // Health-check only the channels that can actually appear in this catalog.
+    channelHealth.sweep(channels, (m) => countChannelStreams(m.id));
+    filteredMatches = channels.filter(m => !channelHealth.isDead(m.id));
   } else if (categoryMatch === 'other') {
     filteredMatches = matches.filter(m => !TOP_LEVEL_CATEGORIES.includes(m.category) && !isChannel(m));
   } else if (categoryMatch !== 'catalog') {
@@ -1302,7 +1299,7 @@ async function handleCatalog(type, id, extra, config, opts = {}) {
   // Sport 10. Grouping by genre made "All" jump from sports to news partway
   // down; the genre picker is how to see one group. Before the per-tab shuffle
   // and reverse below, which still have the last word.
-  if (categoryMatch === 'channels' || categoryMatch === 'local') {
+  if (CHANNEL_CATALOG_GENRES[categoryMatch]) {
     filteredMatches.sort((a, b) =>
       String(a.title).localeCompare(String(b.title), 'en', { sensitivity: 'base', numeric: true }));
   }
