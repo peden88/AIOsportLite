@@ -50,6 +50,12 @@
     .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; overflow: hidden; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
     .card:hover { transform: translateY(-8px) scale(1.02); border-color: var(--accent); box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 20px var(--accent-glow); z-index: 10; }
     .poster-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #111; overflow: hidden; }
+    .vod-card .poster-container { aspect-ratio: 2/3; }
+    .vod-card .background { display:none; }
+    .vod-card .poster { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; padding:0; }
+    .vod-card .info { padding:42px 12px 12px; }
+    .vod-card .desc { display:none; }
+    .vod-card .title { font-size:1rem; margin-bottom:0; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
     .background { width: 100%; height: 100%; object-fit: cover; filter: blur(20px) brightness(0.5); transform: scale(1.2); transition: all 0.4s; }
     .card:hover .background { filter: blur(15px) brightness(0.7); transform: scale(1.1); }
     .poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; padding: 10px; transition: transform 0.4s; }
@@ -175,6 +181,7 @@
     let bootstrap = null;
     let currentItems = [];
     let currentMode = 'sports';
+    let currentVodType = '';
     let currentPlaybackSession = null;
     let currentPlaybackKind = 'sport_event';
     let playbackGeneration = 0;
@@ -209,7 +216,7 @@
       search.value = '';
       search.placeholder = mode === 'sports'
         ? 'Search matches…'
-        : ('Search ' + (mode === 'movie' ? 'movies' : 'series') + '…');
+        : 'Search VOD…';
     }
 
     async function initContent() {
@@ -219,7 +226,7 @@
         const sports = bootstrap.services && bootstrap.services.sports && bootstrap.services.sports.enabled;
         const vod = bootstrap.services && bootstrap.services.vod && bootstrap.services.vod.enabled;
         if (sports) await loadMode('sports');
-        else if (vod) await loadMode('movie');
+        else if (vod) await loadMode('vod');
         else grid().innerHTML = '<div style="color:var(--text-muted);">No content services are enabled.</div>';
       } catch (err) {
         console.error('Failed to bootstrap app', err);
@@ -241,10 +248,7 @@
       };
 
       if (bootstrap.services?.sports?.enabled) add('sports', 'Live');
-      if (bootstrap.services?.vod?.enabled) {
-        add('movie', 'Movies');
-        add('series', 'Series');
-      }
+      if (bootstrap.services?.vod?.enabled) add('vod', 'VOD');
     }
 
     async function loadMode(mode) {
@@ -254,7 +258,7 @@
       grid().innerHTML = '';
 
       if (mode === 'sports') return loadSportsTabs();
-      return loadVodTabs(mode);
+      return loadVodTabs();
     }
 
     async function loadSportsTabs() {
@@ -278,18 +282,13 @@
       }
     }
 
-    async function loadVodTabs(type) {
+    async function loadVodTabs() {
       try {
         const data = await (await fetch('/api/v1/vod/catalogs')).json();
         tabs().innerHTML = '';
-        const loadable = (data.catalogs || []).filter(cat =>
-          cat.type === type &&
-          Array.isArray(cat.requiredExtras) &&
-          cat.requiredExtras.length === 0
-        );
 
         let first = null;
-        for (const catalog of loadable) {
+        for (const catalog of data.catalogs || []) {
           const tab = document.createElement('div');
           tab.className = 'tab';
           tab.textContent = catalog.name || catalog.id;
@@ -299,7 +298,7 @@
         }
 
         if (first) await loadVodCatalog(first.catalog, first.tab);
-        else grid().innerHTML = '<div style="color:var(--text-muted);">No directly loadable catalogs are enabled for this section. Search is still available.</div>';
+        else grid().innerHTML = '<div style="color:var(--text-muted);">No VOD catalogs are available.</div>';
       } catch (err) {
         console.error(err);
         tabs().innerHTML = '<div style="color:var(--accent);">Failed to load VOD catalogs.</div>';
@@ -323,6 +322,7 @@
 
     async function loadVodCatalog(catalog, tab) {
       setActiveTab(tab);
+      currentVodType = String(catalog.type || '').toLowerCase();
       grid().innerHTML = '<div style="color:var(--text-muted);">Loading titles...</div>';
       try {
         const url = '/api/v1/vod/catalog/' + encodeURIComponent(catalog.type) + '/' + encodeURIComponent(catalog.id);
@@ -359,7 +359,7 @@
       searchTimer = setTimeout(async () => {
         grid().innerHTML = '<div style="color:var(--text-muted);">Searching...</div>';
         try {
-          const url = '/api/v1/vod/search?q=' + encodeURIComponent(raw) + '&type=' + encodeURIComponent(currentMode);
+          const url = '/api/v1/vod/search?q=' + encodeURIComponent(raw);
           const res = await fetch(url);
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Search failed');
@@ -396,18 +396,24 @@
 
         if (currentMode === 'sports') {
           card.onclick = () => fetchAndPlay(meta.id, 'sport_event', '');
-        } else if (currentMode === 'movie') {
-          card.onclick = () => fetchAndPlay(meta.id, 'movie', 'movie');
         } else {
-          card.onclick = () => openSeries(meta);
+          card.classList.add('vod-card');
+          const vodType = String(meta.type || currentVodType || 'movie').toLowerCase();
+          card.onclick = vodType === 'series'
+            ? () => openSeries(meta)
+            : () => fetchAndPlay(meta.id, 'movie', 'movie');
         }
 
         const posterBox = document.createElement('div');
         posterBox.className = 'poster-container';
-        posterBox.appendChild(makeImage(meta.background || meta.poster, 'background', ''));
-        posterBox.appendChild(makeImage(meta.poster, 'poster', meta.name || ''));
+        if (currentMode === 'sports') {
+          posterBox.appendChild(makeImage(meta.background || meta.poster, 'background', ''));
+          posterBox.appendChild(makeImage(meta.poster, 'poster', meta.name || ''));
+        } else {
+          posterBox.appendChild(makeImage(meta.poster || meta.background, 'poster', meta.name || ''));
+        }
 
-        if (meta.logo && meta.logo !== meta.poster) {
+        if (currentMode === 'sports' && meta.logo && meta.logo !== meta.poster) {
           posterBox.appendChild(makeImage(meta.logo, 'logo', ''));
         }
 
