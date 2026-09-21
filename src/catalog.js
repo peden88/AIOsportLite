@@ -201,84 +201,121 @@ const SPORT_CHANNEL_CATALOGS = new Set([
   'channel_sport_international'
 ]);
 
-const EXCLUDED_SPORT_REGIONS = new Set([
-  'CA', 'NZ', 'AU', 'IN', 'AR', 'NL', 'IL', 'MX', 'TR', 'GR'
-]);
+// Explicit keep-lists keep the three sports catalogs lean even if an upstream
+// provider adds or renames hundreds of extra feeds later. Anything not listed
+// here is intentionally absent from the published sports-channel catalogs.
+//
+// US college networks and US regional sports networks are deliberately omitted.
+const SPORT_CHANNEL_ALLOWLISTS = {
+  channel_sport_us: new Set([
+    'DAZN 1 US',
+    'ESPN US',
+    'ESPN 2 US',
+    'ESPN+ USA',
+    'Fox Sports',
+    'Fox Sports 1',
+    'Fubo Sports Network',
+    'USA Network',
+    'CBS Sports HQ',
+    'Stadium',
+    'beIN SPORTS 1 US',
+    'beIN Sports XTRA',
+    'CBS Sports Golazo Network',
+    'ESPN Deportes',
+    'Fox Deportes',
+    'TUDN',
+    'MLB',
+    'MLB Network',
+    'MLB Strike Zone',
+    'NBA TV',
+    'NFL Channel',
+    'NFL Network',
+    'NHL Network',
+    'GOLF Channel',
+    'PGA Tour',
+    'Willow Cricket',
+    'Willow Cricket 2',
+    'Bellator MMA',
+    'FITE 24/7',
+    'Glory Kickboxing',
+    'PFL MMA',
+    'FloRacing',
+    'NHRA TV',
+    'RACER Network',
+    'Racer Select',
+    'Tennis Channel',
+    'Tennis Channel 2'
+  ]),
 
-/**
- * Country/region for a sports channel.
- *
- * Most providers already carry a region. A minority of TimStreams and
- * Streamed.pk rows do not, so the remaining well-known networks are mapped
- * explicitly. This keeps the split deterministic instead of guessing from
- * whatever language or title happens to be present on a given refresh.
- */
-function sportChannelRegion(m) {
-  const existing = String((m && m.region) || '').trim().toUpperCase();
-  if (existing) return existing;
+  channel_sport_uk: new Set([
+    'DAZN 1 UK',
+    'Premier Sports 1 UK',
+    'Premier Sports 2 UK',
+    'Sky Sports Action',
+    'Sky Sports Cricket',
+    'Sky Sports F1',
+    'Sky Sports Football',
+    'Sky Sports Golf',
+    'Sky Sports Main Event',
+    'Sky Sports Mix',
+    'Sky Sports Premier League',
+    'Sky Sports Racing',
+    'Sky Sports Tennis',
+    'Sky Sports+',
+    'TNT Sports 1',
+    'TNT Sports 2',
+    'TNT Sports 3',
+    'TNT Sports 4',
+    'MotoGP Channel',
+    'Rally TV',
+    'UFC Fight Pass 24/7'
+  ]),
 
-  const id = String((m && m.id) || '');
-  const title = String((m && (m.baseTitle || m.title)) || '').trim();
-
-  let hit = /^cdn_ch_([a-z]{2})_/i.exec(id);
-  if (hit) return hit[1].toUpperCase();
-
-  hit = /\.([a-z]{2})$/i.exec(id);
-  if (hit) return hit[1].toUpperCase();
-
-  if (/^ustv_/i.test(id)) return 'US';
-
-  const rules = [
-    [/^beIN Sports Francais [1-3]$/i, 'FR'],
-    [/^Big Ten Network$/i, 'US'],
-    [/^CANAL\+ Extra [12]$/i, 'PL'],
-    [/^CBS Sports Golazo Network$/i, 'US'],
-    [/^DAZN (?:F1|LaLiga)$/i, 'ES'],
-    [/^Eleven Sports [1-4]$/i, 'PL'],
-    [/^(?:ESPN Deportes|ESPNEWS|ESPNU)$/i, 'US'],
-    [/^Fox Cricket$/i, 'AU'],
-    [/^Fox Deportes$/i, 'US'],
-    [/^Fox Sports 1$/i, 'US'],
-    [/^Fox Sports 50[1-7]\b/i, 'AU'],
-    [/^Go3 Sport [1-3]$/i, 'BLT'],
-    [/^GOLF Channel$/i, 'US'],
-    [/^(?:MLB Network|NBA TV|NFL Network|NHL Network)$/i, 'US'],
-    [/^MotoGP Channel$/i, 'GLOBAL'],
-    [/^Movistar/i, 'ES'],
-    [/^NBC Sports (?:Bay Area|Philadelphia)$/i, 'US'],
-    [/^Polsat Sport/i, 'PL'],
-    [/^Premiere$/i, 'BR'],
-    [/^RACER Network$/i, 'US'],
-    [/^Rally TV$/i, 'GLOBAL'],
-    [/^SEC Network$/i, 'US'],
-    [/^Sky Sport 24$/i, 'IT'],
-    [/^Sky Sport Bundesliga$/i, 'DE'],
-    [/^Sky Sport Uno$/i, 'IT'],
-    [/^Sky Sports/i, 'GB'],
-    [/^Sony Sports Network/i, 'IN'],
-    [/^Sport TV[1-5]$/i, 'PT'],
-    [/^SPORTDIGITAL/i, 'DE'],
-    [/^Tennis Channel$/i, 'US'],
-    [/^TNT Sports [1-4]$/i, 'GB'],
-    [/^TSN1$/i, 'CA'],
-    [/^TUDN$/i, 'US'],
-    [/^TYC Sports Internacional$/i, 'AR'],
-    [/^UFC Fight Pass 24\/7$/i, 'GLOBAL'],
-    [/^USA Network$/i, 'US'],
-    [/^Willow Cricket(?: 2)?$/i, 'US'],
-    [/^Sky Sports F1$/i, 'GB']
-  ];
-  for (const [re, region] of rules) if (re.test(title)) return region;
-
-  return 'INTL';
-}
+  channel_sport_international: new Set([
+    'CANAL+ Sport PL',
+    'CANAL+ Sport 2 PL',
+    'CANAL+ Sport 3 PL',
+    'CANAL+ Sport 4 PL',
+    'Eleven Sports 1',
+    'Eleven Sports 2',
+    'Polsat Sport 1',
+    'TVP Sport',
+    'DAZN 1 DE',
+    'DAZN 2 DE',
+    'Sky Sport Bundesliga',
+    'Sky Sport Top Event',
+    'SPORTDIGITAL FUSSBALL',
+    'DAZN 1 ES',
+    'DAZN 2 ES',
+    'DAZN F1',
+    'DAZN LaLiga',
+    'Movistar Deportes',
+    'Movistar LaLiga',
+    'beIN Sports Francais 1',
+    'beIN Sports Francais 2',
+    'beIN Sports Francais 3',
+    'RMC Sport 1',
+    'RMC Sport 2',
+    'Sport TV1',
+    'Sport TV2',
+    'Sport TV3',
+    'Sport TV4',
+    'Euro Sport 1',
+    'Sky Sport 24',
+    'Sky Sport Uno',
+    'ESPN BR',
+    'Premiere',
+    'Go3 Sport 1',
+    'Abu Dhabi Sports 1'
+  ])
+};
 
 function sportChannelCatalog(m) {
-  const region = sportChannelRegion(m);
-  if (EXCLUDED_SPORT_REGIONS.has(region)) return null;
-  if (region === 'US') return 'channel_sport_us';
-  if (region === 'GB' || region === 'IE' || region === 'GLOBAL') return 'channel_sport_uk';
-  return 'channel_sport_international';
+  const title = String((m && (m.baseTitle || m.title)) || '').trim();
+  for (const [catalog, allowed] of Object.entries(SPORT_CHANNEL_ALLOWLISTS)) {
+    if (allowed.has(title)) return catalog;
+  }
+  return null;
 }
 
 const COMPETITION_LABEL = { nfl: 'NFL', cfl: 'CFL', afl: 'AFL' };
