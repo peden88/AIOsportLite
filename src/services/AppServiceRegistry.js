@@ -76,10 +76,13 @@ function privateConfig() {
     ? !!saved.vodEnabled
     : enabled(process.env.VOD_ENABLED);
   const vodEnabled = vodRequested && metadataEnabled && streamsEnabled;
+  const sportsEnabled = Object.prototype.hasOwnProperty.call(saved, 'sportsEnabled')
+    ? !!saved.sportsEnabled
+    : (process.env.SPORTS_ENABLED === undefined ? true : enabled(process.env.SPORTS_ENABLED));
 
   return {
     sports: {
-      enabled: process.env.SPORTS_ENABLED === undefined ? true : enabled(process.env.SPORTS_ENABLED),
+      enabled: sportsEnabled,
       manifestUrl: sportsManifestUrl,
       role: 'live-catalog-and-playback'
     },
@@ -98,6 +101,7 @@ function privateConfig() {
       requested: vodRequested
     },
     sources: {
+      sportsEnabled: sourceFor(saved, 'sportsEnabled'),
       metadata: sourceFor(saved, 'aiometadataManifestUrl'),
       streams: sourceFor(saved, 'aiostreamsManifestUrl'),
       vodEnabled: sourceFor(saved, 'vodEnabled')
@@ -164,6 +168,11 @@ function endpointSummary(url, source) {
 function adminSummary() {
   const cfg = privateConfig();
   return {
+    sports: {
+      enabled: cfg.sports.enabled,
+      source: cfg.sources.sportsEnabled,
+      manifest: endpointSummary(cfg.sports.manifestUrl, 'environment')
+    },
     vodRequested: cfg.vod.requested,
     vodEnabled: cfg.vod.enabled,
     metadata: endpointSummary(cfg.metadata.manifestUrl, cfg.sources.metadata),
@@ -171,7 +180,7 @@ function adminSummary() {
   };
 }
 
-function updatePersistentVod(patch = {}) {
+function updatePersistentServices(patch = {}) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
     const err = new Error('Expected a service configuration object.');
     err.code = 'INVALID_SERVICE_CONFIG';
@@ -181,6 +190,9 @@ function updatePersistentVod(patch = {}) {
   const current = serviceSettings.read();
   const next = { ...current };
 
+  if (Object.prototype.hasOwnProperty.call(patch, 'sportsEnabled')) {
+    next.sportsEnabled = !!patch.sportsEnabled;
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'vodEnabled')) {
     next.vodEnabled = !!patch.vodEnabled;
   }
@@ -205,6 +217,9 @@ function updatePersistentVod(patch = {}) {
   return adminSummary();
 }
 
+// Kept for callers/tests from the first VOD-only services implementation.
+const updatePersistentVod = updatePersistentServices;
+
 function manifestUrl(service) {
   const cfg = privateConfig();
   if (!cfg[service] || !cfg[service].manifestUrl) return '';
@@ -215,6 +230,7 @@ module.exports = {
   publicBootstrap,
   manifestUrl,
   adminSummary,
+  updatePersistentServices,
   updatePersistentVod,
   _privateConfig: privateConfig,
   _normaliseHttpUrl: normaliseHttpUrl,
