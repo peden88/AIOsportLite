@@ -102,6 +102,53 @@
     .mode-tab { padding:7px 14px; min-height:34px; border-radius:18px; background:rgba(22,104,255,.08); border:1px solid rgba(22,104,255,.22); color:#a9c6ff; cursor:pointer; font-weight:700; white-space:nowrap; font-size:13px; line-height:1; }
     .mode-tab:hover { background:rgba(22,104,255,.16); border-color:rgba(22,104,255,.42); color:#d8e6ff; }
     .mode-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:0 3px 12px rgba(22,104,255,.25); }
+    .player-select {
+      display:none;
+      min-height:34px;
+      padding:6px 30px 6px 12px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.18);
+      background:#141418;
+      color:#e8e8ec;
+      font:700 12px/1 'Inter',sans-serif;
+      outline:none;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .player-select:focus { border-color:var(--accent); }
+    .player-choice-overlay {
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:130;
+      background:rgba(0,0,0,.72);
+      backdrop-filter:blur(12px);
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .player-choice-sheet {
+      width:min(430px,100%);
+      background:#15151a;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:20px;
+      padding:22px;
+      box-shadow:0 24px 70px rgba(0,0,0,.55);
+    }
+    .player-choice-sheet h3 { margin:0 0 6px; font:800 22px/1.2 'Outfit',sans-serif; }
+    .player-choice-sheet p { margin:0 0 16px; color:var(--text-muted); font-size:13px; }
+    .player-choice-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .player-choice-grid button {
+      min-height:46px;
+      border-radius:13px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.07);
+      color:#fff;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .player-choice-grid button:hover { border-color:var(--accent); background:rgba(22,104,255,.16); }
+    .player-choice-grid .wide { grid-column:1/-1; }
     .tabs { display: flex; gap: 12px; margin-bottom: 18px; overflow-x: auto; overflow-y:hidden; padding: 2px 0 10px; white-space:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
     .tabs::-webkit-scrollbar { display:none; }
     .tab { padding: 10px 20px; border-radius: 30px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text-muted); cursor: pointer; font-weight: 600; transition: all 0.2s; white-space: nowrap; }
@@ -164,6 +211,7 @@
       .control-separator { height:22px; }
       .mode-tabs { gap:5px; }
       .mode-tab { padding:7px 12px; min-height:32px; font-size:12px; }
+      .player-select { min-height:32px; max-width:132px; padding:6px 26px 6px 10px; }
       .tabs { gap:10px; margin-bottom:14px; }
       .tab { padding:9px 16px; font-size:13px; }
       .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
@@ -207,6 +255,15 @@
       </div>
       <div class="admin-only control-separator" aria-hidden="true"></div>
       <div class="mode-tabs" id="modeTabs"></div>
+      <div class="control-separator vod-player-control" id="vodPlayerSeparator" aria-hidden="true" style="display:none"></div>
+      <select id="vodPlayerSelect" class="player-select vod-player-control" aria-label="VOD player">
+        <option value="internal">Player: AIOPlay</option>
+        <option value="ask">Player: Ask each time</option>
+        <option value="vlc">Player: VLC</option>
+        <option value="outplayer">Player: Outplayer</option>
+        <option value="strexo">Player: Strexo</option>
+        <option value="custom">Player: Custom</option>
+      </select>
     </div>
   </header>
 
@@ -228,6 +285,20 @@
         </div>
       </div>
       <div class="episode-list" id="episodeList"></div>
+    </div>
+  </div>
+
+  <div id="player-choice-overlay" class="player-choice-overlay">
+    <div class="player-choice-sheet">
+      <h3>Open with</h3>
+      <p>Choose where to play this VOD stream.</p>
+      <div class="player-choice-grid">
+        <button type="button" onclick="chooseVodPlayer('internal')">AIOPlay</button>
+        <button type="button" onclick="chooseVodPlayer('vlc')">VLC</button>
+        <button type="button" onclick="chooseVodPlayer('outplayer')">Outplayer</button>
+        <button type="button" onclick="chooseVodPlayer('strexo')">Strexo</button>
+        <button type="button" class="wide" onclick="closeVodPlayerChoice()">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -255,10 +326,87 @@
     let currentPlaybackKind = 'sport_event';
     let playbackGeneration = 0;
     let requestingFallback = false;
+    let pendingVodPlayback = null;
     let searchTimer = null;
 
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
+    const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
+    const STREXO_TEMPLATE_KEY = 'aioplay.strexoTemplate';
+    const CUSTOM_TEMPLATE_KEY = 'aioplay.customPlayerTemplate';
+
+    function vodPlayerPreference() {
+      const value = localStorage.getItem(VOD_PLAYER_KEY) || 'internal';
+      return ['internal', 'ask', 'vlc', 'outplayer', 'strexo', 'custom'].includes(value)
+        ? value
+        : 'internal';
+    }
+
+    function ensurePlayerTemplate(kind) {
+      const key = kind === 'strexo' ? STREXO_TEMPLATE_KEY : CUSTOM_TEMPLATE_KEY;
+      const existing = localStorage.getItem(key);
+      if (existing && existing.includes('{url}')) return existing;
+      const label = kind === 'strexo' ? 'Strexo' : 'custom player';
+      const suggested = kind === 'strexo' ? 'strexo://play?url={url}' : 'player://play?url={url}';
+      const value = window.prompt(
+        'Enter the ' + label + ' URL template. Use {url} where the encoded playback URL should go.',
+        suggested
+      );
+      if (!value || !value.includes('{url}')) return '';
+      localStorage.setItem(key, value.trim());
+      return value.trim();
+    }
+
+    function initVodPlayerControl() {
+      const select = document.getElementById('vodPlayerSelect');
+      if (!select) return;
+      select.value = vodPlayerPreference();
+      select.addEventListener('change', () => {
+        let value = select.value;
+        if ((value === 'strexo' || value === 'custom') && !ensurePlayerTemplate(value)) {
+          value = 'ask';
+          select.value = value;
+        }
+        localStorage.setItem(VOD_PLAYER_KEY, value);
+      });
+    }
+
+    function buildExternalPlayerUrl(kind, streamUrl) {
+      const encoded = encodeURIComponent(streamUrl);
+      if (kind === 'vlc') {
+        return 'vlc-x-callback://x-callback-url/stream?url=' + encoded;
+      }
+      if (kind === 'outplayer') {
+        return 'outplayer://x-callback-url/play?url=' + encoded;
+      }
+      if (kind === 'strexo' || kind === 'custom') {
+        const template = ensurePlayerTemplate(kind);
+        if (!template) return '';
+        return template
+          .replaceAll('{url}', encoded)
+          .replaceAll('{rawUrl}', streamUrl);
+      }
+      return streamUrl;
+    }
+
+    function triggerExternalPlayer(kind, streamUrl) {
+      const playerUrl = buildExternalPlayerUrl(kind, streamUrl);
+      if (!playerUrl) return false;
+      const anchor = document.createElement('a');
+      anchor.href = playerUrl;
+      anchor.rel = 'noopener';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      return true;
+    }
+
+    function setVodPlayerControlsVisible(visible) {
+      document.querySelectorAll('.vod-player-control').forEach(el => {
+        el.style.display = visible ? '' : 'none';
+      });
+    }
 
     function safeImageUrl(value) {
       const raw = String(value || '').trim();
@@ -286,6 +434,7 @@
       search.placeholder = mode === 'sports'
         ? 'Search matches…'
         : 'Search VOD…';
+      setVodPlayerControlsVisible(mode === 'vod');
     }
 
     async function initContent() {
@@ -620,10 +769,87 @@
         }
 
         currentPlaybackSession = data.sessionId || null;
+        const isVod = contentType !== 'sport_event' && contentType !== 'live_channel' && contentType !== 'sport';
+        const preference = isVod ? vodPlayerPreference() : 'internal';
+
+        if (isVod && preference === 'ask') {
+          pendingVodPlayback = {
+            target: data.playback,
+            generation
+          };
+          document.getElementById('player-choice-overlay').style.display = 'flex';
+          showPlaybackLoading('Choose a player…');
+          return;
+        }
+
+        if (isVod && preference !== 'internal') {
+          const opened = await openCurrentVodInExternalPlayer(preference, generation);
+          if (opened) return;
+        }
+
         await playOpaqueTarget(data.playback, generation);
       } catch (err) {
         console.error('Playback start failed', err);
         if (generation === playbackGeneration) showPlaybackFailure();
+      }
+    }
+
+    function closeVodPlayerChoice() {
+      pendingVodPlayback = null;
+      document.getElementById('player-choice-overlay').style.display = 'none';
+      closePlayer();
+    }
+
+    async function chooseVodPlayer(kind) {
+      const pending = pendingVodPlayback;
+      pendingVodPlayback = null;
+      document.getElementById('player-choice-overlay').style.display = 'none';
+      if (!pending || pending.generation !== playbackGeneration) return;
+
+      if (kind === 'internal') {
+        await playOpaqueTarget(pending.target, pending.generation);
+        return;
+      }
+
+      const opened = await openCurrentVodInExternalPlayer(kind, pending.generation);
+      if (!opened && pending.generation === playbackGeneration) {
+        await playOpaqueTarget(pending.target, pending.generation);
+      }
+    }
+
+    async function openCurrentVodInExternalPlayer(kind, generation) {
+      if (generation !== playbackGeneration || !currentPlaybackSession) return false;
+      if ((kind === 'strexo' || kind === 'custom') && !ensurePlayerTemplate(kind)) {
+        return false;
+      }
+
+      try {
+        const session = currentPlaybackSession;
+        const res = await fetch(
+          '/api/v1/playback/' + encodeURIComponent(session) + '/external',
+          { method: 'POST' }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (generation !== playbackGeneration) return true;
+        if (!res.ok || !data.ok || !data.url) {
+          console.warn('External playback bridge unavailable', data.error || res.status);
+          return false;
+        }
+
+        const launched = triggerExternalPlayer(kind, data.url);
+        if (!launched) return false;
+
+        currentPlaybackSession = null;
+        requestingFallback = false;
+        playbackGeneration++;
+        document.getElementById('player-overlay').style.display = 'none';
+        document.getElementById('playback-message').style.display = 'none';
+        stopVideoEngine();
+        fetch('/api/v1/playback/' + encodeURIComponent(session), { method: 'DELETE' }).catch(() => {});
+        return true;
+      } catch (err) {
+        console.error('External playback failed', err);
+        return false;
       }
     }
 
@@ -740,6 +966,9 @@
       const session = currentPlaybackSession;
       currentPlaybackSession = null;
       requestingFallback = false;
+      pendingVodPlayback = null;
+      const chooser = document.getElementById('player-choice-overlay');
+      if (chooser) chooser.style.display = 'none';
       if (invalidate) playbackGeneration++;
 
       document.getElementById('player-overlay').style.display = 'none';
@@ -753,6 +982,7 @@
       }
     }
 
+    initVodPlayerControl();
     initContent();
   </script>
 <script>
