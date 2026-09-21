@@ -34,6 +34,7 @@ t(!/<header>[\s\S]*?<div class="brand">[\s\S]*?<span>AIOPlay<\/span>/.test(html)
 t(html.includes('class="header-row"'), 'logo, search and logout share one top row');
 t(html.includes('grid-template-columns: auto minmax(0, 1fr) auto'), 'top row reserves logo, fluid search and logout columns');
 t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live Movies Series selector is centered to the page');
+t(/<header>[\s\S]*?<div class="mode-tabs" id="modeTabs"><\/div>[\s\S]*?<\/header>/.test(html), 'Live Movies Series selector sits directly in the page header below search');
 t(html.includes("add('sports', 'Live')"), 'Sports mode is labelled Live');
 t(html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), 'content cards use a two-column grid');
 t(html.includes('overflow-x: auto; overflow-y:hidden'), 'catalog selector remains horizontally scrollable');
