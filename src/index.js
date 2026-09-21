@@ -466,6 +466,7 @@ app.get('/api/v1/admin/services', async (req, res) => {
   try {
     res.json({
       config: appServices.adminSummary(),
+      sports: sportsServiceSummary(),
       status: await vodGateway.diagnostics()
     });
   } catch (err) {
@@ -477,9 +478,9 @@ app.get('/api/v1/admin/services', async (req, res) => {
 app.put('/api/v1/admin/services', express.json({ limit: '16kb' }), async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
-    const config = appServices.updatePersistentVod(req.body || {});
+    const config = appServices.updatePersistentServices(req.body || {});
     const status = await vodGateway.diagnostics();
-    res.json({ saved: true, config, status });
+    res.json({ saved: true, config, sports: sportsServiceSummary(), status });
   } catch (err) {
     const statusCode = ['INVALID_SERVICE_URL', 'INVALID_SERVICE_CONFIG'].includes(err.code) ? 400 : 500;
     res.status(statusCode).json({ error: err.message });
@@ -2327,6 +2328,94 @@ function resolveAppSportsConfig() {
   const err = new Error('AIOSPORT_MANIFEST_URL is not a supported AIOSport Lite manifest URL.');
   err.statusCode = 503;
   throw err;
+}
+
+const APP_SPORTS_SOURCES = [
+  'streamfree', 'timstreams', 'streamedpk', 'sportyhunter', 'watchfooty',
+  'cdnlive', 'streamsports99', 'streamic', 'totalsportek', 'usatv', 'iptv-org'
+];
+
+function configuredSportsSourceCount(config) {
+  const raw = config && typeof config.sources === 'string' ? config.sources.trim() : '';
+  if (!raw || raw === 'all') return APP_SPORTS_SOURCES.length;
+  if (raw === 'none') return 0;
+  const wanted = new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
+  return APP_SPORTS_SOURCES.filter(id => wanted.has(id)).length;
+}
+
+function sportsConfigMode(configuredManifestUrl, defaultExists) {
+  if (!configuredManifestUrl) {
+    return defaultExists
+      ? { key: 'default-profile', label: 'Default saved profile' }
+      : { key: 'built-in-defaults', label: 'Built-in defaults' };
+  }
+
+  let pathname = '';
+  try { pathname = new URL(configuredManifestUrl, BASE_URL).pathname; }
+  catch (_) { return { key: 'pinned-manifest', label: 'Pinned manifest' }; }
+
+  if (pathname === '/saved/manifest.json') {
+    return { key: 'default-profile', label: 'Default saved profile' };
+  }
+  if (/^\/p\/[^/]+\/manifest\.json$/.test(pathname)) {
+    return { key: 'saved-profile', label: 'Pinned saved profile' };
+  }
+  if (pathname === '/manifest.json') {
+    return { key: 'base-manifest', label: 'Base manifest defaults' };
+  }
+  return { key: 'pinned-manifest', label: 'Pinned manifest' };
+}
+
+/**
+ * Administrator-facing Sports card state.
+ *
+ * The first-party app owns one installation-wide sports setup. With no pinned
+ * AIOSPORT_MANIFEST_URL the legacy default saved profile is that setup; if it
+ * does not exist yet the built-in defaults are used. Configure Sports always
+ * edits/creates that real default profile rather than minting a random UUID.
+ */
+function sportsServiceSummary() {
+  const service = appServices.adminSummary().sports || { enabled: true };
+  const configuredManifestUrl = appServices.manifestUrl('sports');
+  const defaultExists = !!loadProfile(LEGACY_ID);
+  const mode = sportsConfigMode(configuredManifestUrl, defaultExists);
+  const configureUrl = defaultExists ? '/saved/configure' : '/configure?profile=default';
+
+  try {
+    const config = resolveAppSportsConfig();
+    const configured = buildConfiguredManifest(config);
+    const catalogs = (configured.catalogs || [])
+      .filter(cat => cat && typeof cat.id === 'string' && !cat.id.endsWith('__search'));
+
+    return {
+      enabled: !!service.enabled,
+      healthy: !!service.enabled && catalogs.length > 0,
+      state: service.enabled ? (catalogs.length ? 'healthy' : 'empty') : 'disabled',
+      mode: mode.key,
+      modeLabel: mode.label,
+      configureUrl,
+      defaultProfileExists: defaultExists,
+      catalogCount: catalogs.length,
+      sourceCount: configuredSportsSourceCount(config),
+      sourceTotal: APP_SPORTS_SOURCES.length,
+      pinnedManifest: !!configuredManifestUrl
+    };
+  } catch (err) {
+    return {
+      enabled: !!service.enabled,
+      healthy: false,
+      state: service.enabled ? 'error' : 'disabled',
+      mode: mode.key,
+      modeLabel: mode.label,
+      configureUrl,
+      defaultProfileExists: defaultExists,
+      catalogCount: 0,
+      sourceCount: 0,
+      sourceTotal: APP_SPORTS_SOURCES.length,
+      pinnedManifest: !!configuredManifestUrl,
+      error: err && err.message ? err.message : 'Sports configuration is unavailable.'
+    };
+  }
 }
 
 function decodeConfigSegment(configStr) {
