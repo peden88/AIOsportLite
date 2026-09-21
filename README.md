@@ -193,7 +193,7 @@ The Stremio-compatible addon resources remain usable through their install URLs 
 
 There are no user-specific addons in the first-party app. The administrator owns the service configuration and every authenticated user sees the same content backends.
 
-Sports can use the default/saved AIOPlay configuration or one explicit app-wide `AIOSPORT_MANIFEST_URL`. User accounts contain personal state such as favourites/watch progress later, not addon/service settings.
+Sports can use the default/saved AIOPlay configuration or one explicit app-wide `AIOSPORT_MANIFEST_URL`. User accounts contain personal state such as favourites/watch progress later, not addon/service settings.\n\nThe admin-only `/services` page is the instance-wide control center. Its Sports card can enable/disable sports, report which configuration source is active, show catalog/source status, and open `/saved/configure` to edit the actual default sports profile used by the first-party web and TV clients.
 
 ## Optional VOD with AIOMetadata and AIOStreams
 
