@@ -251,9 +251,9 @@ app.use((req, res, next) => {
  */
 async function collectWarmUrls() {
   const { manifest } = require('./manifest');
-  // Your Teams and Local draw on a viewer's config; their tiles are in the
-  // other tabs already.
-  const ids = (manifest.catalogs || []).map(c => c.id).filter(id => !/_(teams|local)$/.test(id));
+  // Your Teams draws on a viewer's config; its tiles are in the other tabs
+  // already.
+  const ids = (manifest.catalogs || []).map(c => c.id).filter(id => !/_teams$/.test(id));
   const perCatalog = [];
   for (const id of ids) {
     try {
@@ -1904,7 +1904,11 @@ app.get('/:config?/manifest.json', (req, res, next) => {
     // a list kept alongside. The list fell behind as tabs were added, and the
     // failure was silent and backwards: College, Other Football and Channels
     // were dropped by any sports filter, including one that had them ticked.
-    const ALWAYS = new Set(['live', 'upcoming', 'teams', 'channels', 'local']);
+    const ALWAYS = new Set([
+      'live', 'upcoming', 'teams',
+      'channel_entertainment', 'channel_movies', 'channel_documentary',
+      'channel_kids', 'channel_sport'
+    ]);
     const SPORT_FOR_CATALOG = { other_football: 'american_football' };
 
     newManifest.catalogs = newManifest.catalogs.filter(c => {
@@ -2042,11 +2046,6 @@ app.get('/:config?/manifest.json', (req, res, next) => {
   if (typeof parsedConfig.teams !== 'string' || parsedConfig.teams.trim() === '') {
     newManifest.catalogs = newManifest.catalogs.filter(c => c.id !== 'nuvio_sports_teams');
   }
-  // And the Local tab when no city is named: it could only ever be empty.
-  if (typeof parsedConfig.markets !== 'string' || parsedConfig.markets.trim() === '') {
-    newManifest.catalogs = newManifest.catalogs.filter(c => c.id !== 'nuvio_sports_local');
-  }
-
   // A tab kept off the home board is published twice, because no single catalog
   // can be in Discover, off the home board and searchable at once: the required
   // genre that takes it off the board is exactly what hides it from search. The
