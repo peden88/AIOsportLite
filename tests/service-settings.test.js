@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'aiosportlite-services-'));
+process.env.SPORTS_ENABLED = 'true';
 process.env.VOD_ENABLED = 'false';
 process.env.AIOMETADATA_MANIFEST_URL = 'https://env-meta.example/stremio/env/manifest.json';
 process.env.AIOSTREAMS_MANIFEST_URL = 'https://env-streams.example/stremio/env/manifest.json';
@@ -21,29 +22,42 @@ function t(want,got,label){
 
 console.log('--- environment fallback');
 let summary=registry.adminSummary();
+t(true,summary.sports.enabled,'Sports is enabled from environment by default');
+t('environment',summary.sports.source,'Sports enable state initially comes from environment');
 t(false,summary.vodRequested,'VOD follows environment before an admin override');
 t('environment',summary.metadata.source,'AIOMetadata initially comes from environment');
 t('env-meta.example',summary.metadata.host,'admin summary exposes host but not full manifest URL');
 
 console.log('--- persisted global override');
-registry.updatePersistentVod({
+registry.updatePersistentServices({
+  sportsEnabled:false,
   vodEnabled:true,
   aiometadataManifestUrl:'stremio://persist-meta.example/stremio/app/manifest.json',
   aiostreamsManifestUrl:'https://persist-streams.example/stremio/app/manifest.json'
 });
 summary=registry.adminSummary();
+t(false,summary.sports.enabled,'saved Sports switch overrides environment immediately');
+t('data',summary.sports.source,'saved Sports switch reports DATA_DIR as its source');
 t(true,summary.vodEnabled,'saved service settings enable VOD immediately');
 t('data',summary.metadata.source,'saved AIOMetadata overrides environment');
 t('persist-meta.example',summary.metadata.host,'stremio URL normalises to an HTTPS host');
 t('persist-streams.example',summary.streams.host,'saved AIOStreams host is reported safely');
 
 const saved=JSON.parse(fs.readFileSync(settings.FILE,'utf8'));
+t(false,saved.sportsEnabled,'Sports enabled flag persists under DATA_DIR');
 t(true,saved.vodEnabled,'VOD flag persists under DATA_DIR');
 t('https://persist-meta.example/stremio/app/manifest.json',saved.aiometadataManifestUrl,'normalised AIOMetadata URL persists');
 if(process.platform!=='win32'){
   const mode=fs.statSync(settings.FILE).mode & 0o777;
   t(0o600,mode,'service settings file is owner-read/write only');
 }
+
+console.log('--- Sports services page contract');
+const servicesHtml=fs.readFileSync(path.join(__dirname,'..','public','services.html'),'utf8');
+t(true,servicesHtml.includes('id="sportsEnabled"'),'Services page has the global Sports enable switch');
+t(true,servicesHtml.includes('id="configureSports"'),'Services page restores Configure Sports');
+t(true,servicesHtml.includes('id="sportsCatalogs"'),'Services page reports enabled catalog count');
+t(true,servicesHtml.includes('id="sportsSources"'),'Services page reports enabled source count');
 
 console.log('--- explicit clear beats environment fallback');
 registry.updatePersistentVod({clearAiometadata:true});
