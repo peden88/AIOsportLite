@@ -18,6 +18,7 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
 .check{display:flex;gap:9px;align-items:center;margin-top:12px;color:var(--dim)}button{border:0;border-radius:9px;padding:11px 14px;background:var(--accent);color:white;font-weight:750;cursor:pointer;font:inherit}
 .actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}.secondary{background:#2b2b32}.msg{margin-top:14px;min-height:20px;color:var(--dim)}.msg.bad{color:var(--bad)}.msg.good{color:var(--good)}
 .host{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--dim);word-break:break-all}
+.button-link{display:inline-flex;align-items:center;justify-content:center;border-radius:9px;padding:11px 14px;background:var(--accent);color:white!important;font-weight:750;text-decoration:none}.wide{grid-column:1/-1}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.top{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
@@ -29,6 +30,20 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
   </div>
 
   <div class="grid">
+    <section class="card">
+      <h2>Sports</h2>
+      <p class="help">This installation-wide sports configuration is shared by every AIOPlay account and TV client.</p>
+      <label class="check" style="text-transform:none;letter-spacing:0;font-size:14px"><input type="checkbox" id="sportsEnabled"> Enable Sports</label>
+      <div class="status"><div><strong>Configuration</strong><div class="host" id="sportsConfig">Checking</div></div><span class="pill" id="sportsState">Checking</span></div>
+      <div class="status"><div><strong>Catalogs</strong><div class="host">Direct first-party tabs</div></div><span class="pill" id="sportsCatalogs">—</span></div>
+      <div class="status"><div><strong>Sources</strong><div class="host" id="sportsSources">Checking</div></div><span class="pill" id="sportsOrder">—</span></div>
+      <div class="actions">
+        <a class="button-link" href="/saved/configure">Configure Sports</a>
+        <button id="testSports" class="secondary">Test Sports</button>
+      </div>
+      <div id="sportsMessage" class="msg"></div>
+    </section>
+
     <section class="card">
       <h2>VOD configuration</h2>
       <p class="help">These manifests apply to every account. Leave a URL field blank to keep its current value. Nothing entered here is returned to ordinary users.</p>
@@ -51,7 +66,7 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
       <div id="message" class="msg"></div>
     </section>
 
-    <section class="card">
+    <section class="card wide">
       <h2>Live status</h2>
       <div class="status"><div><strong>VOD</strong><div class="host" id="vodSource"></div></div><span class="pill" id="vodState">Checking</span></div>
       <div class="status"><div><strong>AIOMetadata</strong><div class="host" id="metadataHost"></div></div><span class="pill" id="metadataState">Checking</span></div>
@@ -74,7 +89,27 @@ function paint(id,ok,text){
 }
 function render(body){
   const cfg=body.config||{};
+  const sports=body.sports||{};
   const st=body.status||{};
+  $('sportsEnabled').checked=cfg.sports?.enabled!==false;
+  const sourceLabels={
+    'saved-default':'Saved default profile',
+    'built-in-defaults':'Built-in defaults',
+    'explicit-manifest':'Explicit pinned manifest'
+  };
+  $('sportsConfig').textContent=sourceLabels[sports.configurationSource]||sports.configurationSource||'Unknown';
+  paint('sportsState',!!sports.ready,sports.enabled===false?'Disabled':(sports.ready?'Ready':'Unavailable'));
+  $('sportsCatalogs').textContent=String(sports.catalogs??0);
+  $('sportsCatalogs').className='pill '+(sports.ready?'good':'bad');
+  let sourceText='All enabled sources';
+  if(sports.sourceMode==='none') sourceText='No sources enabled';
+  else if(sports.sourceMode==='custom') sourceText=(sports.selectedSources??0)+' selected source'+(sports.selectedSources===1?'':'s');
+  else if(sports.sourceMode==='disabled') sourceText='Sports disabled';
+  else if(sports.sourceMode==='unknown') sourceText='Unavailable';
+  $('sportsSources').textContent=sourceText;
+  $('sportsOrder').textContent=sports.customSourceOrder?'Custom order':'Default order';
+  $('sportsOrder').className='pill '+(sports.ready?'good':'bad');
+
   $('vodEnabled').checked=!!cfg.vodRequested;
   $('metadataHost').textContent=cfg.metadata?.configured ? ((cfg.metadata.host||'configured')+' · '+(cfg.metadata.source||'')) : 'Not configured';
   $('streamsHost').textContent=cfg.streams?.configured ? ((cfg.streams.host||'configured')+' · '+(cfg.streams.source||'')) : 'Not configured';
@@ -94,7 +129,7 @@ async function load(){
 }
 $('save').onclick=async()=>{
   $('message').textContent='Saving and testing…';$('message').className='msg';
-  const body={vodEnabled:$('vodEnabled').checked};
+  const body={sportsEnabled:$('sportsEnabled').checked,vodEnabled:$('vodEnabled').checked};
   const m=$('metadataUrl').value.trim();
   const s=$('streamsUrl').value.trim();
   if(m) body.aiometadataManifestUrl=m;
@@ -111,6 +146,21 @@ $('save').onclick=async()=>{
   }catch(e){$('message').textContent=e.message;$('message').className='msg bad';}
 };
 $('refresh').onclick=load;
+$('testSports').onclick=async()=>{
+  $('sportsMessage').textContent='Checking the installation-wide sports configuration…';
+  $('sportsMessage').className='msg';
+  try{
+    const result=await api('/api/v1/admin/sports/test',{method:'POST',body:'{}'});
+    $('sportsMessage').textContent=result.enabled
+      ? ('Passed: '+result.catalogs+' direct catalog'+(result.catalogs===1?'':'s')+' available.')
+      : 'Sports is disabled for this AIOPlay instance.';
+    $('sportsMessage').className='msg good';
+    await load();
+  }catch(e){
+    $('sportsMessage').textContent='Sports check failed: '+e.message;
+    $('sportsMessage').className='msg bad';
+  }
+};
 $('probe').onclick=async()=>{
   $('message').textContent='Probing a real AIOMetadata title through AIOStreams…';
   $('message').className='msg';
