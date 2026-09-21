@@ -45,7 +45,13 @@ const manifest = {
     { type: 'tv', id: 'nuvio_sports_channel_movies', name: '🎬 Movies', extra: [{ name: 'search', isRequired: false }] },
     { type: 'tv', id: 'nuvio_sports_channel_documentary', name: '📚 Documentaries', extra: [{ name: 'search', isRequired: false }] },
     { type: 'tv', id: 'nuvio_sports_channel_kids', name: '🧒 Kids', extra: [{ name: 'search', isRequired: false }] },
-    { type: 'tv', id: 'nuvio_sports_channel_sport', name: '🏟️ Sport', extra: [{ name: 'search', isRequired: false }] },
+
+    // Sports channels are split by the regions actually useful to this install.
+    // Canada, New Zealand, Australia, India, Argentina, Netherlands, Israel,
+    // Mexico, Turkey and Greece are deliberately excluded.
+    { type: 'tv', id: 'nuvio_sports_channel_sport_uk', name: '🇬🇧 Sport UK', extra: [{ name: 'search', isRequired: false }] },
+    { type: 'tv', id: 'nuvio_sports_channel_sport_us', name: '🇺🇸 Sport United States', extra: [{ name: 'search', isRequired: false }] },
+    { type: 'tv', id: 'nuvio_sports_channel_sport_international', name: '🌍 Sport International', extra: [{ name: 'search', isRequired: false }] },
 
     { type: 'tv', id: 'nuvio_sports_upcoming', name: '⏱️ Upcoming', extra: [{ name: 'search', isRequired: false }] },
     { type: 'tv', id: 'nuvio_sports_teams', name: '⭐ Your Teams', extra: [{ name: 'search', isRequired: false }] }
