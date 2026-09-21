@@ -132,6 +132,16 @@ function nextPlayback(sessionId) {
   return publicResult(id, target);
 }
 
+function currentTarget(sessionId) {
+  cleanup();
+  const id = String(sessionId || '').trim();
+  const session = sessions.get(id);
+  if (!session) return null;
+  const index = Math.max(0, session.cursor - 1);
+  session.expiresAt = now() + SESSION_TTL_MS;
+  return session.targets[index] || null;
+}
+
 function finishPlayback(sessionId) {
   return sessions.delete(String(sessionId || '').trim());
 }
@@ -149,6 +159,7 @@ module.exports = {
   startSportsPlayback,
   startOpaquePlayback,
   nextPlayback,
+  currentTarget,
   finishPlayback,
   status,
   _opaqueTarget: opaqueTarget,
