@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AIOSports | Setup</title>
-  <link rel="icon" type="image/png" href="/logo-v2.png">
-  <link rel="apple-touch-icon" href="/logo-v2.png">
+  <title>AIOPlay | Setup</title>
+  <link rel="icon" type="image/webp" href="/aioplay-brand.webp">
+  <link rel="apple-touch-icon" href="/aioplay-brand.webp">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;900&display=swap"
     rel="stylesheet">
   <style>
@@ -559,9 +559,9 @@
 <body>
   <div class="container">
     <div class="header">
-      <img id="addonLogoImg" src="/logo-v2.png" alt="" style="width: 88px; height: 88px; border-radius: 20px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(22, 104, 255, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); object-fit: cover;">
+      <img id="addonLogoImg" src="/aioplay-brand.webp" alt="" style="width: 88px; height: 88px; border-radius: 20px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(22, 104, 255, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); object-fit: cover;">
       <h1>
-        <span class="dot"></span><span id="addonName">AIOSports</span>
+        <span class="dot"></span><span id="addonName">AIOPlay</span>
         <button type="button" id="editAddonBtn" class="pencil-btn" title="Customize addon" aria-label="Customize addon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -614,20 +614,10 @@
     <div class="section">
       <h3>Select Sports</h3>
       <div class="sports-grid" id="sportsGrid">
-        <label class="checkbox-label active"><input type="checkbox" value="football" checked> ⚽ Soccer</label>
-        <label class="checkbox-label active"><input type="checkbox" value="basketball" checked> 🏀 Basketball</label>
-        <label class="checkbox-label active"><input type="checkbox" value="cricket" checked> 🏏 Cricket</label>
-        <label class="checkbox-label active"><input type="checkbox" value="american_football" checked> 🏈 Football</label>
+        <label class="checkbox-label active"><input type="checkbox" value="football" checked> ⚽ Football</label>
         <label class="checkbox-label active"><input type="checkbox" value="motorsport" checked> 🏎️ Racing</label>
-        <label class="checkbox-label active"><input type="checkbox" value="hockey" checked> 🏒 Hockey</label>
-        <label class="checkbox-label active"><input type="checkbox" value="baseball" checked> ⚾ Baseball</label>
         <label class="checkbox-label active"><input type="checkbox" value="rugby" checked> 🏉 Rugby</label>
-        <label class="checkbox-label active"><input type="checkbox" value="college" checked> 🎓 College</label>
         <label class="checkbox-label active"><input type="checkbox" value="mma" checked> 🥊 MMA</label>
-        <label class="checkbox-label active"><input type="checkbox" value="golf" checked> ⛳ Golf</label>
-        <label class="checkbox-label active"><input type="checkbox" value="tennis" checked> 🎾 Tennis</label>
-        <label class="checkbox-label active"><input type="checkbox" value="darts" checked> 🎯 Darts</label>
-        <label class="checkbox-label active"><input type="checkbox" value="other" checked> 📡 Other Sports</label>
       </div>
     </div>
 
@@ -874,7 +864,7 @@
 
           <div id="impPastePanel" hidden>
             <textarea id="impPaste" rows="6" spellcheck="false"
-                      placeholder="Paste the contents of an aiosports-config-….json file"></textarea>
+                      placeholder="Paste the contents of an aioplay-config-….json file"></textarea>
           </div>
 
           <div class="callout warn" id="impError" hidden aria-live="polite"></div>
@@ -891,14 +881,14 @@
 
     <div style="margin-top: 25px; padding: 16px; background: rgba(22, 104, 255, 0.08); border: 1px solid rgba(22, 104, 255, 0.2); border-radius: 16px; text-align: center;">
       <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--text-muted); line-height: 1.5;">
-        ☕ <strong>Support AIOSports</strong><br>Help keep our servers, scrapers, and 24/7 sports streams online!
+        ☕ <strong>Support AIOPlay</strong><br>Support the upstream services and development that AIOPlay builds on.
       </p>
       <div class="footer-actions">
         <a class="footer-link kofi" href="https://ko-fi.com/mlp20" target="_blank" rel="noopener noreferrer">
           <svg height="18" viewBox="0 0 24 24" width="18" fill="currentColor"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.966-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.966 1.909.822 1.838 3.197.723 4.314z"/></svg>
           Support on Ko-fi
         </a>
-        <a class="footer-link" href="https://github.com/mlp2069/aiosports" target="_blank" rel="noopener noreferrer">
+        <a class="footer-link" href="https://github.com/peden88/AIOsportLite" target="_blank" rel="noopener noreferrer">
           <svg height="18" viewBox="0 0 16 16" width="18" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
           GitHub
         </a>
@@ -1128,10 +1118,10 @@
 
     // A tab whose sport is switched off will not be in the addon, so it is not
     // in this list either. The rule matches the server's exactly: the id is the
-    // sport, Other Football rides with American Football, and the tabs that
-    // belong to no single sport always stay.
+    // Each Lite sport catalog maps directly to its sport key; utility catalogs
+    // belong to no single sport and always stay.
     const ALWAYS_SHOWN = new Set(['live', 'upcoming', 'teams', 'channels', 'local']);
-    const SPORT_FOR_CATALOG = { other_football: 'american_football' };
+    const SPORT_FOR_CATALOG = {};
 
     function sportOf(catalogId) {
       const key = String(catalogId).replace(/^nuvio_sports_/, '');
@@ -1424,7 +1414,7 @@
     // Addon identity, edited in a dialog rather than by typing into the heading.
     // A heading that is secretly a text field is a heading people do not realise
     // they can change; a pencil says so.
-    const DEFAULT_ADDON_NAME = 'AIOSports';
+    const DEFAULT_ADDON_NAME = 'AIOPlay';
     const addonNameEl = document.getElementById('addonName');
     const addonLogoImg = document.getElementById('addonLogoImg');
     const addonSubtitleEl = document.getElementById('addonSubtitle');
@@ -1444,7 +1434,7 @@
     function paintIdentity() {
       addonNameEl.textContent = addonNameValue() || DEFAULT_ADDON_NAME;
       addonSubtitleEl.textContent = cleanText(identity.description, 300) || DEFAULT_SUBTITLE;
-      addonLogoImg.src = identity.logo || '/logo-v2.png';
+      addonLogoImg.src = identity.logo || '/aioplay-brand.webp';
     }
 
     // Version and build, the way any self-hosted thing should say which copy of
@@ -2165,7 +2155,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'aiosports-config-' + exportStamp() + '.json';
+      a.download = 'aioplay-config-' + exportStamp() + '.json';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -2510,7 +2500,7 @@
           { year: 'numeric', month: 'long', day: 'numeric' });
       }
       const from = typeof parsed.addonVersion === 'string' && parsed.addonVersion !== 'unknown'
-        ? 'from AIOSports v' + cleanText(parsed.addonVersion, 20) : '';
+        ? 'from AIOPlay v' + cleanText(parsed.addonVersion, 20) : '';
       if (when || from) line(impPreview, [when, from].filter(Boolean).join(' · '));
 
       line(impPreview, clean.teams ? 'Teams — ' + clean.teams : 'Teams — cleared');
@@ -2589,7 +2579,7 @@
     function validateImportText(text) {
       try {
         if (text.length > MAX_IMPORT_BYTES) {
-          reject('That is ' + Math.round(text.length / 1024) + ' KB. A saved AIOSports config is a '
+          reject('That is ' + Math.round(text.length / 1024) + ' KB. A saved AIOPlay config is a '
             + 'few kilobytes at most, so this is not one.');
         }
 
@@ -2604,13 +2594,13 @@
             + 'thing including the closing brace.');
         }
 
-        if (!isPlainObject(parsed)) reject('That file does not contain an AIOSports config.');
+        if (!isPlainObject(parsed)) reject('That file does not contain an AIOPlay config.');
         if (parsed.kind !== EXPORT_KIND) {
-          reject('That is not an AIOSports config export. Look for a file named aiosports-config-….json.');
+          reject('That is not an AIOPlay config export. Look for a file named aioplay-config-….json.');
         }
         if (parsed.schemaVersion !== SCHEMA_VERSION) {
           if (typeof parsed.schemaVersion === 'number' && parsed.schemaVersion > SCHEMA_VERSION) {
-            reject('This file was made by a newer version of AIOSports (format ' + parsed.schemaVersion
+            reject('This file was made by a newer version of AIOPlay (format ' + parsed.schemaVersion
               + '). Update the addon, then import it again.');
           }
           reject('This file’s format (' + JSON.stringify(parsed.schemaVersion)
@@ -2621,7 +2611,7 @@
         const result = sanitiseConfig(parsed.config);
         if (!Object.keys(result.clean).length) {
           reject('Nothing in that file could be used. None of its settings are ones this version of '
-            + 'AIOSports understands.');
+            + 'AIOPlay understands.');
         }
         const size = JSON.stringify(result.clean).length;
         if (size > MAX_CONFIG_JSON) {
@@ -2635,14 +2625,14 @@
         impConfirm.disabled = false;
       } catch (err) {
         showImportError(err && err.friendly ? err.message
-          : 'That file could not be read as an AIOSports config.');
+          : 'That file could not be read as an AIOPlay config.');
       }
     }
 
     function readImportFile(file) {
       if (!file) return;
       if (file.size > MAX_IMPORT_BYTES) {
-        showImportError('That file is ' + Math.round(file.size / 1024) + ' KB. A saved AIOSports '
+        showImportError('That file is ' + Math.round(file.size / 1024) + ' KB. A saved AIOPlay '
           + 'config is a few kilobytes at most, so this is not one.');
         return;
       }

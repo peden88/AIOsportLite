@@ -85,6 +85,8 @@ class StreamedPkProvider extends BaseProvider {
       if (Array.isArray(liveData) && liveData.length > 0) {
         await Promise.all(
           liveData.map(async (m) => {
+            const liveCategory = this.normalizeCategory(m && m.category);
+            if (liveCategory !== 'other' && !this.isRetainedEventCategory(liveCategory)) return;
             const src = (m.sources && m.sources[0]) || { source: 'admin', id: m.id };
             try {
               const streams = await this.fetchStreams.fire(src.source || 'admin', src.id || m.id);
@@ -105,6 +107,11 @@ class StreamedPkProvider extends BaseProvider {
           if (!item.id || !item.title) continue;
 
           const is247Channel = !item.date || Number(item.date) <= 0;
+          const normalizedCategory = this.normalizeCategory(item.category);
+          // Explicitly-labelled excluded events stop here. Keep unknown/"other"
+          // long enough for the aggregator's crest/league classifier to rescue
+          // a Football or Rugby fixture whose source did not name its sport.
+          if (!is247Channel && normalizedCategory !== 'other' && !this.isRetainedEventCategory(normalizedCategory)) continue;
           // streamed.pk lists its NFL schedule page as an always-on item. It is
           // not a channel and opens to nothing, so it has no place in Channels.
           if (is247Channel && /\bschedule\b/i.test(String(item.title))) continue;
@@ -199,7 +206,9 @@ class StreamedPkProvider extends BaseProvider {
             title: item.title,
             region: is247Channel ? splitRegion(item.title).region : '',
             baseTitle: is247Channel ? splitRegion(item.title).base : '',
-            category: is247Channel && (item.id.includes('channel') || item.id.includes('network') || item.id.includes('tv') || Number(item.date) <= 0) ? (item.category === 'cricket' ? 'cricket' : (item.category === 'tennis' ? 'tennis' : (item.category === 'rugby' ? 'rugby' : this.normalizeCategory(item.category)))) : this.normalizeCategory(item.category),
+            category: is247Channel && (item.id.includes('channel') || item.id.includes('network') || item.id.includes('tv') || Number(item.date) <= 0)
+              ? (item.category === 'rugby' ? 'rugby' : normalizedCategory)
+              : normalizedCategory,
             status: status,
             date: is247Channel ? '' : String(item.date || Date.now()),
             popular: is247Channel ? '1' : (item.popular ? '1' : '0'),

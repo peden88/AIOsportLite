@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">AIOPlay</title><desc id="desc">AIO letters over a blue and violet play symbol.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071936"/><stop offset=".55" stop-color="#07122f"/><stop offset="1" stop-color="#16082f"/></linearGradient>
+  <linearGradient id="play" x1=".08" y1=".08" x2=".92" y2=".9"><stop stop-color="#20e8ff"/><stop offset=".42" stop-color="#086cff"/><stop offset=".72" stop-color="#1537d6"/><stop offset="1" stop-color="#9b2cff"/></linearGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#21e7ff"/><stop offset=".55" stop-color="#0667ff"/><stop offset="1" stop-color="#a536ff"/></linearGradient>
+  <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect x="22" y="22" width="468" height="468" rx="112" fill="url(#bg)" stroke="url(#rim)" stroke-width="3"/>
+<path d="M179 113c-17-11-39 2-39 23v240c0 21 22 34 39 23l213-120c18-10 18-36 0-46L179 113Z" fill="url(#play)" filter="url(#glow)"/>
+<text x="256" y="319" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="143" font-weight="850" letter-spacing="-10" fill="#fff" style="paint-order:stroke;stroke:#fff;stroke-width:1">AIO</text>
+</svg>

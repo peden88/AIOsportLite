@@ -3,6 +3,7 @@ const { bufferSeconds } = require('./liveDelay');
 const remint = require('./remint');
 const { stationOrder } = require('./services/StationLabel');
 const { parseMarkets, marketsSetting } = require('./services/LocalMarkets');
+const { signWatchPath } = require('./manifestLink');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -738,39 +739,9 @@ async function handleStream(type, id, config) {
 
   streams.push(...collected);
 
-  // --- Inject relevant 24/7 channels based on category ---
-  const isStreamFreeEnabled = !config || !config.sources || config.sources === 'none' || config.sources.split(',').includes('streamfree');
-  if (match.category === 'cricket' && isStreamFreeEnabled) {
-    try {
-      const extraChannels = [
-        { id: 'willow', title: 'Willow TV' },
-        { id: 'skycricket', title: 'Sky Sports Cricket' }
-      ];
-      
-      const warmed = await Promise.all(extraChannels.map(async (channel) => {
-        const key = `streamfree:__channel__:${channel.id}`;
-        const resolved = await resolveCache.getOrCreate(key, () => mintVerifiedSources(
-          { source: 'streamfree', id: channel.id, original_category: 'cricket' },
-          { category: 'cricket', title: channel.title },
-          config,
-          key
-        ));
-        return resolved.map((s) => ({ ...s, _cacheKey: key }));
-      }));
-      warmed.flat().forEach((s) => {
-        s._source = 'streamfree';
-        s.score = streamScorer.calculateScore(s, 'streamfree', sourceHealth('streamfree'));
-        streams.push(s);
-      });
-    } catch (e) {
-      console.warn('[streams.js] Error injecting 24/7 cricket channels:', e.message);
-    }
-  }
-
   // Standardize Stream Labels
   const sportIcons = {
-    football: '⚽', cricket: '🏏', motorsport: '🏎️',
-    basketball: '🏀', american_football: '🏈', rugby: '🏉', networks: '📺'
+    football: '⚽', motorsport: '🏎️', mma: '🥊', rugby: '🏉', networks: '📺'
   };
   const icon = sportIcons[match.category] || '📡';
 
@@ -943,6 +914,16 @@ async function handleStream(type, id, config) {
   streams.push(...spread);
 
   for (const s of streams) { delete s.station; delete s.stationSort; }
+
+  // A raw /watch URL would bypass account login if somebody copied it. Sign
+  // every internal web-player handoff centrally so providers do not each have
+  // to implement access control, and third-party Stremio/Nuvio clients can
+  // still follow the URL without knowing about application accounts.
+  for (const s of streams) {
+    if (s.externalUrl && String(s.externalUrl).startsWith('/watch?')) {
+      s.externalUrl = signWatchPath(s.externalUrl);
+    }
+  }
 
   // The extra buffer travels on the link, because the manifest proxy serves
   // every viewer of a stream from one remembered window and only the link

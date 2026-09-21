@@ -33,10 +33,12 @@ class SportyHunterProvider extends BaseProvider {
         const matchesData = pageProps?.matches || [];
         
         matchesData.forEach((m, index) => {
+          const category = this.normalizeCategory(m.sport);
+          if (!this.isRetainedEventCategory(category)) return;
           matches.push(new MatchEntity({
             id: `sporty_${m.id || index}`,
             title: m.title || m.name || `Sporty Match ${index}`,
-            category: this.normalizeCategory(m.sport),
+            category,
             date: m.timestamp || m.date || null,
             popular: '0',
             sources: [{ source: 'sportyhunter', id: m.id || index, url: m.url || m.streamUrl }]

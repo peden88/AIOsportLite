@@ -1,11 +1,11 @@
 services:
-  aiosports:
+  aiosportlite:
     build: .
-    container_name: aiosports
+    container_name: aiosportlite
     ports:
       - "7000:7000"
-    # Everything in .env reaches the app: ADDON_URL, AUTH_KEY, ADMIN_TOKEN and
-    # the rest of .env.example. Optional, so the stack still starts without one.
+    # Everything in .env reaches the app: account bootstrap credentials, service
+    # registry URLs, ADDON_URL, ADMIN_TOKEN and the rest of .env.example. Optional, so the stack still starts without one.
     # Needs Docker Compose v2.24 or newer.
     env_file:
       - path: .env
@@ -19,15 +19,24 @@ services:
       # Also taken from the shell or a stack's own variables, for setups with
       # no .env file beside this one (Portainer, CI, exported variables).
       - ADDON_URL=${ADDON_URL:-}
+      - APP_ADMIN_USERNAME=${APP_ADMIN_USERNAME:-admin}
+      - APP_ADMIN_PASSWORD=${APP_ADMIN_PASSWORD:-}
+      - APP_ADMIN_DISPLAY_NAME=${APP_ADMIN_DISPLAY_NAME:-Administrator}
+      - ALLOW_OPEN_ACCESS=${ALLOW_OPEN_ACCESS:-false}
       - AUTH_KEY=${AUTH_KEY:-}
       - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+      - SPORTS_ENABLED=${SPORTS_ENABLED:-true}
+      - AIOSPORT_MANIFEST_URL=${AIOSPORT_MANIFEST_URL:-}
+      - VOD_ENABLED=${VOD_ENABLED:-false}
+      - AIOMETADATA_MANIFEST_URL=${AIOMETADATA_MANIFEST_URL:-}
+      - AIOSTREAMS_MANIFEST_URL=${AIOSTREAMS_MANIFEST_URL:-}
       - LINK_SECRET=${LINK_SECRET:-}
       # Where saved profiles are written. The volume below is what makes them
       # outlive a rebuild.
       - DATA_DIR=/data
     volumes:
-      - aiosports-data:/data
+      - aiosportlite-data:/data
     restart: unless-stopped
 
 volumes:
-  aiosports-data:
+  aiosportlite-data:
