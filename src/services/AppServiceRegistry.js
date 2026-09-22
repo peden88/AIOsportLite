@@ -12,6 +12,7 @@
  * (stream resolution/failover) are configured and VOD_ENABLED is truthy.
  */
 
+const crypto = require('crypto');
 const serviceSettings = require('./ServiceSettings');
 
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
@@ -68,10 +69,10 @@ function privateConfig() {
   const sharedStreamsManifestUrl = normaliseHttpUrl(
     selectedValue(saved, 'aiostreamsManifestUrl', 'AIOSTREAMS_MANIFEST_URL')
   );
-  const webStreamsManifestUrl = normaliseHttpUrl(process.env.AIOSTREAMS_WEB_MANIFEST_URL)
-    || sharedStreamsManifestUrl;
-  const appStreamsManifestUrl = normaliseHttpUrl(process.env.AIOSTREAMS_APP_MANIFEST_URL)
-    || sharedStreamsManifestUrl;
+  const webStreamsEnvUrl = normaliseHttpUrl(process.env.AIOSTREAMS_WEB_MANIFEST_URL);
+  const appStreamsEnvUrl = normaliseHttpUrl(process.env.AIOSTREAMS_APP_MANIFEST_URL);
+  const webStreamsManifestUrl = webStreamsEnvUrl || sharedStreamsManifestUrl;
+  const appStreamsManifestUrl = appStreamsEnvUrl || sharedStreamsManifestUrl;
   const sportsManifestUrl = normaliseHttpUrl(process.env.AIOSPORT_MANIFEST_URL);
 
   const metadataEnabled = !!metadataManifestUrl;
@@ -111,8 +112,8 @@ function privateConfig() {
       sportsEnabled: sourceFor(saved, 'sportsEnabled'),
       metadata: sourceFor(saved, 'aiometadataManifestUrl'),
       streams: sourceFor(saved, 'aiostreamsManifestUrl'),
-      streamsWeb: process.env.AIOSTREAMS_WEB_MANIFEST_URL ? 'environment:web' : sourceFor(saved, 'aiostreamsManifestUrl'),
-      streamsApp: process.env.AIOSTREAMS_APP_MANIFEST_URL ? 'environment:app' : sourceFor(saved, 'aiostreamsManifestUrl'),
+      streamsWeb: webStreamsEnvUrl ? 'environment:web' : sourceFor(saved, 'aiostreamsManifestUrl'),
+      streamsApp: appStreamsEnvUrl ? 'environment:app' : sourceFor(saved, 'aiostreamsManifestUrl'),
       vodEnabled: sourceFor(saved, 'vodEnabled')
     }
   };
@@ -159,18 +160,24 @@ function publicBootstrap() {
   };
 }
 
+function manifestFingerprint(url) {
+  if (!url) return '';
+  return crypto.createHash('sha256').update(String(url)).digest('hex').slice(0, 10);
+}
+
 function endpointSummary(url, source) {
-  if (!url) return { configured: false, source };
+  if (!url) return { configured: false, source, fingerprint: '' };
   try {
     const parsed = new URL(url);
     return {
       configured: true,
       source,
       host: parsed.host,
-      protocol: parsed.protocol.replace(':', '')
+      protocol: parsed.protocol.replace(':', ''),
+      fingerprint: manifestFingerprint(url)
     };
   } catch (_) {
-    return { configured: false, source };
+    return { configured: false, source, fingerprint: '' };
   }
 }
 
@@ -185,7 +192,9 @@ function adminSummary() {
     vodRequested: cfg.vod.requested,
     vodEnabled: cfg.vod.enabled,
     metadata: endpointSummary(cfg.metadata.manifestUrl, cfg.sources.metadata),
-    streams: endpointSummary(cfg.streams.manifestUrl, cfg.sources.streams)
+    streams: endpointSummary(cfg.streams.manifestUrl, cfg.sources.streams),
+    streamsWeb: endpointSummary(cfg.streams.webManifestUrl, cfg.sources.streamsWeb),
+    streamsApp: endpointSummary(cfg.streams.appManifestUrl, cfg.sources.streamsApp)
   };
 }
 
@@ -214,7 +223,10 @@ function updatePersistentServices(patch = {}) {
     );
   }
   if (patch.clearAiostreams === true) {
-    next.aiostreamsManifestUrl = '';
+    // Clearing the saved override means "return to environment configuration".
+    // Deleting the key is important: a persisted empty string would otherwise
+    // shadow AIOSTREAMS_MANIFEST_URL forever.
+    delete next.aiostreamsManifestUrl;
   } else if (Object.prototype.hasOwnProperty.call(patch, 'aiostreamsManifestUrl')) {
     next.aiostreamsManifestUrl = validateManifestUrl(
       patch.aiostreamsManifestUrl,
@@ -244,5 +256,6 @@ module.exports = {
   _privateConfig: privateConfig,
   _normaliseHttpUrl: normaliseHttpUrl,
   _validateManifestUrl: validateManifestUrl,
+  _manifestFingerprint: manifestFingerprint,
   _enabled: enabled
 };
