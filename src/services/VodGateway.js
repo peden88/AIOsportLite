@@ -153,14 +153,17 @@ async function diagnosticService(service, manifestUrl) {
 
 async function diagnostics() {
   const cfg = appServices._privateConfig();
-  const [metadata, streams] = await Promise.all([
+  const [metadata, streamsWeb, streamsApp] = await Promise.all([
     diagnosticService('metadata', cfg.metadata.manifestUrl),
-    diagnosticService('streams', cfg.streams.manifestUrl)
+    diagnosticService('streams', cfg.streams.webManifestUrl),
+    diagnosticService('streams', cfg.streams.appManifestUrl)
   ]);
   return {
     vodEnabled: cfg.vod.enabled,
     metadata,
-    streams
+    streams: streamsWeb,
+    streamsWeb,
+    streamsApp
   };
 }
 
@@ -289,7 +292,8 @@ async function refreshAioStreams() {
         refreshed: true,
         id: String(manifest.id || ''),
         name: String(manifest.name || ''),
-        version: String(manifest.version || '')
+        version: String(manifest.version || ''),
+        fingerprint: appServices._manifestFingerprint(manifestUrl)
       };
     } catch (err) {
       results[kind] = {
