@@ -40,6 +40,7 @@ const container = require('./container');
 const appServices = require('./services/AppServiceRegistry');
 const opaquePlayback = require('./services/OpaquePlayback');
 const externalPlayback = require('./services/ExternalPlaybackBridge');
+const playbackLeases = require('./services/PlaybackLeases');
 const userAuth = require('./services/UserAuth');
 const aioPlayProgress = require('./services/AioPlayProgress');
 const vodGateway = require('./services/VodGateway');
@@ -361,6 +362,8 @@ app.post(['/api/login', '/api/v1/auth/login'], express.json({ limit: '8kb' }), (
 });
 
 app.post(['/api/logout', '/api/v1/auth/logout'], (req, res) => {
+  const account = currentAccount(req);
+  if (account && account.session) playbackLeases.releaseAuthSession(account.session.id);
   const token = userAuth.tokenFromRequest(req, APP_SESSION_COOKIE);
   if (token) userAuth.revokeToken(token);
   res.clearCookie(APP_SESSION_COOKIE);
@@ -561,6 +564,11 @@ app.patch('/api/v1/admin/users/:id', express.json({ limit: '8kb' }), async (req,
   try {
     const user = await userAuth.updateUser(req.params.id, req.body || {});
     if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (user.enabled === false) {
+      playbackLeases.releaseUser(user.id);
+    } else {
+      playbackLeases.enforceLimit(user.id, user.maxConcurrentStreams);
+    }
     res.json({ user });
   } catch (err) {
     const status = ['INVALID_PASSWORD', 'LAST_ADMIN'].includes(err.code) ? 400 : 500;
@@ -573,7 +581,17 @@ app.delete('/api/v1/admin/users/:id/sessions', (req, res) => {
   const user = userAuth.listUsers().find(u => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
   const revoked = userAuth.revokeUserSessions(req.params.id);
-  res.json({ revoked });
+  const stoppedStreams = playbackLeases.releaseUser(req.params.id);
+  res.json({ revoked, stoppedStreams });
+});
+
+app.delete('/api/v1/admin/streams/:leaseId', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const lease = playbackLeases.listActive().find(row => row.id === req.params.leaseId);
+  if (!lease) return res.status(404).json({ error: 'Active stream not found.' });
+  playbackLeases.releaseLease(lease.id);
+  if (lease.playbackSessionId) opaquePlayback.finishPlayback(lease.playbackSessionId);
+  res.json({ stopped: true });
 });
 
 /**
@@ -969,6 +987,7 @@ app.get('/api/cache/stats', (req, res) => {
     // Whether warming is actually surviving to the click: a rising evictions
     // count against a flat hits count is the cap being too small for the board.
     streams: container.resolve('streamResolveCache').stats(),
+    activeStreams: playbackLeases.status(),
     // Which channels the background check found with no streams, and are hidden.
     channels: require('./services/ChannelHealth').status(),
     warmer: cardWarmer.status(),
@@ -1148,63 +1167,112 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
 
   if (!id) return res.status(400).json({ error: 'Missing content id.' });
 
+  const account = currentAccount(req);
+  const clientHeader = String(req.get('x-aioplay-client') || '').trim().toLowerCase();
+  const playbackClient = clientHeader === 'android-tv' ? 'app' : 'web';
+  let lease = null;
+
   try {
+    if (account) {
+      lease = playbackLeases.acquire({
+        user: account.user,
+        authSession: account.session,
+        client: playbackClient,
+        contentType,
+        contentId: id,
+        title: String(body.title || body.name || id)
+      });
+    }
+
     if (contentType === 'sport' || contentType === 'sport_event' || contentType === 'live_channel') {
       const services = appServices.publicBootstrap();
       if (!services.services.sports.enabled) {
+        if (lease) playbackLeases.releaseLease(lease.id);
         return res.status(503).json({ error: 'Sports playback is disabled.' });
       }
 
-      // The first-party app has one installation-wide sports configuration.
-      // Existing named profiles remain available to Stremio/Nuvio installs, but
-      // an app user never supplies an addon/config choice here.
       const appConfig = resolveAppSportsConfig();
       const result = await opaquePlayback.startSportsPlayback(id, appConfig);
+      if (result.ok && lease) playbackLeases.bind(lease.id, result.sessionId);
+      else if (lease) playbackLeases.releaseLease(lease.id);
       return res.status(result.ok ? 200 : 404).json(result);
     }
 
     if (['movie', 'series', 'anime', 'episode'].includes(contentType)) {
       const services = appServices.publicBootstrap();
       if (!services.services.vod.enabled) {
+        if (lease) playbackLeases.releaseLease(lease.id);
         return res.status(503).json({ error: 'VOD is not enabled on this installation.' });
       }
 
-      // AIOMetadata owns discovery/meta. AIOStreams owns ranking and embeds its
-      // failover chain into the playback URLs it returns. We preserve that order
-      // server-side and expose only the current target to the client.
       let stremioType = String(body.stremioType || body.type || '').trim().toLowerCase();
       if (!stremioType) {
         if (contentType === 'movie') stremioType = 'movie';
         else if (contentType === 'series' || contentType === 'episode') stremioType = 'series';
       }
       if (!stremioType) {
+        if (lease) playbackLeases.releaseLease(lease.id);
         return res.status(400).json({ error: 'VOD playback requires movie or series type.' });
       }
 
-      const clientHeader = String(req.get('x-aioplay-client') || '').trim().toLowerCase();
-      const playbackClient = clientHeader === 'android-tv' ? 'app' : 'web';
       const candidates = await vodGateway.playbackCandidates(stremioType, id, playbackClient);
       const result = opaquePlayback.startOpaquePlayback(
         'vod',
         stremioType + ':' + id,
         candidates
       );
+      if (result.ok && lease) playbackLeases.bind(lease.id, result.sessionId);
+      else if (lease) playbackLeases.releaseLease(lease.id);
       return res.status(result.ok ? 200 : 404).json(result);
     }
 
+    if (lease) playbackLeases.releaseLease(lease.id);
     return res.status(400).json({ error: 'Unsupported content type.' });
   } catch (err) {
+    if (lease) playbackLeases.releaseLease(lease.id);
     console.error('[app-playback] start failed:', err.message);
-    return res.status(err.statusCode || 502).json({ error: 'Could not start playback.' });
+    return res.status(err.statusCode || 502).json({
+      error: err.code === 'STREAM_LIMIT_REACHED'
+        ? err.message
+        : 'Could not start playback.',
+      code: err.code || 'PLAYBACK_START_FAILED',
+      ...(err.code === 'STREAM_LIMIT_REACHED'
+        ? { activeStreams: err.active, maxConcurrentStreams: err.limit }
+        : {})
+    });
   }
 });
 
 app.post('/api/v1/playback/:sessionId/next', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (account && !playbackLeases.touchSession(req.params.sessionId, account.user.id)) {
+    return res.status(410).json({ error: 'Playback lease expired.', code: 'PLAYBACK_LEASE_EXPIRED' });
+  }
   const result = opaquePlayback.nextPlayback(req.params.sessionId);
+  if (!result.ok) playbackLeases.releaseSession(req.params.sessionId);
   res.status(result.ok ? 200 : (result.reason === 'PLAYBACK_SESSION_EXPIRED' ? 410 : 404)).json(result);
 });
 
+app.post('/api/v1/playback/:sessionId/heartbeat', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
+  const ok = playbackLeases.touchSession(req.params.sessionId, account.user.id);
+  if (!ok) {
+    return res.status(410).json({
+      ok: false,
+      error: 'This playback session is no longer active.',
+      code: 'PLAYBACK_LEASE_EXPIRED'
+    });
+  }
+  return res.json({ ok: true });
+});
+
 app.post('/api/v1/playback/:sessionId/external', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  const lease = playbackLeases.leaseForSession(req.params.sessionId);
+  if (account && (!lease || lease.userId !== account.user.id || !playbackLeases.touchLease(lease.id))) {
+    return res.status(410).json({ error: 'Playback lease expired.', code: 'PLAYBACK_LEASE_EXPIRED' });
+  }
   const target = opaquePlayback.currentTarget(req.params.sessionId);
   if (!target) {
     return res.status(410).json({ error: 'Playback session expired.' });
@@ -1213,7 +1281,9 @@ app.post('/api/v1/playback/:sessionId/external', requirePage, (req, res) => {
     return res.status(409).json({ error: 'This playback target cannot be opened externally.' });
   }
 
-  const issued = externalPlayback.issue(target);
+  const issued = externalPlayback.issue(target, {
+    leaseId: lease ? lease.id : ''
+  });
   if (!issued) {
     return res.status(409).json({ error: 'External playback is unavailable for this source.' });
   }
@@ -1235,6 +1305,12 @@ app.all('/api/v1/external-play/:token', (req, res) => {
 });
 
 app.delete('/api/v1/playback/:sessionId', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  const lease = playbackLeases.leaseForSession(req.params.sessionId);
+  if (lease && account && lease.userId !== account.user.id) {
+    return res.status(403).json({ error: 'This playback session belongs to another account.' });
+  }
+  playbackLeases.releaseSession(req.params.sessionId);
   opaquePlayback.finishPlayback(req.params.sessionId);
   res.status(204).end();
 });
