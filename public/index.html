@@ -97,9 +97,14 @@
     main { padding: 14px 20px 40px; max-width: 1180px; margin: 0 auto; }
     
     .mode-tabs { display:flex; justify-content:center; align-items:center; gap:6px; margin:0; width:auto; flex-wrap:nowrap; }
-    .mode-tab { padding:7px 14px; min-height:34px; border-radius:18px; background:rgba(22,104,255,.08); border:1px solid rgba(22,104,255,.22); color:#a9c6ff; cursor:pointer; font-weight:700; white-space:nowrap; font-size:13px; line-height:1; }
-    .mode-tab:hover { background:rgba(22,104,255,.16); border-color:rgba(22,104,255,.42); color:#d8e6ff; }
-    .mode-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:0 3px 12px rgba(22,104,255,.25); }
+    .mode-tab {
+      padding:7px 16px; min-height:34px; border-radius:20px;
+      background:rgba(255,255,255,.08); border:2px solid transparent;
+      color:#e8e8ec; cursor:pointer; font-weight:700; white-space:nowrap;
+      font-size:13px; line-height:1; transition:background .16s,color .16s,border-color .16s;
+    }
+    .mode-tab:hover, .mode-tab:focus-visible { background:var(--accent); color:#fff; outline:none; }
+    .mode-tab.active { background:var(--accent); color:#fff; border-color:transparent; box-shadow:none; }
     .player-select {
       display:none;
       height:34px;
@@ -155,22 +160,48 @@
     }
     .player-choice-grid button:hover { border-color:var(--accent); background:rgba(22,104,255,.16); }
     .player-choice-grid .wide { grid-column:1/-1; }
-    .tabs { display: flex; gap: 12px; margin-bottom: 18px; overflow-x: auto; overflow-y:hidden; padding: 2px 0 10px; white-space:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .tabs { display:flex; gap:10px; margin-bottom:18px; overflow-x:auto; overflow-y:hidden; padding:2px 0 10px; white-space:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
     .tabs::-webkit-scrollbar { display:none; }
-    .tab { padding: 10px 20px; border-radius: 30px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text-muted); cursor: pointer; font-weight: 600; transition: all 0.2s; white-space: nowrap; }
-    .tab:hover { background: rgba(255,255,255,0.1); color: white; }
-    .tab.active { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 4px 15px var(--accent-glow); }
+    .tab {
+      padding:10px 20px; border-radius:20px; background:rgba(255,255,255,.08);
+      border:2px solid transparent; color:#e8e8ec; cursor:pointer; font-weight:700;
+      transition:background .16s,color .16s; white-space:nowrap;
+    }
+    .tab:hover, .tab:focus-visible { background:var(--accent); color:#fff; outline:none; }
+    .tab.active { background:var(--accent); color:#fff; border-color:transparent; box-shadow:none; }
     
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; width:100%; }
     .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; overflow: hidden; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
     .card:hover { transform: translateY(-8px) scale(1.02); border-color: var(--accent); box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 20px var(--accent-glow); z-index: 10; }
     .poster-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #111; overflow: hidden; }
-    .vod-card .poster-container { aspect-ratio: 2/3; }
+    .vod-card {
+      background:transparent; border:0; border-radius:0; overflow:visible;
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .vod-card:hover { transform:none; box-shadow:none; border-color:transparent; }
+    .vod-card .poster-container {
+      aspect-ratio:2/3; border-radius:12px; border:3px solid transparent;
+      background:var(--card-bg); box-shadow:0 7px 20px rgba(0,0,0,.24);
+      transition:border-color .16s, transform .16s, box-shadow .16s;
+    }
+    .vod-card:hover .poster-container, .vod-card:focus-visible .poster-container {
+      border-color:var(--accent); transform:scale(1.02);
+      box-shadow:0 10px 28px rgba(0,0,0,.38);
+    }
+    .vod-card:focus-visible { outline:none; }
     .vod-card .background { display:none; }
     .vod-card .poster { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; padding:0; }
-    .vod-card .info { padding:42px 12px 12px; }
-    .vod-card .desc { display:none; }
-    .vod-card .title { font-size:1rem; margin-bottom:0; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .vod-card .info {
+      position:static; padding:0 3px; background:none; min-height:38px;
+    }
+    .vod-card:hover .info { padding:0 3px; }
+    .vod-card .desc { display:block; margin-top:3px; font-size:.74rem; color:var(--text-muted); line-height:1.25; }
+    .vod-card .title {
+      font-size:1rem; margin:0; color:var(--text); text-shadow:none;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;
+    }
+    .progress-track { width:100%; height:3px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,.12); margin-top:6px; }
+    .progress-fill { height:100%; background:var(--accent); border-radius:inherit; }
     .background { width: 100%; height: 100%; object-fit: cover; filter: blur(20px) brightness(0.5); transform: scale(1.2); transition: all 0.4s; }
     .card:hover .background { filter: blur(15px) brightness(0.7); transform: scale(1.1); }
     .poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; padding: 10px; transition: transform 0.4s; }
@@ -234,8 +265,12 @@
       .mode-tabs { gap:3px; min-width:0; }
       .mode-tab { padding:6px 9px; min-height:30px; font-size:11px; }
       .player-select { height:30px; min-height:30px; max-width:92px; padding:0 20px 0 7px; font-size:11px; }
-      .tabs { gap:10px; margin-bottom:14px; }
-      .tab { padding:9px 16px; font-size:13px; }
+      .tabs { gap:7px; margin-bottom:14px; }
+      .tab { padding:8px 13px; font-size:12px; }
+      .vod-card { gap:6px; }
+      .vod-card .info { min-height:34px; }
+      .vod-card .title { font-size:.88rem; }
+      .vod-card .desc { font-size:.68rem; }
       .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
       .card { border-radius:14px; }
       .poster { padding:6px; }
@@ -354,6 +389,8 @@
     let requestingFallback = false;
     let pendingVodPlayback = null;
     let searchTimer = null;
+    let currentProgressContext = null;
+    let lastProgressSyncAt = 0;
 
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
@@ -459,13 +496,19 @@
       search.value = '';
       search.placeholder = mode === 'sports'
         ? 'Search matches…'
-        : 'Search VOD…';
-      setVodPlayerControlsVisible(mode === 'vod');
+        : (mode === 'continue' ? 'Search Continue Watching…' : 'Search VOD…');
+      setVodPlayerControlsVisible(mode === 'vod' || mode === 'continue');
     }
 
     async function initContent() {
       try {
         bootstrap = await (await fetch('/api/v1/bootstrap')).json();
+        try {
+          const account = await (await fetch('/api/v1/account')).json();
+          bootstrap.accountUser = account && account.user ? account.user : null;
+        } catch (_) {
+          bootstrap.accountUser = null;
+        }
         buildModes();
         const sports = bootstrap.services && bootstrap.services.sports && bootstrap.services.sports.enabled;
         const vod = bootstrap.services && bootstrap.services.vod && bootstrap.services.vod.enabled;
@@ -493,6 +536,7 @@
 
       if (bootstrap.services?.sports?.enabled) add('sports', 'Live');
       if (bootstrap.services?.vod?.enabled) add('vod', 'VOD');
+      if (bootstrap.services?.vod?.enabled && bootstrap.accountUser) add('continue', 'Continue Watching');
     }
 
     async function loadMode(mode) {
@@ -502,6 +546,7 @@
       grid().innerHTML = '';
 
       if (mode === 'sports') return loadSportsTabs();
+      if (mode === 'continue') return loadContinueWatching();
       return loadVodTabs();
     }
 
@@ -549,6 +594,38 @@
       }
     }
 
+    async function loadContinueWatching() {
+      tabs().innerHTML = '';
+      currentVodType = '';
+      grid().innerHTML = '<div style="color:var(--text-muted);">Loading Continue Watching...</div>';
+      try {
+        const res = await fetch('/api/v1/progress?continue=1', { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Progress failed');
+
+        currentItems = (data.items || []).map(row => ({
+          id: row.videoId || row.contentId,
+          type: row.contentType === 'series' ? 'episode' : 'movie',
+          name: row.name || 'Untitled',
+          description: row.contentType === 'series'
+            ? [
+                row.season != null && row.episode != null ? ('S' + row.season + ' E' + row.episode) : '',
+                row.episodeTitle || ''
+              ].filter(Boolean).join(' · ')
+            : '',
+          poster: row.poster,
+          background: row.backdrop,
+          logo: row.logo,
+          _progress: row
+        }));
+        renderGrid(currentItems);
+      } catch (err) {
+        console.error(err);
+        currentItems = [];
+        grid().innerHTML = '<div style="color:var(--accent);">Could not load Continue Watching.</div>';
+      }
+    }
+
     async function loadSportsCatalog(catalogId, tab) {
       setActiveTab(tab);
       grid().innerHTML = '<div style="color:var(--text-muted);">Fetching matches...</div>';
@@ -585,7 +662,7 @@
       const raw = e.target.value.trim();
       clearTimeout(searchTimer);
 
-      if (currentMode === 'sports') {
+      if (currentMode === 'sports' || currentMode === 'continue') {
         const query = raw.toLowerCase();
         renderGrid(currentItems.filter(meta =>
           String(meta.name || '').toLowerCase().includes(query) ||
@@ -638,14 +715,34 @@
         const card = document.createElement('div');
         card.className = 'card';
 
+        card.tabIndex = 0;
+        card.onkeydown = event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            card.click();
+          }
+        };
+
         if (currentMode === 'sports') {
           card.onclick = () => fetchAndPlay(meta.id, 'sport_event', '');
         } else {
           card.classList.add('vod-card');
           const vodType = String(meta.type || currentVodType || 'movie').toLowerCase();
-          card.onclick = vodType === 'series'
-            ? () => openSeries(meta)
-            : () => fetchAndPlay(meta.id, 'movie', 'movie');
+          if (currentMode === 'continue' && meta._progress) {
+            card.onclick = () => {
+              const row = meta._progress;
+              return fetchAndPlay(
+                row.videoId || row.contentId,
+                row.contentType === 'series' ? 'episode' : 'movie',
+                row.contentType === 'series' ? 'series' : 'movie',
+                row
+              );
+            };
+          } else {
+            card.onclick = vodType === 'series'
+              ? () => openSeries(meta)
+              : () => fetchAndPlay(meta.id, 'movie', 'movie', progressContextForMovie(meta));
+          }
         }
 
         const posterBox = document.createElement('div');
@@ -678,8 +775,114 @@
         desc.className = 'desc';
         desc.textContent = String(meta.description || '');
         info.append(title, desc);
+
+        if (meta._progress) {
+          const track = document.createElement('div');
+          track.className = 'progress-track';
+          const fill = document.createElement('div');
+          fill.className = 'progress-fill';
+          const pct = Number(meta._progress.progressPercent);
+          const fallbackPct = Number(meta._progress.duration) > 0
+            ? (Number(meta._progress.position || 0) / Number(meta._progress.duration)) * 100
+            : 0;
+          fill.style.width = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : fallbackPct)) + '%';
+          track.appendChild(fill);
+          info.appendChild(track);
+        }
+
         card.append(posterBox, info);
         host.appendChild(card);
+      }
+    }
+
+    function progressContextForMovie(meta) {
+      return {
+        contentId: meta.id,
+        contentType: 'movie',
+        name: meta.name || 'Movie',
+        poster: meta.poster || null,
+        backdrop: meta.background || null,
+        logo: meta.logo || null,
+        videoId: meta.id,
+        season: null,
+        episode: null,
+        episodeTitle: null,
+        position: 0,
+        duration: 0,
+        progressPercent: 0,
+        lastWatched: Date.now(),
+        source: 'aioplay_web'
+      };
+    }
+
+    function progressContextForEpisode(meta, video) {
+      return {
+        contentId: meta.id,
+        contentType: 'series',
+        name: meta.name || 'Series',
+        poster: meta.poster || null,
+        backdrop: meta.background || null,
+        logo: meta.logo || null,
+        videoId: video.id,
+        season: Number.isFinite(Number(video.season)) ? Number(video.season) : null,
+        episode: Number.isFinite(Number(video.episode)) ? Number(video.episode) : null,
+        episodeTitle: video.title || video.name || null,
+        position: 0,
+        duration: 0,
+        progressPercent: 0,
+        lastWatched: Date.now(),
+        source: 'aioplay_web'
+      };
+    }
+
+    async function syncCurrentProgress(force = false, completed = false) {
+      const row = currentProgressContext;
+      if (!row) return;
+      const video = document.getElementById('video');
+      const now = Date.now();
+      if (!force && now - lastProgressSyncAt < 10000) return;
+
+      const durationMs = Number.isFinite(video.duration) && video.duration > 0
+        ? Math.round(video.duration * 1000)
+        : Number(row.duration || 0);
+      let positionMs = Number.isFinite(video.currentTime) && video.currentTime > 0
+        ? Math.round(video.currentTime * 1000)
+        : Number(row.position || 0);
+
+      if (completed && durationMs > 0) positionMs = durationMs;
+      if (positionMs <= 0 && Number(row.position || 0) <= 0) return;
+
+      const next = {
+        ...row,
+        position: Math.max(0, positionMs),
+        duration: Math.max(0, durationMs),
+        progressPercent: completed
+          ? 100
+          : (durationMs > 0 ? Math.max(0, Math.min(100, (positionMs / durationMs) * 100)) : Number(row.progressPercent || 0)),
+        lastWatched: now,
+        source: 'aioplay_web'
+      };
+      currentProgressContext = next;
+      lastProgressSyncAt = now;
+
+      try {
+        await fetch('/api/v1/progress', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item: next }),
+          keepalive: force
+        });
+      } catch (_) {}
+    }
+
+    function applyResumePosition(video) {
+      const row = currentProgressContext;
+      if (!row || !Number.isFinite(video.duration) || video.duration <= 0) return;
+      const resumeSeconds = Number(row.position || 0) / 1000;
+      if (resumeSeconds <= 0) return;
+      if (resumeSeconds >= video.duration * 0.90) return;
+      if (Math.abs(video.currentTime - resumeSeconds) > 2) {
+        try { video.currentTime = Math.min(resumeSeconds, Math.max(0, video.duration - 2)); } catch (_) {}
       }
     }
 
@@ -751,7 +954,12 @@
             button.textContent = prefix + (video.title || video.name || ('Episode ' + (ep || '')));
             button.onclick = async () => {
               closeDetails();
-              await fetchAndPlay(video.id, 'episode', 'series');
+              await fetchAndPlay(
+                video.id,
+                'episode',
+                'series',
+                progressContextForEpisode(meta, video)
+              );
             };
             list.appendChild(button);
           }
@@ -797,8 +1005,10 @@
       document.getElementById('video').style.opacity = '0';
     }
 
-    async function fetchAndPlay(id, contentType, stremioType) {
+    async function fetchAndPlay(id, contentType, stremioType, progressContext = null) {
       await closePlayer(false);
+      currentProgressContext = progressContext;
+      lastProgressSyncAt = 0;
       const generation = ++playbackGeneration;
       currentPlaybackKind = contentType;
       document.getElementById('player-overlay').style.display = 'flex';
@@ -894,6 +1104,8 @@
 
         currentPlaybackSession = null;
         requestingFallback = false;
+        currentProgressContext = null;
+        lastProgressSyncAt = 0;
         playbackGeneration++;
         document.getElementById('player-overlay').style.display = 'none';
         document.getElementById('playback-message').style.display = 'none';
@@ -956,6 +1168,9 @@
 
       const video = document.getElementById('video');
       showPlaybackLoading('Starting playback...');
+      if (currentProgressContext) {
+        video.addEventListener('loadedmetadata', () => applyResumePosition(video), { once: true });
+      }
       const useHls = currentPlaybackKind === 'sport_event' || /\.m3u8(?:$|[?#])/i.test(url);
 
       if (useHls && Hls.isSupported()) {
@@ -1017,9 +1232,14 @@
 
     async function closePlayer(invalidate = true) {
       const session = currentPlaybackSession;
+      if (currentProgressContext) {
+        await syncCurrentProgress(true, false);
+      }
       currentPlaybackSession = null;
       requestingFallback = false;
       pendingVodPlayback = null;
+      currentProgressContext = null;
+      lastProgressSyncAt = 0;
       const chooser = document.getElementById('player-choice-overlay');
       if (chooser) chooser.style.display = 'none';
       if (invalidate) playbackGeneration++;
@@ -1034,6 +1254,17 @@
         } catch (_) {}
       }
     }
+
+    const progressVideo = document.getElementById('video');
+    progressVideo.addEventListener('timeupdate', () => {
+      if (currentProgressContext && !progressVideo.paused) syncCurrentProgress(false, false);
+    });
+    progressVideo.addEventListener('pause', () => {
+      if (currentProgressContext && !progressVideo.ended) syncCurrentProgress(true, false);
+    });
+    progressVideo.addEventListener('ended', () => {
+      if (currentProgressContext) syncCurrentProgress(true, true);
+    });
 
     initVodPlayerControl();
     initContent();
