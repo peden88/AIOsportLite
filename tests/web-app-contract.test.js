@@ -46,6 +46,10 @@ t(html.includes("method: 'PUT'") && html.includes('/api/v1/progress'), 'internal
 t(!html.includes("add('movie', 'Movies')") && !html.includes("add('series', 'Series')"), 'separate Movies and Series top-level modes are absent');
 t(/\.vod-card \.poster-container\s*\{[\s\S]*?aspect-ratio\s*:\s*2\s*\/\s*3/.test(html), 'web VOD cards use portrait poster proportions');
 t(/\.vod-card \.info\s*\{[\s\S]*?position\s*:\s*static/.test(html), 'VOD title labels sit below poster artwork');
+t(/#details-overlay\s*\{[\s\S]*?background\s*:\s*rgba\(0\s*,\s*0\s*,\s*0\s*,\s*\.85\)/.test(html), 'title details keep the underlying catalog at roughly 15 percent visibility');
+t(/#details-overlay\s*\{[\s\S]*?backdrop-filter\s*:\s*none/.test(html), 'title details do not replace the catalog with a blurred scene');
+t(/\.details-shell\s*\{[\s\S]*?background\s*:\s*rgba\(18\s*,\s*18\s*,\s*22\s*,\s*\.985\)/.test(html), 'title details card remains dark and opaque');
+t(/#details-overlay\s*\{[\s\S]*?safe-area-inset-bottom/.test(html), 'details overlay extends through the iOS bottom safe area');
 t(html.includes("for (const catalog of data.catalogs || [])"), 'web VOD catalog rail preserves AIOMetadata order without sorting');
 t(/\.grid\s*\{[\s\S]*?grid-template-columns\s*:\s*repeat\(2\s*,\s*minmax\(0\s*,\s*1fr\)\)/.test(html), 'content cards use a two-column grid');
 t(/\.tabs\s*\{[\s\S]*?overflow-x\s*:\s*auto/.test(html), 'catalog selector remains horizontally scrollable');
