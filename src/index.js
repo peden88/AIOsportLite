@@ -41,6 +41,7 @@ const appServices = require('./services/AppServiceRegistry');
 const opaquePlayback = require('./services/OpaquePlayback');
 const externalPlayback = require('./services/ExternalPlaybackBridge');
 const userAuth = require('./services/UserAuth');
+const aioPlayProgress = require('./services/AioPlayProgress');
 const vodGateway = require('./services/VodGateway');
 
 
@@ -411,6 +412,38 @@ app.get('/api/site/auth', (req, res) => {
 app.get('/api/v1/account', requirePage, (req, res) => {
   const account = currentAccount(req);
   res.json({ user: account ? account.user : null });
+});
+
+app.get('/api/v1/progress', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
+  const continueOnly = ['1', 'true', 'yes'].includes(
+    String(req.query.continue || '').trim().toLowerCase()
+  );
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    items: aioPlayProgress.list(account.user.id, { continueOnly })
+  });
+});
+
+app.put('/api/v1/progress', requirePage, express.json({ limit: '256kb' }), (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const items = Array.isArray(body.items)
+    ? body.items
+    : (body.item && typeof body.item === 'object' ? [body.item] : []);
+
+  if (!items.length) {
+    return res.status(400).json({ error: 'Expected item or items.' });
+  }
+
+  const result = aioPlayProgress.upsert(account.user.id, items);
+  res.json({
+    ok: true,
+    ...result
+  });
 });
 
 app.get('/api/v1/account/sessions', requirePage, (req, res) => {
