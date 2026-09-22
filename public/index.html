@@ -532,6 +532,7 @@
     let currentMode = 'sports';
     let currentVodType = '';
     let currentPlaybackSession = null;
+    let playbackHeartbeatTimer = null;
     let currentPlaybackKind = 'sport_event';
     let playbackGeneration = 0;
     let requestingFallback = false;
@@ -1242,10 +1243,45 @@
       video.style.opacity = '0';
     }
 
-    function showPlaybackFailure() {
+    function showPlaybackFailure(detail = '') {
       document.getElementById('loader').style.display = 'none';
-      document.getElementById('playback-message').style.display = 'block';
+      const message = document.getElementById('playback-message');
+      message.style.display = 'block';
+      const span = message.querySelector('span');
+      if (span) span.textContent = detail || 'There are no working streams for this event right now.';
       document.getElementById('video').style.opacity = '0';
+    }
+
+    function stopPlaybackHeartbeat() {
+      if (playbackHeartbeatTimer) {
+        clearInterval(playbackHeartbeatTimer);
+        playbackHeartbeatTimer = null;
+      }
+    }
+
+    function startPlaybackHeartbeat(sessionId, generation) {
+      stopPlaybackHeartbeat();
+      if (!sessionId) return;
+      const beat = async () => {
+        if (generation !== playbackGeneration || currentPlaybackSession !== sessionId) return;
+        try {
+          const res = await fetch(
+            '/api/v1/playback/' + encodeURIComponent(sessionId) + '/heartbeat',
+            { method: 'POST' }
+          );
+          if (res.ok) return;
+          const data = await res.json().catch(() => ({}));
+          if (generation !== playbackGeneration) return;
+          stopPlaybackHeartbeat();
+          currentPlaybackSession = null;
+          stopVideoEngine();
+          showPlaybackFailure(data.error || 'This playback session is no longer active.');
+        } catch (_) {
+          // A transient network error should not tear down playback. The server
+          // lease itself expires if heartbeats genuinely stop.
+        }
+      };
+      playbackHeartbeatTimer = setInterval(beat, 30000);
     }
 
     async function fetchAndPlay(id, contentType, stremioType, progressContext = null) {
@@ -1258,7 +1294,12 @@
       showPlaybackLoading('Finding a working stream...');
 
       try {
-        const payload = { contentType, id };
+        const matchingItem = currentItems.find(item => String(item.id) === String(id));
+        const payload = {
+          contentType,
+          id,
+          title: (progressContext && progressContext.name) || (matchingItem && matchingItem.name) || id
+        };
         if (stremioType) payload.stremioType = stremioType;
 
         const res = await fetch('/api/v1/play', {
@@ -1270,11 +1311,12 @@
         if (generation !== playbackGeneration) return;
 
         if (!res.ok || !data.ok || !data.playback) {
-          showPlaybackFailure();
+          showPlaybackFailure(data.error || '');
           return;
         }
 
         currentPlaybackSession = data.sessionId || null;
+        startPlaybackHeartbeat(currentPlaybackSession, generation);
         const isVod = contentType !== 'sport_event' && contentType !== 'live_channel' && contentType !== 'sport';
         const preference = isVod ? vodPlayerPreference() : 'internal';
 
@@ -1345,6 +1387,7 @@
         const launched = triggerExternalPlayer(kind, data.url);
         if (!launched) return false;
 
+        stopPlaybackHeartbeat();
         currentPlaybackSession = null;
         requestingFallback = false;
         currentProgressContext = null;
@@ -1353,7 +1396,8 @@
         document.getElementById('player-overlay').style.display = 'none';
         document.getElementById('playback-message').style.display = 'none';
         stopVideoEngine();
-        fetch('/api/v1/playback/' + encodeURIComponent(session), { method: 'DELETE' }).catch(() => {});
+        // The external-player bridge now owns the lease and keeps it alive from
+        // the proxied media traffic. Do not DELETE the session here.
         return true;
       } catch (err) {
         console.error('External playback failed', err);
@@ -1380,8 +1424,9 @@
         if (generation !== playbackGeneration) return;
 
         if (!res.ok || !data.ok || !data.playback) {
+          stopPlaybackHeartbeat();
           currentPlaybackSession = null;
-          showPlaybackFailure();
+          showPlaybackFailure(data.error || '');
           return;
         }
 
@@ -1478,6 +1523,7 @@
       if (currentProgressContext) {
         await syncCurrentProgress(true, false);
       }
+      stopPlaybackHeartbeat();
       currentPlaybackSession = null;
       requestingFallback = false;
       pendingVodPlayback = null;
