@@ -188,6 +188,7 @@
       border-color:var(--accent); transform:scale(1.02);
       box-shadow:0 10px 28px rgba(0,0,0,.38);
     }
+    .vod-card:hover .poster { transform:none; }
     .vod-card:focus-visible { outline:none; }
     .vod-card .background { display:none; }
     .vod-card .poster { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; padding:0; }
@@ -391,6 +392,7 @@
     let searchTimer = null;
     let currentProgressContext = null;
     let lastProgressSyncAt = 0;
+    let sharedProgressItems = [];
 
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
@@ -506,8 +508,16 @@
         try {
           const account = await (await fetch('/api/v1/account')).json();
           bootstrap.accountUser = account && account.user ? account.user : null;
+          if (bootstrap.accountUser) {
+            const progressResponse = await fetch('/api/v1/progress', { cache: 'no-store' });
+            if (progressResponse.ok) {
+              const progressBody = await progressResponse.json();
+              sharedProgressItems = Array.isArray(progressBody.items) ? progressBody.items : [];
+            }
+          }
         } catch (_) {
           bootstrap.accountUser = null;
+          sharedProgressItems = [];
         }
         buildModes();
         const sports = bootstrap.services && bootstrap.services.sports && bootstrap.services.sports.enabled;
@@ -603,7 +613,15 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Progress failed');
 
-        currentItems = (data.items || []).map(row => ({
+        const continueRows = Array.isArray(data.items) ? data.items : [];
+        for (const row of continueRows) {
+          const key = progressIdentityKey(row);
+          const index = sharedProgressItems.findIndex(existing => progressIdentityKey(existing) === key);
+          if (index >= 0) sharedProgressItems[index] = row;
+          else sharedProgressItems.push(row);
+        }
+
+        currentItems = continueRows.map(row => ({
           id: row.videoId || row.contentId,
           type: row.contentType === 'series' ? 'episode' : 'movie',
           name: row.name || 'Untitled',
@@ -795,42 +813,79 @@
       }
     }
 
+    function progressIdentityKey(row) {
+      const type = String(row?.contentType || '').toLowerCase();
+      const series = type === 'series' || type === 'tv' || type === 'episode';
+      if (!series) return 'movie|' + String(row?.contentId || '');
+      const season = row?.season == null ? '' : String(row.season);
+      const episode = row?.episode == null ? '' : String(row.episode);
+      const videoId = String(row?.videoId || '');
+      return 'series|' + String(row?.contentId || '') + '|' + season + '|' + episode + '|' + videoId;
+    }
+
+    function cachedMovieProgress(contentId) {
+      return sharedProgressItems.find(row =>
+        String(row.contentType || '').toLowerCase() === 'movie' &&
+        String(row.contentId || '') === String(contentId || '')
+      ) || null;
+    }
+
+    function cachedEpisodeProgress(meta, video) {
+      const contentId = String(meta?.id || '');
+      const videoId = String(video?.id || '');
+      const season = video?.season == null ? null : Number(video.season);
+      const episode = video?.episode == null ? null : Number(video.episode);
+      return sharedProgressItems.find(row => {
+        const type = String(row.contentType || '').toLowerCase();
+        if (type !== 'series' && type !== 'tv' && type !== 'episode') return false;
+        if (String(row.contentId || '') !== contentId) return false;
+        if (season != null && episode != null) {
+          return Number(row.season) === season && Number(row.episode) === episode;
+        }
+        return String(row.videoId || '') === videoId;
+      }) || null;
+    }
+
     function progressContextForMovie(meta) {
+      const existing = cachedMovieProgress(meta.id);
       return {
+        ...(existing || {}),
         contentId: meta.id,
         contentType: 'movie',
-        name: meta.name || 'Movie',
-        poster: meta.poster || null,
-        backdrop: meta.background || null,
-        logo: meta.logo || null,
+        name: meta.name || existing?.name || 'Movie',
+        poster: meta.poster || existing?.poster || null,
+        backdrop: meta.background || existing?.backdrop || null,
+        logo: meta.logo || existing?.logo || null,
         videoId: meta.id,
         season: null,
         episode: null,
         episodeTitle: null,
-        position: 0,
-        duration: 0,
-        progressPercent: 0,
-        lastWatched: Date.now(),
+        position: Number(existing?.position || 0),
+        duration: Number(existing?.duration || 0),
+        progressPercent: Number(existing?.progressPercent || 0),
+        lastWatched: Number(existing?.lastWatched || Date.now()),
         source: 'aioplay_web'
       };
     }
 
     function progressContextForEpisode(meta, video) {
+      const existing = cachedEpisodeProgress(meta, video);
       return {
+        ...(existing || {}),
         contentId: meta.id,
         contentType: 'series',
-        name: meta.name || 'Series',
-        poster: meta.poster || null,
-        backdrop: meta.background || null,
-        logo: meta.logo || null,
+        name: meta.name || existing?.name || 'Series',
+        poster: meta.poster || existing?.poster || null,
+        backdrop: meta.background || existing?.backdrop || null,
+        logo: meta.logo || existing?.logo || null,
         videoId: video.id,
         season: Number.isFinite(Number(video.season)) ? Number(video.season) : null,
         episode: Number.isFinite(Number(video.episode)) ? Number(video.episode) : null,
-        episodeTitle: video.title || video.name || null,
-        position: 0,
-        duration: 0,
-        progressPercent: 0,
-        lastWatched: Date.now(),
+        episodeTitle: video.title || video.name || existing?.episodeTitle || null,
+        position: Number(existing?.position || 0),
+        duration: Number(existing?.duration || 0),
+        progressPercent: Number(existing?.progressPercent || 0),
+        lastWatched: Number(existing?.lastWatched || Date.now()),
         source: 'aioplay_web'
       };
     }
@@ -864,6 +919,10 @@
       };
       currentProgressContext = next;
       lastProgressSyncAt = now;
+      const nextKey = progressIdentityKey(next);
+      const existingIndex = sharedProgressItems.findIndex(row => progressIdentityKey(row) === nextKey);
+      if (existingIndex >= 0) sharedProgressItems[existingIndex] = next;
+      else sharedProgressItems.unshift(next);
 
       try {
         await fetch('/api/v1/progress', {
