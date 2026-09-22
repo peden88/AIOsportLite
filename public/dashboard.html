@@ -285,7 +285,10 @@ async function refresh() {
     const isEpisode = String(stream.contentType || '').toLowerCase() === 'episode';
     const season = Number(stream.season);
     const episode = Number(stream.episode);
-    const episodeCode = isEpisode && Number.isFinite(season) && Number.isFinite(episode)
+    const episodeCode = isEpisode
+      && stream.season !== null && stream.season !== undefined && stream.season !== ''
+      && stream.episode !== null && stream.episode !== undefined && stream.episode !== ''
+      && Number.isFinite(season) && Number.isFinite(episode)
       ? 'S' + String(Math.trunc(season)).padStart(2, '0')
         + 'E' + String(Math.trunc(episode)).padStart(2, '0')
       : '';
