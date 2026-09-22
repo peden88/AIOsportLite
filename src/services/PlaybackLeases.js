@@ -79,8 +79,12 @@ function acquire({
     title: String(title || '').slice(0, 240),
     parentId: String(parentId || '').slice(0, 240),
     seriesTitle: String(seriesTitle || '').slice(0, 240),
-    season: Number.isFinite(Number(season)) ? Math.trunc(Number(season)) : null,
-    episode: Number.isFinite(Number(episode)) ? Math.trunc(Number(episode)) : null,
+    season: season !== null && season !== undefined && season !== '' && Number.isFinite(Number(season))
+      ? Math.trunc(Number(season))
+      : null,
+    episode: episode !== null && episode !== undefined && episode !== '' && Number.isFinite(Number(episode))
+      ? Math.trunc(Number(episode))
+      : null,
     episodeTitle: String(episodeTitle || '').slice(0, 240),
     playbackSessionId: '',
     startedAt,
