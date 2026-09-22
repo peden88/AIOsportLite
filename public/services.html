@@ -49,7 +49,7 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
 
     <section class="card">
       <h2>VOD configuration</h2>
-      <p class="help">These manifests apply to every account. Leave a URL field blank to keep its current value. Nothing entered here is returned to ordinary users.</p>
+      <p class="help">These manifests apply to every account. The AIOStreams field below is the saved/shared fallback; client-specific Web/App ENV manifests override it. Leave a URL field blank to keep its current value.</p>
 
       <label class="check" style="text-transform:none;letter-spacing:0;font-size:14px"><input type="checkbox" id="vodEnabled"> Enable Movies and Series</label>
 
@@ -57,9 +57,9 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
       <input id="metadataUrl" type="text" inputmode="url" autocomplete="off" placeholder="Leave blank to keep current">
       <label class="check" style="text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="clearMetadata"> Clear saved AIOMetadata manifest</label>
 
-      <label for="streamsUrl">AIOStreams manifest</label>
+      <label for="streamsUrl">AIOStreams shared fallback manifest</label>
       <input id="streamsUrl" type="text" inputmode="url" autocomplete="off" placeholder="Leave blank to keep current">
-      <label class="check" style="text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="clearStreams"> Clear saved AIOStreams manifest</label>
+      <label class="check" style="text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="clearStreams"> Clear saved AIOStreams override and use ENV fallback</label>
 
       <div class="actions">
         <button id="save">Save and test</button>
@@ -74,7 +74,8 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
       <h2>Live status</h2>
       <div class="status"><div><strong>VOD</strong><div class="host" id="vodSource"></div></div><span class="pill" id="vodState">Checking</span></div>
       <div class="status"><div><strong>AIOMetadata</strong><div class="host" id="metadataHost"></div></div><span class="pill" id="metadataState">Checking</span></div>
-      <div class="status"><div><strong>AIOStreams</strong><div class="host" id="streamsHost"></div></div><span class="pill" id="streamsState">Checking</span></div>
+      <div class="status"><div><strong>AIOStreams — Web</strong><div class="host" id="streamsWebHost"></div></div><span class="pill" id="streamsWebState">Checking</span></div>
+      <div class="status"><div><strong>AIOStreams — App</strong><div class="host" id="streamsAppHost"></div></div><span class="pill" id="streamsAppState">Checking</span></div>
       <p class="help" style="margin-top:18px">Reachability is tested from the AIOPlay container itself, so this is the result that matters for deployment.</p>
     </section>
   </div>
@@ -112,17 +113,27 @@ function render(body){
     sports.state==='empty'?'No catalogs':'Healthy');
 
   $('vodEnabled').checked=!!cfg.vodRequested;
-  $('metadataHost').textContent=cfg.metadata?.configured ? ((cfg.metadata.host||'configured')+' · '+(cfg.metadata.source||'')) : 'Not configured';
-  $('streamsHost').textContent=cfg.streams?.configured ? ((cfg.streams.host||'configured')+' · '+(cfg.streams.source||'')) : 'Not configured';
+  const endpointLabel=endpoint=>{
+    if(!endpoint?.configured) return 'Not configured';
+    return (endpoint.host||'configured')+
+      ' · '+(endpoint.source||'unknown')+
+      (endpoint.fingerprint?' · config #'+endpoint.fingerprint:'');
+  };
+  $('metadataHost').textContent=endpointLabel(cfg.metadata);
+  $('streamsWebHost').textContent=endpointLabel(cfg.streamsWeb||cfg.streams);
+  $('streamsAppHost').textContent=endpointLabel(cfg.streamsApp||cfg.streams);
   $('vodSource').textContent=cfg.vodEnabled ? 'Movies and Series available' : (cfg.vodRequested?'Waiting for both services':'Disabled');
   paint('vodState',!!cfg.vodEnabled,cfg.vodEnabled?'Enabled':'Disabled');
 
   const m=st.metadata||{};
-  const s=st.streams||{};
+  const sw=st.streamsWeb||st.streams||{};
+  const sa=st.streamsApp||st.streams||{};
   paint('metadataState',!!m.reachable,m.reachable?'Reachable':(m.configured?'Unreachable':'Not configured'));
-  paint('streamsState',!!s.reachable,s.reachable?'Reachable':(s.configured?'Unreachable':'Not configured'));
+  paint('streamsWebState',!!sw.reachable,sw.reachable?'Reachable':(sw.configured?'Unreachable':'Not configured'));
+  paint('streamsAppState',!!sa.reachable,sa.reachable?'Reachable':(sa.configured?'Unreachable':'Not configured'));
   if(m.reachable && m.name) $('metadataHost').textContent += ' · '+m.name+(m.version?' '+m.version:'');
-  if(s.reachable && s.name) $('streamsHost').textContent += ' · '+s.name+(s.version?' '+s.version:'');
+  if(sw.reachable && sw.name) $('streamsWebHost').textContent += ' · '+sw.name+(sw.version?' '+sw.version:'');
+  if(sa.reachable && sa.name) $('streamsAppHost').textContent += ' · '+sa.name+(sa.version?' '+sa.version:'');
 }
 async function load(){
   try{render(await api('/api/v1/admin/services'));$('message').textContent='';}
@@ -173,7 +184,7 @@ $('refreshAiostreams').onclick=async()=>{
     const result=await api('/api/v1/admin/vod/refresh-aiostreams',{method:'POST',body:'{}'});
     const refreshed=Object.entries(result.clients||{})
       .filter(([,row])=>row&&row.refreshed)
-      .map(([kind,row])=>kind+' '+(row.name||row.id||'AIOStreams'));
+      .map(([kind,row])=>kind+' config #'+(row.fingerprint||'unknown')+' '+(row.name||row.id||'AIOStreams'));
     if(!refreshed.length) throw new Error('No AIOStreams configuration was refreshed.');
     await load();
     $('message').textContent='Refreshed: '+refreshed.join(' · ')+'. New playback requests will use the updated config.';
