@@ -65,13 +65,17 @@ function privateConfig() {
   const metadataManifestUrl = normaliseHttpUrl(
     selectedValue(saved, 'aiometadataManifestUrl', 'AIOMETADATA_MANIFEST_URL')
   );
-  const streamsManifestUrl = normaliseHttpUrl(
+  const sharedStreamsManifestUrl = normaliseHttpUrl(
     selectedValue(saved, 'aiostreamsManifestUrl', 'AIOSTREAMS_MANIFEST_URL')
   );
+  const webStreamsManifestUrl = normaliseHttpUrl(process.env.AIOSTREAMS_WEB_MANIFEST_URL)
+    || sharedStreamsManifestUrl;
+  const appStreamsManifestUrl = normaliseHttpUrl(process.env.AIOSTREAMS_APP_MANIFEST_URL)
+    || sharedStreamsManifestUrl;
   const sportsManifestUrl = normaliseHttpUrl(process.env.AIOSPORT_MANIFEST_URL);
 
   const metadataEnabled = !!metadataManifestUrl;
-  const streamsEnabled = !!streamsManifestUrl;
+  const streamsEnabled = !!(webStreamsManifestUrl || appStreamsManifestUrl);
   const vodRequested = Object.prototype.hasOwnProperty.call(saved, 'vodEnabled')
     ? !!saved.vodEnabled
     : enabled(process.env.VOD_ENABLED);
@@ -93,7 +97,10 @@ function privateConfig() {
     },
     streams: {
       enabled: streamsEnabled,
-      manifestUrl: streamsManifestUrl,
+      manifestUrl: webStreamsManifestUrl || appStreamsManifestUrl,
+      webManifestUrl: webStreamsManifestUrl,
+      appManifestUrl: appStreamsManifestUrl,
+      sharedManifestUrl: sharedStreamsManifestUrl,
       role: 'vod-playback-resolution-and-failover'
     },
     vod: {
@@ -104,6 +111,8 @@ function privateConfig() {
       sportsEnabled: sourceFor(saved, 'sportsEnabled'),
       metadata: sourceFor(saved, 'aiometadataManifestUrl'),
       streams: sourceFor(saved, 'aiostreamsManifestUrl'),
+      streamsWeb: process.env.AIOSTREAMS_WEB_MANIFEST_URL ? 'environment:web' : sourceFor(saved, 'aiostreamsManifestUrl'),
+      streamsApp: process.env.AIOSTREAMS_APP_MANIFEST_URL ? 'environment:app' : sourceFor(saved, 'aiostreamsManifestUrl'),
       vodEnabled: sourceFor(saved, 'vodEnabled')
     }
   };
