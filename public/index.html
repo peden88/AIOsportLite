@@ -1298,8 +1298,22 @@
         const payload = {
           contentType,
           id,
-          title: (progressContext && progressContext.name) || (matchingItem && matchingItem.name) || id
+          title: (progressContext && progressContext.episodeTitle)
+            || (progressContext && progressContext.name)
+            || (matchingItem && matchingItem.name)
+            || id
         };
+        if (progressContext) {
+          payload.parentId = progressContext.contentType === 'series'
+            ? (progressContext.contentId || '')
+            : '';
+          payload.parentName = progressContext.contentType === 'series'
+            ? (progressContext.name || '')
+            : '';
+          payload.season = progressContext.season ?? null;
+          payload.episode = progressContext.episode ?? null;
+          payload.episodeTitle = progressContext.episodeTitle || '';
+        }
         if (stremioType) payload.stremioType = stremioType;
 
         const res = await fetch('/api/v1/play', {
