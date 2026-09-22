@@ -496,6 +496,29 @@ app.post('/api/v1/admin/vod/probe', express.json({ limit: '8kb' }), async (req, 
   }
 });
 
+app.post('/api/v1/admin/vod/refresh-aiostreams', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const result = await vodGateway.refreshAioStreams();
+    const webOk = result.clients?.web?.refreshed;
+    const appOk = result.clients?.app?.refreshed;
+    if (!webOk && !appOk) {
+      return res.status(502).json({
+        ...result,
+        error: 'No configured AIOStreams client could be refreshed.'
+      });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[app-vod] AIOStreams refresh failed:', err.message);
+    res.status(err.statusCode || 502).json({
+      ok: false,
+      error: err.message,
+      code: err.code || 'AIOSTREAMS_REFRESH_FAILED'
+    });
+  }
+});
+
 app.get('/api/v1/admin/services', async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
