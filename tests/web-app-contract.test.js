@@ -18,6 +18,9 @@ t(!html.includes('/stream/tv/'), 'web app never fetches the raw Stremio stream r
 t(!html.includes('source-selector'), 'web app contains no stream/source selector');
 t(html.includes('/api/v1/play'), 'all playback enters the opaque play API');
 t(html.includes('/api/v1/playback/'), 'automatic fallback uses the opaque playback session');
+t(html.includes('/heartbeat'), 'web playback keeps its account lease alive with heartbeats');
+t(html.includes('startPlaybackHeartbeat'), 'web player starts a lease heartbeat for internal playback');
+t(html.includes('The external-player bridge now owns the lease'), 'external handoff leaves lease ownership with the proxy');
 t(html.includes('/api/v1/bootstrap'), 'content modes are capability-driven');
 
 console.log('--- VOD discovery contract');
