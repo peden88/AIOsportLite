@@ -133,6 +133,12 @@ async function verifyPassword(password, record) {
   return got.length === want.length && crypto.timingSafeEqual(got, want);
 }
 
+function normaliseConcurrentStreams(value, fallback = 1) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(3, Math.trunc(parsed)));
+}
+
 function publicUser(user) {
   if (!user) return null;
   return {
@@ -141,6 +147,7 @@ function publicUser(user) {
     displayName: user.displayName,
     role: user.role,
     enabled: user.enabled !== false,
+    maxConcurrentStreams: normaliseConcurrentStreams(user.maxConcurrentStreams, 1),
     createdAt: user.createdAt
   };
 }
@@ -154,7 +161,14 @@ function findUserByUsername(username) {
   return loadUsers().users.find(u => u.username === name) || null;
 }
 
-async function createUser({ username, password, displayName, role = 'user', enabled = true }) {
+async function createUser({
+  username,
+  password,
+  displayName,
+  role = 'user',
+  enabled = true,
+  maxConcurrentStreams = 1
+}) {
   const name = validateUsername(username);
   if (findUserByUsername(name)) {
     const err = new Error('Username already exists.');
@@ -168,6 +182,7 @@ async function createUser({ username, password, displayName, role = 'user', enab
     displayName: cleanDisplayName(displayName, name),
     role: safeRole,
     enabled: enabled !== false,
+    maxConcurrentStreams: normaliseConcurrentStreams(maxConcurrentStreams, 1),
     password: await hashPassword(password),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -192,6 +207,11 @@ async function updateUser(id, patch = {}) {
 
   const nextPassword = patch.password !== undefined ? await hashPassword(patch.password) : null;
   if (patch.displayName !== undefined) user.displayName = cleanDisplayName(patch.displayName, user.username);
+  if (patch.maxConcurrentStreams !== undefined) {
+    user.maxConcurrentStreams = normaliseConcurrentStreams(patch.maxConcurrentStreams, 1);
+  } else if (user.maxConcurrentStreams === undefined) {
+    user.maxConcurrentStreams = 1;
+  }
   user.enabled = nextEnabled;
   user.role = nextRole;
   if (nextPassword) user.password = nextPassword;
@@ -385,6 +405,7 @@ module.exports = {
   _hashPassword: hashPassword,
   _verifyPassword: verifyPassword,
   _normaliseUsername: normaliseUsername,
+  _normaliseConcurrentStreams: normaliseConcurrentStreams,
   _resetForTests() { users = null; sessions = null; },
   SESSION_TTL_MS
 };
