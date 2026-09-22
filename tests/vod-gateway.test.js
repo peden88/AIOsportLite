@@ -216,7 +216,7 @@ server = http.createServer((req, res) => {
   assert.strictEqual(diagnostic.metadata.reachable, true);
   assert.strictEqual(diagnostic.streams.reachable, true);
   assert.strictEqual(diagnostic.metadata.id, 'mock.metadata');
-  assert.strictEqual(diagnostic.streams.id, 'mock.streams');
+  assert.strictEqual(diagnostic.streams.id, 'mock.streams.web');
   assert.ok(!JSON.stringify(diagnostic).includes('/metadata/profile/manifest.json'));
   assert.ok(!JSON.stringify(diagnostic).includes('/streams/profile/manifest.json'));
 
