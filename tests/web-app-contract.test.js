@@ -53,7 +53,8 @@ t(/<header>[\s\S]*?class="catalog-rail"[\s\S]*?id="tabs"[\s\S]*?<\/header>/.test
 t(!html.includes('syncHeaderCollapse') && !html.includes('header-compact'), 'sticky navigation does not mutate header height while scrolling');
 t(/\.top-header\s*\{[\s\S]*?position\s*:\s*relative/.test(html), 'logo search and logout use normal document flow');
 t(/header\s*\{[\s\S]*?position\s*:\s*sticky[\s\S]*?top\s*:\s*0/.test(html), 'mode and catalog navigation remains sticky');
-t(/body::before\s*\{[\s\S]*?linear-gradient\([\s\S]*?135deg[\s\S]*?54,216,255[\s\S]*?22,104,255[\s\S]*?120,87,255[\s\S]*?opacity\s*:\s*\.255/.test(html), 'web app uses the AIOPlay cyan blue violet diagonal gradient background');
+t(/html\s*\{[\s\S]*?linear-gradient\([\s\S]*?135deg[\s\S]*?114,228,255[\s\S]*?92,149,255[\s\S]*?161,137,255/.test(html), 'web app uses the lightened AIOPlay cyan blue violet diagonal gradient background');
+t(!html.includes('body::before') && !html.includes('body::after'), 'global background uses no fixed pseudo-element layers that can seam on iOS');
 t(/\.content-state\s*\{[\s\S]*?place-items\s*:\s*center[\s\S]*?font\s*:\s*600\s+1\.5rem/.test(html), 'loading and empty states are centered and enlarged');
 t(html.includes("setGridState('Fetching matches…')"), 'sports loading text uses the centered state');
 t(html.includes("setGridState('Nothing to show here right now.')"), 'empty catalog text uses the centered state');
