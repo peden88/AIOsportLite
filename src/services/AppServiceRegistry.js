@@ -44,6 +44,13 @@ function sourceFor(saved, key) {
   return Object.prototype.hasOwnProperty.call(saved, key) ? 'data' : 'environment';
 }
 
+function streamsSourceFor(saved, splitEnvUrl, client) {
+  if (splitEnvUrl) return 'environment:' + client;
+  if (Object.prototype.hasOwnProperty.call(saved, 'aiostreamsManifestUrl')) return 'data:shared';
+  if (normaliseHttpUrl(process.env.AIOSTREAMS_MANIFEST_URL)) return 'environment:shared';
+  return 'unconfigured';
+}
+
 function validateManifestUrl(raw, label) {
   if (raw === null || raw === undefined || String(raw).trim() === '') return '';
   const value = normaliseHttpUrl(raw);
@@ -112,8 +119,8 @@ function privateConfig() {
       sportsEnabled: sourceFor(saved, 'sportsEnabled'),
       metadata: sourceFor(saved, 'aiometadataManifestUrl'),
       streams: sourceFor(saved, 'aiostreamsManifestUrl'),
-      streamsWeb: webStreamsEnvUrl ? 'environment:web' : sourceFor(saved, 'aiostreamsManifestUrl'),
-      streamsApp: appStreamsEnvUrl ? 'environment:app' : sourceFor(saved, 'aiostreamsManifestUrl'),
+      streamsWeb: streamsSourceFor(saved, webStreamsEnvUrl, 'web'),
+      streamsApp: streamsSourceFor(saved, appStreamsEnvUrl, 'app'),
       vodEnabled: sourceFor(saved, 'vodEnabled')
     }
   };
@@ -194,7 +201,12 @@ function adminSummary() {
     metadata: endpointSummary(cfg.metadata.manifestUrl, cfg.sources.metadata),
     streams: endpointSummary(cfg.streams.manifestUrl, cfg.sources.streams),
     streamsWeb: endpointSummary(cfg.streams.webManifestUrl, cfg.sources.streamsWeb),
-    streamsApp: endpointSummary(cfg.streams.appManifestUrl, cfg.sources.streamsApp)
+    streamsApp: endpointSummary(cfg.streams.appManifestUrl, cfg.sources.streamsApp),
+    environment: {
+      aiostreamsWebPresent: !!normaliseHttpUrl(process.env.AIOSTREAMS_WEB_MANIFEST_URL),
+      aiostreamsAppPresent: !!normaliseHttpUrl(process.env.AIOSTREAMS_APP_MANIFEST_URL),
+      aiostreamsSharedPresent: !!normaliseHttpUrl(process.env.AIOSTREAMS_MANIFEST_URL)
+    }
   };
 }
 
