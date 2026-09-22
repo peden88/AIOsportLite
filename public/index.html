@@ -55,12 +55,13 @@
       position:sticky;
       top:0;
       z-index:50;
-      background:rgba(15,15,17,.82);
+      background:rgba(15,15,17,.615);
       backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
       padding:7px 20px;
-      border-top:1px solid rgba(255,255,255,.035);
-      border-bottom:1px solid var(--card-border);
-      box-shadow:0 8px 28px rgba(0,0,0,.16);
+      border-top:1px solid rgba(255,255,255,.025);
+      border-bottom:1px solid rgba(255,255,255,.035);
+      box-shadow:none;
     }
     .header-row {
       display:grid;
@@ -154,6 +155,10 @@
       max-width:1180px;
       margin:6px auto 0;
       min-width:0;
+    }
+    .catalog-rail.is-empty {
+      display:none;
+      margin:0;
     }
     main { padding:14px 20px 40px; max-width:1180px; margin:0 auto; }
     
@@ -511,6 +516,12 @@
     const STREXO_TEMPLATE_KEY = 'aioplay.strexoTemplate';
     const CUSTOM_TEMPLATE_KEY = 'aioplay.customPlayerTemplate';
 
+    function setCatalogRailVisible(visible) {
+      const rail = document.querySelector('.catalog-rail');
+      if (!rail) return;
+      rail.classList.toggle('is-empty', !visible);
+    }
+
     function setGridState(message, error = false) {
       const host = grid();
       host.innerHTML = '';
@@ -683,7 +694,10 @@
     async function loadMode(mode) {
       setActiveMode(mode);
       currentItems = [];
-      tabs().innerHTML = '<div style="color:var(--text-muted);">Loading catalogs...</div>';
+      setCatalogRailVisible(mode !== 'continue');
+      tabs().innerHTML = mode === 'continue'
+        ? ''
+        : '<div style="color:var(--text-muted);">Loading catalogs...</div>';
       grid().innerHTML = '';
 
       if (mode === 'sports') return loadSportsTabs();
@@ -692,6 +706,7 @@
     }
 
     async function loadSportsTabs() {
+      setCatalogRailVisible(true);
       try {
         const data = await (await fetch('/api/v1/sports/catalogs')).json();
         tabs().innerHTML = '';
@@ -713,6 +728,7 @@
     }
 
     async function loadVodTabs() {
+      setCatalogRailVisible(true);
       try {
         const data = await (await fetch('/api/v1/vod/catalogs')).json();
         tabs().innerHTML = '';
@@ -736,6 +752,7 @@
     }
 
     async function loadContinueWatching() {
+      setCatalogRailVisible(false);
       tabs().innerHTML = '';
       currentVodType = '';
       setGridState('Loading Continue Watching…');
