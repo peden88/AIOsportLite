@@ -51,6 +51,26 @@ t(leases.touchSession('play1', 'u1'), 'owner heartbeat keeps the lease alive');
 t(!leases.touchSession('play1', 'other-user'), 'another user cannot heartbeat the lease');
 t(leases.releaseSession('play1'), 'normal stop releases the lease');
 
+console.log('--- episode stream metadata');
+const episodeLease = leases.acquire({
+  user: user('episode-user', 1),
+  authSession: { id: 'episode-auth', deviceName: 'Bedroom TV' },
+  client: 'app',
+  contentType: 'episode',
+  contentId: 'tt-series:1:4',
+  title: 'Dogs',
+  parentId: 'tt-series',
+  seriesTitle: 'The Bear',
+  season: 1,
+  episode: 4,
+  episodeTitle: 'Dogs'
+});
+const episodeStatus = leases.status().streams.find(stream => stream.id === episodeLease.id);
+t(episodeStatus && episodeStatus.seriesTitle === 'The Bear', 'active stream retains series title');
+t(episodeStatus && episodeStatus.season === 1 && episodeStatus.episode === 4, 'active stream retains season and episode number');
+t(episodeStatus && episodeStatus.episodeTitle === 'Dogs', 'active stream retains episode title');
+leases.releaseLease(episodeLease.id);
+
 console.log('--- two and three stream allowances');
 const a = leases.acquire({ user: user('u2', 3), contentId: 'a' });
 const b = leases.acquire({ user: user('u2', 3), contentId: 'b' });
@@ -88,6 +108,8 @@ t(usersHtml.includes('newStreams'), 'user creation has a concurrent stream selec
 t(usersHtml.includes('streamLimit'), 'existing users have a concurrent stream selector');
 t(dashboardHtml.includes('id="activeStreams"'), 'dashboard has an active streams section');
 t(dashboardHtml.includes('stop-stream'), 'dashboard can stop an active stream');
+t(dashboardHtml.includes('stream.seriesTitle'), 'dashboard renders series title for episode streams');
+t(dashboardHtml.includes('episodeCode'), 'dashboard renders SxxExx episode code');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
