@@ -30,6 +30,8 @@ services:
       - VOD_ENABLED=${VOD_ENABLED:-false}
       - AIOMETADATA_MANIFEST_URL=${AIOMETADATA_MANIFEST_URL:-}
       - AIOSTREAMS_MANIFEST_URL=${AIOSTREAMS_MANIFEST_URL:-}
+      - AIOSTREAMS_WEB_MANIFEST_URL=${AIOSTREAMS_WEB_MANIFEST_URL:-}
+      - AIOSTREAMS_APP_MANIFEST_URL=${AIOSTREAMS_APP_MANIFEST_URL:-}
       - LINK_SECRET=${LINK_SECRET:-}
       # Where saved profiles are written. The volume below is what makes them
       # outlive a rebuild.
