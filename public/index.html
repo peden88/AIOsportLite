@@ -817,10 +817,13 @@
       const type = String(row?.contentType || '').toLowerCase();
       const series = type === 'series' || type === 'tv' || type === 'episode';
       if (!series) return 'movie|' + String(row?.contentId || '');
-      const season = row?.season == null ? '' : String(row.season);
-      const episode = row?.episode == null ? '' : String(row.episode);
+      const season = row?.season == null ? null : String(row.season);
+      const episode = row?.episode == null ? null : String(row.episode);
       const videoId = String(row?.videoId || '');
-      return 'series|' + String(row?.contentId || '') + '|' + season + '|' + episode + '|' + videoId;
+      if (season !== null && episode !== null) {
+        return 'series|' + String(row?.contentId || '') + '|' + season + '|' + episode;
+      }
+      return 'series|' + String(row?.contentId || '') + '|video|' + videoId;
     }
 
     function cachedMovieProgress(contentId) {
