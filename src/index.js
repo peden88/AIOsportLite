@@ -1158,7 +1158,9 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
         return res.status(400).json({ error: 'VOD playback requires movie or series type.' });
       }
 
-      const candidates = await vodGateway.playbackCandidates(stremioType, id);
+      const clientHeader = String(req.get('x-aioplay-client') || '').trim().toLowerCase();
+      const playbackClient = clientHeader === 'android-tv' ? 'app' : 'web';
+      const candidates = await vodGateway.playbackCandidates(stremioType, id, playbackClient);
       const result = opaquePlayback.startOpaquePlayback(
         'vod',
         stremioType + ':' + id,
