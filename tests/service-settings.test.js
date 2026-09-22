@@ -68,6 +68,7 @@ t(true,servicesHtml.includes('id="sportsCatalogs"'),'Services page reports enabl
 t(true,servicesHtml.includes('id="sportsSources"'),'Services page reports enabled source count');
 t(true,servicesHtml.includes('id="streamsWebHost"'),'Services page reports Web AIOStreams separately');
 t(true,servicesHtml.includes('id="streamsAppHost"'),'Services page reports App AIOStreams separately');
+t(true,servicesHtml.includes('Container ENV missing:'),'Services page warns when split AIOStreams ENV is absent');
 const compose=fs.readFileSync(path.join(__dirname,'..','docker-compose.yml'),'utf8');
 t(true,compose.includes('AIOSTREAMS_WEB_MANIFEST_URL'),'Compose passes Web AIOStreams ENV into the container');
 t(true,compose.includes('AIOSTREAMS_APP_MANIFEST_URL'),'Compose passes App AIOStreams ENV into the container');
@@ -85,6 +86,8 @@ delete process.env.AIOSTREAMS_APP_MANIFEST_URL;
 summary=registry.adminSummary();
 t('env-streams.example',summary.streamsWeb.host,'Web falls back to shared AIOSTREAMS_MANIFEST_URL when split ENV is absent');
 t('env-streams.example',summary.streamsApp.host,'App falls back to shared AIOSTREAMS_MANIFEST_URL when split ENV is absent');
+t('environment:shared',summary.streamsWeb.source,'Web reports shared ENV fallback explicitly');
+t('environment:shared',summary.streamsApp.source,'App reports shared ENV fallback explicitly');
 
 console.log('--- explicit AIOMetadata clear still disables metadata');
 registry.updatePersistentVod({clearAiometadata:true});
