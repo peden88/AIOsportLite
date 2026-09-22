@@ -48,6 +48,9 @@ t(/\.vod-card \.info\s*\{[\s\S]*?position\s*:\s*static/.test(html), 'VOD title l
 t(html.includes("for (const catalog of data.catalogs || [])"), 'web VOD catalog rail preserves AIOMetadata order without sorting');
 t(html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), 'content cards use a two-column grid');
 t(/\.tabs\s*\{[\s\S]*?overflow-x\s*:\s*auto/.test(html), 'catalog selector remains horizontally scrollable');
+t(/<header>[\s\S]*?class="catalog-rail"[\s\S]*?id="tabs"[\s\S]*?<\/header>/.test(html), 'channel and catalog rail stays inside the sticky header');
+t(html.includes("header.classList.toggle('header-compact', window.scrollY > 2)"), 'logo search and logout collapse after leaving the top of the page');
+t(/header\.header-compact \.header-row\s*\{[\s\S]*?max-height\s*:\s*0/.test(html), 'collapsed header removes the top row from the sticky footprint');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
