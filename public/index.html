@@ -22,7 +22,19 @@
       --glass:rgba(15,15,17,.7);
     }
     * { box-sizing:border-box; }
-    html { background:var(--bg); }
+    html {
+      min-height:100%;
+      background-color:var(--bg);
+      background-image:
+        linear-gradient(
+          135deg,
+          rgba(114,228,255,.255) 0%,
+          rgba(92,149,255,.255) 48%,
+          rgba(161,137,255,.255) 100%
+        );
+      background-repeat:no-repeat;
+      background-size:cover;
+    }
     body {
       font-family:'Inter',sans-serif;
       background:transparent;
@@ -30,38 +42,7 @@
       margin:0;
       padding:0;
       min-height:100vh;
-      isolation:isolate;
-    }
-    body::before {
-      content:'';
-      position:fixed;
-      inset:-20%;
-      z-index:-2;
-      pointer-events:none;
-      background:
-        linear-gradient(
-          135deg,
-          rgba(54,216,255,.92) 0%,
-          rgba(22,104,255,.9) 48%,
-          rgba(120,87,255,.92) 100%
-        );
-      filter:blur(90px) saturate(1.12);
-      opacity:.255;
-      transform:scale(1.14);
-    }
-    body::after {
-      content:'';
-      position:fixed;
-      inset:0;
-      z-index:-1;
-      pointer-events:none;
-      background:
-        linear-gradient(
-          135deg,
-          rgba(6,11,24,.64) 0%,
-          rgba(7,9,20,.7) 46%,
-          rgba(13,7,24,.68) 100%
-        );
+      min-height:100svh;
     }
     .top-header {
       position:relative;
