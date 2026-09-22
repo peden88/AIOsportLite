@@ -60,7 +60,7 @@ t(html.includes('env(safe-area-inset-bottom, 0px)'), 'page gradient extends thro
 t(/header\s*\{[\s\S]*?box-shadow\s*:\s*none/.test(html), 'sticky navigation has no dark drop shadow over the page gradient');
 t(/\.catalog-rail\.is-empty\s*\{[\s\S]*?display\s*:\s*none/.test(html), 'empty catalog rails collapse instead of leaving a dark strip');
 t(html.includes("setCatalogRailVisible(mode !== 'continue')"), 'Continue Watching hides the unused catalog rail');
-t(/html\s*\{[\s\S]*?linear-gradient\([\s\S]*?135deg[\s\S]*?114,228,255[\s\S]*?92,149,255[\s\S]*?161,137,255/.test(html), 'web app uses the lightened AIOPlay cyan blue violet diagonal gradient background');
+t(/html\s*\{[\s\S]*?background-color\s*:\s*#414a7f[\s\S]*?linear-gradient\([\s\S]*?135deg[\s\S]*?#355f7f[\s\S]*?#2f4d7f[\s\S]*?#414a7f/.test(html), 'web app uses one opaque continuous AIOPlay gradient through the Safari underlay');
 t(!html.includes('body::before') && !html.includes('body::after'), 'global background uses no fixed pseudo-element layers that can seam on iOS');
 t(/\.content-state\s*\{[\s\S]*?place-items\s*:\s*center[\s\S]*?font\s*:\s*600\s+1\.5rem/.test(html), 'loading and empty states are centered and enlarged');
 t(html.includes("setGridState('Fetching matches…')"), 'sports loading text uses the centered state');
