@@ -55,7 +55,8 @@ t(/\.top-header\s*\{[\s\S]*?position\s*:\s*relative/.test(html), 'logo search an
 t(/header\s*\{[\s\S]*?position\s*:\s*sticky[\s\S]*?top\s*:\s*0/.test(html), 'mode and catalog navigation remains sticky');
 t(/header\s*\{[\s\S]*?background\s*:\s*rgba\(15\s*,\s*15\s*,\s*17\s*,\s*\.46\)/.test(html), 'sticky mode and catalog glass is another 25 percent more transparent');
 t(html.includes('viewport-fit=cover'), 'iOS viewport extends into the safe area');
-t(html.includes('<meta name="theme-color" content="#29385f">'), 'Safari chrome uses the AIOPlay blue-violet page tint');
+t(!html.includes('name="theme-color"'), 'Safari is not forced to paint an opaque theme strip');
+t(html.includes('env(safe-area-inset-bottom, 0px)'), 'page gradient extends through the iOS bottom safe area');
 t(/header\s*\{[\s\S]*?box-shadow\s*:\s*none/.test(html), 'sticky navigation has no dark drop shadow over the page gradient');
 t(/\.catalog-rail\.is-empty\s*\{[\s\S]*?display\s*:\s*none/.test(html), 'empty catalog rails collapse instead of leaving a dark strip');
 t(html.includes("setCatalogRailVisible(mode !== 'continue')"), 'Continue Watching hides the unused catalog rail');
