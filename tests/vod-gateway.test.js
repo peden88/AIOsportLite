@@ -68,7 +68,17 @@ server = http.createServer((req, res) => {
 
   if (p === '/streams/profile/manifest.json') {
     return send(res, {
-      id: 'mock.streams',
+      id: 'mock.streams.web',
+      version: '1.0.0',
+      resources: ['stream'],
+      types: ['movie', 'series'],
+      catalogs: []
+    });
+  }
+
+  if (p === '/streams-app/profile/manifest.json') {
+    return send(res, {
+      id: 'mock.streams.app',
       version: '1.0.0',
       resources: ['stream'],
       types: ['movie', 'series'],
@@ -114,6 +124,18 @@ server = http.createServer((req, res) => {
     });
   }
 
+  if (p === '/streams-app/profile/stream/movie/tt0133093.json') {
+    return send(res, {
+      streams: [
+        {
+          name: 'APP PROVIDER',
+          title: 'App-specific release',
+          url: '/api/v1/debrid/playback/app-owned-chain'
+        }
+      ]
+    });
+  }
+
   send(res, { error: 'not found', path: p }, 404);
 });
 
@@ -124,6 +146,7 @@ server = http.createServer((req, res) => {
   process.env.VOD_ENABLED = 'true';
   process.env.AIOMETADATA_MANIFEST_URL = base + '/metadata/profile/manifest.json?tag=family';
   process.env.AIOSTREAMS_MANIFEST_URL = base + '/streams/profile/manifest.json?profile=global';
+  process.env.AIOSTREAMS_APP_MANIFEST_URL = base + '/streams-app/profile/manifest.json?profile=app';
 
   const vod = require('../src/services/VodGateway');
   const opaque = require('../src/services/OpaquePlayback');
@@ -158,6 +181,12 @@ server = http.createServer((req, res) => {
   assert.ok(!JSON.stringify(candidates).includes('example.test/watch-page'));
   assert.ok(!JSON.stringify(candidates).includes('SECRET PROVIDER'));
   assert.ok(!JSON.stringify(candidates).includes('Best ranked release'));
+
+  console.log('--- Android playback can use a separate AIOStreams config');
+  const appCandidates = await vod.playbackCandidates('movie', 'tt0133093', 'app');
+  assert.strictEqual(appCandidates.length, 1);
+  assert.strictEqual(appCandidates[0].url, base + '/api/v1/debrid/playback/app-owned-chain');
+  assert.ok(!JSON.stringify(appCandidates).includes('APP PROVIDER'));
 
   const first = opaque.startOpaquePlayback('vod', 'movie:tt0133093', candidates);
   assert.strictEqual(first.ok, true);
@@ -195,6 +224,7 @@ server = http.createServer((req, res) => {
   assert.ok(seen.some(x => x === '/metadata/profile/manifest.json?tag=family'));
   assert.ok(seen.some(x => x === '/metadata/profile/catalog/movie/popular.json?tag=family'));
   assert.ok(seen.some(x => x === '/streams/profile/stream/movie/tt0133093.json?profile=global'));
+  assert.ok(seen.some(x => x === '/streams-app/profile/stream/movie/tt0133093.json?profile=app'));
 
   console.log('VOD gateway integration tests passed');
 })().catch(err => {
