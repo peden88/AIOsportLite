@@ -200,6 +200,20 @@ server = http.createServer((req, res) => {
   assert.strictEqual(done.ok, false);
   assert.strictEqual(done.exhausted, true);
 
+  console.log('--- explicit AIOStreams refresh');
+  const webManifestHitsBefore = seen.filter(x => x === '/streams/profile/manifest.json?profile=global').length;
+  const appManifestHitsBefore = seen.filter(x => x === '/streams-app/profile/manifest.json?profile=app').length;
+  const refreshed = await vod.refreshAioStreams();
+  assert.strictEqual(refreshed.ok, true);
+  assert.strictEqual(refreshed.clients.web.refreshed, true);
+  assert.strictEqual(refreshed.clients.app.refreshed, true);
+  assert.ok(
+    seen.filter(x => x === '/streams/profile/manifest.json?profile=global').length > webManifestHitsBefore
+  );
+  assert.ok(
+    seen.filter(x => x === '/streams-app/profile/manifest.json?profile=app').length > appManifestHitsBefore
+  );
+
   console.log('--- end-to-end VOD probe');
   const probe = await vod.probe();
   assert.strictEqual(probe.ok, true);
