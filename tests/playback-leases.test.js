@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const leases = require('../src/services/PlaybackLeases');
 
 let pass = 0, fail = 0;
@@ -78,6 +80,14 @@ const sessionLease = leases.acquire({
 });
 t(leases.releaseAuthSession('auth-session-4') === 1, 'signing out a device releases its active streams');
 t(!leases.isLeaseActive(sessionLease.id), 'released auth-session lease is gone');
+
+console.log('--- admin UI contracts');
+const usersHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'users.html'), 'utf8');
+const dashboardHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'dashboard.html'), 'utf8');
+t(usersHtml.includes('newStreams'), 'user creation has a concurrent stream selector');
+t(usersHtml.includes('streamLimit'), 'existing users have a concurrent stream selector');
+t(dashboardHtml.includes('id="activeStreams"'), 'dashboard has an active streams section');
+t(dashboardHtml.includes('stop-stream'), 'dashboard can stop an active stream');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
