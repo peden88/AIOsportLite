@@ -63,6 +63,7 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
 
       <div class="actions">
         <button id="save">Save and test</button>
+        <button id="refreshAiostreams" class="secondary">Refresh AIOStreams</button>
         <button id="refresh" class="secondary">Test manifests</button>
         <button id="probe" class="secondary">Run end-to-end probe</button>
       </div>
@@ -160,6 +161,30 @@ $('save').onclick=async()=>{
     $('message').textContent='Saved. Live service checks completed.';
     $('message').className='msg good';
   }catch(e){$('message').textContent=e.message;$('message').className='msg bad';}
+};
+$('refreshAiostreams').onclick=async()=>{
+  const button=$('refreshAiostreams');
+  const previous=button.textContent;
+  button.disabled=true;
+  button.textContent='Refreshing…';
+  $('message').textContent='Refreshing web and app AIOStreams configurations…';
+  $('message').className='msg';
+  try{
+    const result=await api('/api/v1/admin/vod/refresh-aiostreams',{method:'POST',body:'{}'});
+    const refreshed=Object.entries(result.clients||{})
+      .filter(([,row])=>row&&row.refreshed)
+      .map(([kind,row])=>kind+' '+(row.name||row.id||'AIOStreams'));
+    if(!refreshed.length) throw new Error('No AIOStreams configuration was refreshed.');
+    await load();
+    $('message').textContent='Refreshed: '+refreshed.join(' · ')+'. New playback requests will use the updated config.';
+    $('message').className='msg good';
+  }catch(e){
+    $('message').textContent='Refresh failed: '+e.message;
+    $('message').className='msg bad';
+  }finally{
+    button.disabled=false;
+    button.textContent=previous;
+  }
 };
 $('refresh').onclick=load;
 $('probe').onclick=async()=>{
