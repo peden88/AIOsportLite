@@ -260,12 +260,59 @@ async function playbackCandidates(type, id, clientKind = 'web') {
   return rows.map(row => privatePlaybackRow(row, client)).filter(Boolean).slice(0, max);
 }
 
+async function refreshAioStreams() {
+  const cfg = appServices._privateConfig();
+  const targets = [
+    ['web', cfg.streams.webManifestUrl],
+    ['app', cfg.streams.appManifestUrl]
+  ];
+
+  for (const key of [...clients.keys()]) {
+    if (key.startsWith('streams|')) clients.delete(key);
+  }
+
+  const results = {};
+  for (const [kind, manifestUrl] of targets) {
+    if (!manifestUrl) {
+      results[kind] = { configured: false, refreshed: false };
+      continue;
+    }
+
+    try {
+      const client = new StremioServiceClient(manifestUrl, {
+        serviceName: 'AIOStreams (' + kind + ')'
+      });
+      const manifest = await client.manifest({ force: true });
+      clients.set('streams|' + kind + '|' + manifestUrl, client);
+      results[kind] = {
+        configured: true,
+        refreshed: true,
+        id: String(manifest.id || ''),
+        name: String(manifest.name || ''),
+        version: String(manifest.version || '')
+      };
+    } catch (err) {
+      results[kind] = {
+        configured: true,
+        refreshed: false,
+        error: err && err.code ? String(err.code) : 'UPSTREAM_ERROR'
+      };
+    }
+  }
+
+  return {
+    ok: Object.values(results).some(row => row && row.refreshed),
+    clients: results
+  };
+}
+
 module.exports = {
   catalogs,
   catalog,
   search,
   meta,
   playbackCandidates,
+  refreshAioStreams,
   diagnostics,
   probe,
   validStremioType,
