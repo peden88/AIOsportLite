@@ -41,6 +41,12 @@ button{border:0;border-radius:9px;padding:10px 13px;background:var(--accent);col
         <input id="newPassword" type="password" autocomplete="new-password" required minlength="8">
         <label for="newRole">Role</label>
         <select id="newRole"><option value="user">User</option><option value="admin">Administrator</option></select>
+        <label for="newStreams">Concurrent streams</label>
+        <select id="newStreams">
+          <option value="1" selected>1 active stream</option>
+          <option value="2">2 active streams</option>
+          <option value="3">3 active streams</option>
+        </select>
         <button type="submit" style="margin-top:16px;width:100%">Create user</button>
         <div class="msg" id="createMsg"></div>
       </form>
@@ -80,13 +86,18 @@ async function load(){
         </div>
         <div class="row">
           <select class="role"><option value="user" ${u.role==='user'?'selected':''}>User</option><option value="admin" ${u.role==='admin'?'selected':''}>Administrator</option></select>
-          <input class="display" value="${esc(u.displayName)}" maxlength="60" aria-label="Display name">
+          <select class="streamLimit" aria-label="Concurrent streams">
+            <option value="1" ${Number(u.maxConcurrentStreams||1)===1?'selected':''}>1 active stream</option>
+            <option value="2" ${Number(u.maxConcurrentStreams||1)===2?'selected':''}>2 active streams</option>
+            <option value="3" ${Number(u.maxConcurrentStreams||1)===3?'selected':''}>3 active streams</option>
+          </select>
         </div>
         <div class="row">
+          <input class="display" value="${esc(u.displayName)}" maxlength="60" aria-label="Display name">
           <input class="password" type="password" minlength="8" placeholder="New password (optional)" autocomplete="new-password">
-          <button class="save">Save changes</button>
         </div>
         <div class="actions">
+          <button class="save">Save changes</button>
           <button class="secondary toggle">${u.enabled?'Disable account':'Enable account'}</button>
           <button class="secondary revoke">Sign out all devices</button>
         </div>
@@ -95,7 +106,11 @@ async function load(){
     document.querySelectorAll('.user').forEach(row=>{
       const id=row.dataset.id;
       row.querySelector('.save').onclick=async()=>{
-        const payload={role:row.querySelector('.role').value,displayName:row.querySelector('.display').value};
+        const payload={
+          role:row.querySelector('.role').value,
+          displayName:row.querySelector('.display').value,
+          maxConcurrentStreams:Number(row.querySelector('.streamLimit').value)
+        };
         const pw=row.querySelector('.password').value;
         if(pw)payload.password=pw;
         await change(id,payload);
@@ -123,7 +138,8 @@ document.getElementById('createForm').onsubmit=async e=>{
       username:document.getElementById('newUsername').value.trim(),
       displayName:document.getElementById('newDisplay').value.trim(),
       password:document.getElementById('newPassword').value,
-      role:document.getElementById('newRole').value
+      role:document.getElementById('newRole').value,
+      maxConcurrentStreams:Number(document.getElementById('newStreams').value)
     })});
     e.target.reset();await load();
   }catch(err){createMsg.textContent=err.message;}
