@@ -56,6 +56,27 @@
   #flash { margin-top: 16px; font-size: 14px; min-height: 20px; color: var(--ok); }
   #flash.err { color: #ff8d90; }
   .dim { color: var(--dim); }
+  .streams-card { margin-top: 18px; }
+  .stream-head, .stream-entry {
+    display:grid;
+    grid-template-columns:minmax(150px,1.1fr) minmax(180px,1.5fr) minmax(110px,.8fr) minmax(135px,1fr) auto;
+    gap:12px;
+    align-items:center;
+  }
+  .stream-head { color:var(--dim); font-size:12px; padding:0 10px 8px; }
+  .stream-entry { border-top:1px solid var(--line); padding:11px 10px; }
+  .stream-entry:first-child { border-top:0; }
+  .stream-title { font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .stream-meta { color:var(--dim); font-size:12px; margin-top:2px; }
+  .stream-empty { color:var(--dim); padding:12px 10px; }
+  @media(max-width:760px){
+    .stream-head { display:none; }
+    .stream-entry { grid-template-columns:1fr auto; }
+    .stream-entry > div:nth-child(2),
+    .stream-entry > div:nth-child(3),
+    .stream-entry > div:nth-child(4) { grid-column:1 / -1; }
+    .stream-entry > button { grid-column:2; grid-row:1; }
+  }
 </style>
 </head>
 <body>
@@ -119,6 +140,14 @@
     </div>
   </div>
 
+  <section class="card streams-card">
+    <h2>Active streams <span class="dim" id="activeStreamCount">0</span></h2>
+    <div class="stream-head">
+      <span>User</span><span>Content</span><span>Client</span><span>Activity</span><span></span>
+    </div>
+    <div id="activeStreams"><div class="stream-empty">No active streams.</div></div>
+  </section>
+
   <div class="actions">
     <button id="warmBtn">Warm cards now</button>
     <button id="cancelBtn">Stop warming</button>
@@ -137,6 +166,9 @@ const bytes = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB'
 const secs = n => n >= 86400 ? Math.floor(n / 86400) + 'd ' + Math.floor((n % 86400) / 3600) + 'h'
   : n >= 3600 ? Math.floor(n / 3600) + 'h ' + Math.floor((n % 3600) / 60) + 'm'
   : n >= 60 ? Math.floor(n / 60) + 'm' : (n || 0) + 's';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+}[c]));
 
 // The password lives in this browser, not in the address bar. A token in a URL
 // ends up in history, bookmarks and any proxy log between here and the server,
@@ -242,6 +274,28 @@ async function refresh() {
   $('mem').textContent = d.memoryMb + ' MB';
   $('uptime').textContent = secs(d.uptimeSeconds);
 
+  const active = d.activeStreams || { active: 0, streams: [] };
+  const rows = Array.isArray(active.streams) ? active.streams : [];
+  $('activeStreamCount').textContent = String(rows.length);
+  $('activeStreams').innerHTML = rows.length ? rows.map(stream => {
+    const startedAgo = Math.max(0, Math.round((Date.now() - Number(stream.startedAt || Date.now())) / 1000));
+    const seenAgo = Math.max(0, Math.round((Date.now() - Number(stream.lastSeenAt || Date.now())) / 1000));
+    const user = esc(stream.displayName || stream.username || 'User');
+    const username = esc(stream.username || '');
+    const title = esc(stream.title || stream.contentId || 'Untitled');
+    const contentType = esc(stream.contentType || 'stream');
+    const client = stream.client === 'app' ? 'App' : 'Web';
+    const device = esc(stream.deviceName || client);
+    const allowance = Number(stream.maxConcurrentStreams || 1);
+    return '<div class="stream-entry">'
+      + '<div><div class="stream-title">'+user+'</div><div class="stream-meta">@'+username+' · allowance '+allowance+'</div></div>'
+      + '<div><div class="stream-title">'+title+'</div><div class="stream-meta">'+contentType+' · '+esc(stream.contentId || '')+'</div></div>'
+      + '<div><div class="stream-title">'+client+'</div><div class="stream-meta">'+device+'</div></div>'
+      + '<div><div class="stream-title">Started '+secs(startedAgo)+' ago</div><div class="stream-meta">Heartbeat '+secs(seenAgo)+' ago</div></div>'
+      + '<button class="danger stop-stream" data-lease="'+esc(stream.id)+'">Stop</button>'
+      + '</div>';
+  }).join('') : '<div class="stream-empty">No active streams.</div>';
+
   admin = true;
   $('cancelBtn').disabled = !w.running;
   $('warmBtn').disabled = w.running;
@@ -291,6 +345,25 @@ async function act(path, label) {
   }
   refresh();
 }
+
+$('activeStreams').addEventListener('click', async event => {
+  const button = event.target.closest('.stop-stream');
+  if (!button) return;
+  const leaseId = button.dataset.lease;
+  if (!leaseId) return;
+  button.disabled = true;
+  try {
+    const res = await fetch('/api/v1/admin/streams/' + encodeURIComponent(leaseId), {
+      method: 'DELETE',
+      headers: auth()
+    });
+    const body = await res.json().catch(() => ({}));
+    flash(res.ok ? 'Stream stopped.' : (body.error || 'Could not stop stream.'), !res.ok);
+  } catch (err) {
+    flash(err.message, true);
+  }
+  refresh();
+});
 
 $('warmBtn').onclick = () => act('/api/cache/warm', 'Warming started — it runs slowly on purpose.');
 $('cancelBtn').onclick = () => act('/api/cache/warm/cancel', 'Warming stopped.');
