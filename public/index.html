@@ -76,6 +76,7 @@
       margin:0 auto;
     }
     .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
+    .admin-only { display:none !important; }
     .brand { display: flex; align-items: center; }
     .brand img { width: 48px; height: 48px; border-radius: 11px; object-fit: cover; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 12px rgba(22, 104, 255, 0.3); }
     .header-search {
@@ -1527,7 +1528,14 @@
       }
       const isAdmin = !!(gate.user && gate.user.role === 'admin');
       document.querySelectorAll('.admin-only').forEach(el => {
-        el.style.display = isAdmin ? '' : 'none';
+        if (isAdmin) {
+          const visibleDisplay = el.classList.contains('control-separator')
+            ? 'block'
+            : (el.tagName === 'A' ? 'inline-flex' : 'flex');
+          el.style.setProperty('display', visibleDisplay, 'important');
+        } else {
+          el.style.setProperty('display', 'none', 'important');
+        }
       });
     } catch (_) {
       document.querySelectorAll('.admin-only').forEach(el => { el.style.display = 'none'; });
