@@ -37,7 +37,12 @@ function acquire({
   client = 'web',
   contentType = '',
   contentId = '',
-  title = ''
+  title = '',
+  parentId = '',
+  seriesTitle = '',
+  season = null,
+  episode = null,
+  episodeTitle = ''
 } = {}) {
   if (!user || !user.id) return null;
   cleanup();
@@ -72,6 +77,11 @@ function acquire({
     contentType: String(contentType || ''),
     contentId: String(contentId || ''),
     title: String(title || '').slice(0, 240),
+    parentId: String(parentId || '').slice(0, 240),
+    seriesTitle: String(seriesTitle || '').slice(0, 240),
+    season: Number.isFinite(Number(season)) ? Math.trunc(Number(season)) : null,
+    episode: Number.isFinite(Number(episode)) ? Math.trunc(Number(episode)) : null,
+    episodeTitle: String(episodeTitle || '').slice(0, 240),
     playbackSessionId: '',
     startedAt,
     lastSeenAt: startedAt,
@@ -183,6 +193,11 @@ function listActive() {
       contentType: lease.contentType,
       contentId: lease.contentId,
       title: lease.title,
+      parentId: lease.parentId,
+      seriesTitle: lease.seriesTitle,
+      season: lease.season,
+      episode: lease.episode,
+      episodeTitle: lease.episodeTitle,
       playbackSessionId: lease.playbackSessionId,
       startedAt: lease.startedAt,
       lastSeenAt: lease.lastSeenAt,
