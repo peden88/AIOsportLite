@@ -1,7 +1,8 @@
 'use strict';
 
 const crypto = require('crypto');
-const { Readable } = require('stream');
+const { Readable, Transform } = require('stream');
+const playbackLeases = require('./PlaybackLeases');
 
 const TOKEN_TTL_MS = Math.max(
   60 * 1000,
@@ -30,7 +31,7 @@ function cleanup() {
   for (const [token] of overflow) tokens.delete(token);
 }
 
-function issue(target) {
+function issue(target, options = {}) {
   if (!target || target.kind !== 'direct' || !target.url) return null;
   cleanup();
   const token = crypto.randomBytes(32).toString('base64url');
@@ -42,6 +43,7 @@ function issue(target) {
         ? { ...target.requestHeaders }
         : {}
     },
+    leaseId: String(options.leaseId || ''),
     createdAt,
     expiresAt: createdAt + TOKEN_TTL_MS
   });
@@ -94,6 +96,9 @@ function copyResponseHeaders(upstream, res) {
 async function handle(req, res) {
   const record = getRecord(req.params.token);
   if (!record) return res.status(410).send('External playback link expired.');
+  if (record.leaseId && !playbackLeases.touchLease(record.leaseId)) {
+    return res.status(410).send('This account playback session is no longer active.');
+  }
 
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -117,9 +122,29 @@ async function handle(req, res) {
       return res.end();
     }
 
-    Readable.fromWeb(upstream.body).on('error', err => {
-      if (!res.destroyed) res.destroy(err);
-    }).pipe(res);
+    let lastLeaseTouch = Date.now();
+    const guard = new Transform({
+      transform(chunk, _enc, callback) {
+        if (record.leaseId && Date.now() - lastLeaseTouch >= 20000) {
+          lastLeaseTouch = Date.now();
+          if (!playbackLeases.touchLease(record.leaseId)) {
+            return callback(new Error('playback lease expired'));
+          }
+        }
+        callback(null, chunk);
+      }
+    });
+
+    Readable.fromWeb(upstream.body)
+      .on('error', err => {
+        if (!res.destroyed) res.destroy(err);
+      })
+      .pipe(guard)
+      .on('error', err => {
+        controller.abort();
+        if (!res.destroyed) res.destroy(err);
+      })
+      .pipe(res);
   } catch (err) {
     if (controller.signal.aborted) return;
     console.error('[external-playback] proxy failed:', err && err.message ? err.message : err);
