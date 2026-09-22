@@ -16,15 +16,27 @@ function assertVodEnabled() {
   return cfg;
 }
 
-function clientFor(service) {
+function clientFor(service, clientKind = 'web') {
   const cfg = assertVodEnabled();
-  const url = service === 'metadata' ? cfg.metadata.manifestUrl : cfg.streams.manifestUrl;
-  const key = service + '|' + url;
+  const url = service === 'metadata'
+    ? cfg.metadata.manifestUrl
+    : (clientKind === 'app' ? cfg.streams.appManifestUrl : cfg.streams.webManifestUrl);
+
+  if (!url) {
+    throw new UpstreamServiceError(
+      'AIOStreams is not configured for the ' + (clientKind === 'app' ? 'app' : 'web') + ' client.',
+      { statusCode: 503, code: 'AIOSTREAMS_CLIENT_NOT_CONFIGURED' }
+    );
+  }
+
+  const key = service + '|' + clientKind + '|' + url;
   const existing = clients.get(key);
   if (existing) return existing;
 
   for (const cacheKey of clients.keys()) {
-    if (cacheKey.startsWith(service + '|') && cacheKey !== key) clients.delete(cacheKey);
+    if (cacheKey.startsWith(service + '|' + clientKind + '|') && cacheKey !== key) {
+      clients.delete(cacheKey);
+    }
   }
 
   const client = new StremioServiceClient(url, {
@@ -238,10 +250,10 @@ async function probe(options = {}) {
   };
 }
 
-async function playbackCandidates(type, id) {
+async function playbackCandidates(type, id, clientKind = 'web') {
   const safeType = validStremioType(type);
   const safeId = cleanId(id);
-  const client = clientFor('streams');
+  const client = clientFor('streams', clientKind === 'app' ? 'app' : 'web');
   const response = await client.streams(safeType, safeId);
   const rows = response && Array.isArray(response.streams) ? response.streams : [];
   const max = Math.max(1, Math.min(50, Number(process.env.VOD_PLAYBACK_CANDIDATE_LIMIT) || 20));
