@@ -72,6 +72,8 @@ t(/\.content-state\s*\{[\s\S]*?place-items\s*:\s*center[\s\S]*?font\s*:\s*600\s+
 t(html.includes("setGridState('Fetching matches…')"), 'sports loading text uses the centered state');
 t(html.includes("setGridState('Nothing to show here right now.')"), 'empty catalog text uses the centered state');
 t(/\.mode-tab\s*\{[\s\S]*?var\(--accent-gradient\) border-box/.test(html), 'top navigation uses gradient pill outlines');
+t(/\.admin-only\s*\{\s*display\s*:\s*none\s*!important\s*;?\s*\}/.test(html), 'admin controls are hidden before role resolution');
+t(html.includes("gate.user.role === 'admin'"), 'admin controls are only revealed after an admin role is confirmed');
 t(/\.tab\s*\{[\s\S]*?var\(--accent-gradient\) border-box/.test(html), 'catalog navigation uses gradient pill outlines');
 
 console.log(`\n${pass} passed, ${fail} failed`);
