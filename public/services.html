@@ -67,6 +67,7 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
         <button id="refresh" class="secondary">Test manifests</button>
         <button id="probe" class="secondary">Run end-to-end probe</button>
       </div>
+      <div id="envWarning" class="msg bad"></div>
       <div id="message" class="msg"></div>
     </section>
 
@@ -113,6 +114,13 @@ function render(body){
     sports.state==='empty'?'No catalogs':'Healthy');
 
   $('vodEnabled').checked=!!cfg.vodRequested;
+  const env=cfg.environment||{};
+  const missing=[];
+  if(!env.aiostreamsWebPresent) missing.push('AIOSTREAMS_WEB_MANIFEST_URL');
+  if(!env.aiostreamsAppPresent) missing.push('AIOSTREAMS_APP_MANIFEST_URL');
+  $('envWarning').textContent=missing.length
+    ? 'Container ENV missing: '+missing.join(' and ')+'. Web/App will fall back to the shared AIOStreams config.'
+    : '';
   const endpointLabel=endpoint=>{
     if(!endpoint?.configured) return 'Not configured';
     return (endpoint.host||'configured')+
