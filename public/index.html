@@ -14,9 +14,12 @@
       --card-border: rgba(255, 255, 255, 0.05);
       --text: #f8fafc;
       --text-muted: #94a3b8;
-      --accent: #1668ff;
-      --accent-glow: rgba(22, 104, 255, 0.32);
-      --glass: rgba(15, 15, 17, 0.7);
+      --accent:#1668ff;
+      --accent-cyan:#36d8ff;
+      --accent-violet:#7857ff;
+      --accent-gradient:linear-gradient(135deg,var(--accent-cyan) 0%,var(--accent) 48%,var(--accent-violet) 100%);
+      --accent-glow:rgba(22,104,255,.32);
+      --glass:rgba(15,15,17,.7);
     }
     * { box-sizing:border-box; }
     html { background:var(--bg); }
@@ -32,15 +35,19 @@
     body::before {
       content:'';
       position:fixed;
-      inset:-18%;
+      inset:-20%;
       z-index:-2;
       pointer-events:none;
       background:
-        radial-gradient(circle at 50% 42%, rgba(22,104,255,.18), transparent 42%),
-        url('/aioplay-brand.webp') center / min(82vw, 860px) auto no-repeat;
-      filter:blur(72px) saturate(1.22);
-      opacity:.34;
-      transform:scale(1.12);
+        linear-gradient(
+          135deg,
+          rgba(54,216,255,.92) 0%,
+          rgba(22,104,255,.9) 48%,
+          rgba(120,87,255,.92) 100%
+        );
+      filter:blur(90px) saturate(1.12);
+      opacity:.255;
+      transform:scale(1.14);
     }
     body::after {
       content:'';
@@ -49,8 +56,12 @@
       z-index:-1;
       pointer-events:none;
       background:
-        radial-gradient(circle at 50% 18%, rgba(120,87,255,.08), transparent 34%),
-        linear-gradient(to bottom, rgba(9,9,11,.52), rgba(9,9,11,.76) 54%, rgba(9,9,11,.9));
+        linear-gradient(
+          135deg,
+          rgba(6,11,24,.64) 0%,
+          rgba(7,9,20,.7) 46%,
+          rgba(13,7,24,.68) 100%
+        );
     }
     .top-header {
       position:relative;
@@ -113,16 +124,20 @@
       justify-content:center;
       padding:6px 12px !important;
       border-radius:18px !important;
-      color:#d8d1ff !important;
-      background:rgba(124,92,255,.12) !important;
-      border:1px solid rgba(124,92,255,.38) !important;
+      color:#eef5ff !important;
+      background:
+        linear-gradient(rgba(19,19,25,.94),rgba(19,19,25,.94)) padding-box,
+        var(--accent-gradient) border-box !important;
+      border:2px solid transparent !important;
       box-shadow:none !important;
       font-size:13px;
       line-height:1;
     }
-    .admin-toolbar .admin-action:hover {
-      background:rgba(124,92,255,.22) !important;
-      border-color:rgba(124,92,255,.62) !important;
+    .admin-toolbar .admin-action:hover,
+    .admin-toolbar .admin-action:focus-visible {
+      background:var(--accent-gradient) padding-box,var(--accent-gradient) border-box !important;
+      color:#fff !important;
+      outline:none;
     }
     .admin-icon-button {
       display:grid !important;
@@ -133,9 +148,11 @@
       padding:0 !important;
       line-height:0;
       flex:0 0 34px;
-      color:#d8d1ff !important;
-      background:rgba(124,92,255,.12) !important;
-      border:1px solid rgba(124,92,255,.38) !important;
+      color:#eef5ff !important;
+      background:
+        linear-gradient(rgba(19,19,25,.94),rgba(19,19,25,.94)) padding-box,
+        var(--accent-gradient) border-box !important;
+      border:2px solid transparent !important;
     }
     .admin-icon-button svg {
       display:block;
@@ -162,12 +179,21 @@
     .mode-tabs { display:flex; justify-content:center; align-items:center; gap:6px; margin:0; width:auto; flex-wrap:nowrap; }
     .mode-tab {
       padding:7px 16px; min-height:34px; border-radius:20px;
-      background:rgba(255,255,255,.08); border:2px solid transparent;
-      color:#e8e8ec; cursor:pointer; font-weight:700; white-space:nowrap;
-      font-size:13px; line-height:1; transition:background .16s,color .16s,border-color .16s;
+      background:
+        linear-gradient(rgba(31,31,37,.96),rgba(31,31,37,.96)) padding-box,
+        var(--accent-gradient) border-box;
+      border:2px solid transparent;
+      color:#eef3ff; cursor:pointer; font-weight:700; white-space:nowrap;
+      font-size:13px; line-height:1; transition:filter .16s,transform .16s,color .16s;
     }
-    .mode-tab:hover, .mode-tab:focus-visible { background:var(--accent); color:#fff; outline:none; }
-    .mode-tab.active { background:var(--accent); color:#fff; border-color:transparent; box-shadow:none; }
+    .mode-tab:hover, .mode-tab:focus-visible {
+      background:var(--accent-gradient) padding-box,var(--accent-gradient) border-box;
+      color:#fff; outline:none; filter:brightness(1.06);
+    }
+    .mode-tab.active {
+      background:var(--accent-gradient) padding-box,var(--accent-gradient) border-box;
+      color:#fff; border-color:transparent; box-shadow:0 4px 18px rgba(22,104,255,.2);
+    }
     .player-select {
       display:none;
       height:34px;
@@ -231,14 +257,38 @@
     }
     .tabs::-webkit-scrollbar { display:none; }
     .tab {
-      padding:10px 20px; border-radius:20px; background:rgba(255,255,255,.08);
-      border:2px solid transparent; color:#e8e8ec; cursor:pointer; font-weight:700;
-      transition:background .16s,color .16s; white-space:nowrap;
+      padding:10px 20px; border-radius:20px;
+      background:
+        linear-gradient(rgba(31,31,37,.96),rgba(31,31,37,.96)) padding-box,
+        var(--accent-gradient) border-box;
+      border:2px solid transparent; color:#eef3ff; cursor:pointer; font-weight:700;
+      transition:filter .16s,transform .16s,color .16s; white-space:nowrap;
     }
-    .tab:hover, .tab:focus-visible { background:var(--accent); color:#fff; outline:none; }
-    .tab.active { background:var(--accent); color:#fff; border-color:transparent; box-shadow:none; }
+    .tab:hover, .tab:focus-visible {
+      background:var(--accent-gradient) padding-box,var(--accent-gradient) border-box;
+      color:#fff; outline:none; filter:brightness(1.06);
+    }
+    .tab.active {
+      background:var(--accent-gradient) padding-box,var(--accent-gradient) border-box;
+      color:#fff; border-color:transparent; box-shadow:0 4px 18px rgba(22,104,255,.2);
+    }
     
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; width:100%; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; width:100%; }
+    .content-state {
+      grid-column:1 / -1;
+      min-height:calc(100dvh - 245px);
+      display:grid;
+      place-items:center;
+      padding:28px 20px 90px;
+      text-align:center;
+      color:var(--text-muted);
+      font:600 1.5rem/1.35 'Inter',sans-serif;
+      letter-spacing:-.01em;
+    }
+    .content-state.error { color:#d6e3ff; }
+    @supports not (height:100dvh) {
+      .content-state { min-height:calc(100vh - 245px); }
+    }
     .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; overflow: hidden; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
     .card:hover { transform: translateY(-8px) scale(1.02); border-color: var(--accent); box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 20px var(--accent-glow); z-index: 10; }
     .poster-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #111; overflow: hidden; }
@@ -343,6 +393,11 @@
       .vod-card .title { font-size:.88rem; }
       .vod-card .desc { font-size:.68rem; }
       .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+      .content-state {
+        min-height:calc(100dvh - 224px);
+        padding:24px 16px 82px;
+        font-size:1.42rem;
+      }
       .card { border-radius:14px; }
       .poster { padding:6px; }
       .logo { top:8px; left:8px; width:34px; height:34px; border-radius:8px; padding:4px; }
@@ -474,6 +529,15 @@
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
     const STREXO_TEMPLATE_KEY = 'aioplay.strexoTemplate';
     const CUSTOM_TEMPLATE_KEY = 'aioplay.customPlayerTemplate';
+
+    function setGridState(message, error = false) {
+      const host = grid();
+      host.innerHTML = '';
+      const state = document.createElement('div');
+      state.className = 'content-state' + (error ? ' error' : '');
+      state.textContent = message;
+      host.appendChild(state);
+    }
 
     function vodPlayerPreference() {
       const value = localStorage.getItem(VOD_PLAYER_KEY) || 'internal';
@@ -610,10 +674,10 @@
         const vod = bootstrap.services && bootstrap.services.vod && bootstrap.services.vod.enabled;
         if (sports) await loadMode('sports');
         else if (vod) await loadMode('vod');
-        else grid().innerHTML = '<div style="color:var(--text-muted);">No content services are enabled.</div>';
+        else setGridState('No content services are enabled.');
       } catch (err) {
         console.error('Failed to bootstrap app', err);
-        grid().innerHTML = '<div style="color:var(--accent);">Could not load the application.</div>';
+        setGridState('Could not load the application.', true);
       }
     }
 
@@ -683,7 +747,7 @@
         }
 
         if (first) await loadVodCatalog(first.catalog, first.tab);
-        else grid().innerHTML = '<div style="color:var(--text-muted);">No VOD catalogs are available.</div>';
+        else setGridState('No VOD catalogs are available.');
       } catch (err) {
         console.error(err);
         tabs().innerHTML = '<div style="color:var(--accent);">Failed to load VOD catalogs.</div>';
@@ -693,7 +757,7 @@
     async function loadContinueWatching() {
       tabs().innerHTML = '';
       currentVodType = '';
-      grid().innerHTML = '<div style="color:var(--text-muted);">Loading Continue Watching...</div>';
+      setGridState('Loading Continue Watching…');
       try {
         const res = await fetch('/api/v1/progress?continue=1', { cache: 'no-store' });
         const data = await res.json().catch(() => ({}));
@@ -726,13 +790,13 @@
       } catch (err) {
         console.error(err);
         currentItems = [];
-        grid().innerHTML = '<div style="color:var(--accent);">Could not load Continue Watching.</div>';
+        setGridState('Could not load Continue Watching.', true);
       }
     }
 
     async function loadSportsCatalog(catalogId, tab) {
       setActiveTab(tab);
-      grid().innerHTML = '<div style="color:var(--text-muted);">Fetching matches...</div>';
+      setGridState('Fetching matches…');
       try {
         const res = await fetch('/api/v1/sports/catalog/' + encodeURIComponent(catalogId));
         const data = await res.json();
@@ -741,14 +805,14 @@
         renderGrid(currentItems);
       } catch (err) {
         console.error(err);
-        grid().innerHTML = '<div style="color:var(--accent);">Failed to load this sports catalog.</div>';
+        setGridState('Failed to load this sports catalog.', true);
       }
     }
 
     async function loadVodCatalog(catalog, tab) {
       setActiveTab(tab);
       currentVodType = String(catalog.type || '').toLowerCase();
-      grid().innerHTML = '<div style="color:var(--text-muted);">Loading titles...</div>';
+      setGridState('Loading titles…');
       try {
         const url = '/api/v1/vod/catalog/' + encodeURIComponent(catalog.type) + '/' + encodeURIComponent(catalog.id);
         const res = await fetch(url);
@@ -758,7 +822,7 @@
         renderGrid(currentItems);
       } catch (err) {
         console.error(err);
-        grid().innerHTML = '<div style="color:var(--accent);">Failed to load this VOD catalog.</div>';
+        setGridState('Failed to load this VOD catalog.', true);
       }
     }
 
@@ -782,7 +846,7 @@
       if (raw.length < 2) return;
 
       searchTimer = setTimeout(async () => {
-        grid().innerHTML = '<div style="color:var(--text-muted);">Searching...</div>';
+        setGridState('Searching…');
         try {
           const url = '/api/v1/vod/search?q=' + encodeURIComponent(raw);
           const res = await fetch(url);
@@ -791,7 +855,7 @@
           renderGrid(data.metas || []);
         } catch (err) {
           console.error(err);
-          grid().innerHTML = '<div style="color:var(--accent);">Search is temporarily unavailable.</div>';
+          setGridState('Search is temporarily unavailable.', true);
         }
       }, 350);
     });
@@ -811,7 +875,7 @@
       const host = grid();
       host.innerHTML = '';
       if (!Array.isArray(metas) || metas.length === 0) {
-        host.innerHTML = '<div style="color:var(--text-muted);">Nothing to show here right now.</div>';
+        setGridState('Nothing to show here right now.');
         return;
       }
 
