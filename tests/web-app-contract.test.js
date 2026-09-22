@@ -33,7 +33,7 @@ t(!html.includes('Tip on Ko-fi'), 'user header has no Ko-fi button');
 t(!html.includes('>GitHub<'), 'user header has no GitHub button');
 t(!headerHtml.includes('<span>AIOPlay</span>'), 'user header shows the AIOPlay mark without redundant product text');
 t(html.includes('class="header-row"'), 'logo, search and logout share one top row');
-t(html.includes('grid-template-columns: auto minmax(0, 1fr) auto'), 'top row reserves logo, fluid search and logout columns');
+t(/\.header-row\s*\{[\s\S]*?grid-template-columns\s*:\s*auto\s+minmax\(0\s*,\s*1fr\)\s+auto/.test(html), 'top row reserves logo, fluid search and logout columns');
 t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live VOD selector is centered to the page');
 t(/\.mode-tab\s*\{[\s\S]*?border-radius\s*:\s*20px/.test(html), 'top navigation reuses Nuvio season-pill styling');
 t(/<header>[\s\S]*?<div class="mode-tabs" id="modeTabs"><\/div>[\s\S]*?<\/header>/.test(html), 'Live VOD selector sits directly in the page header below search');
