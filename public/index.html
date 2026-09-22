@@ -332,13 +332,19 @@
     .loader { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 15px; }
     #playback-message { display:none; position:absolute; max-width:520px; padding:20px 24px; text-align:center; color:var(--text-muted); }
     #playback-message strong { display:block; color:var(--text); font-size:1.05rem; margin-bottom:6px; }
+    body.details-open > .top-header,
+    body.details-open > header,
+    body.details-open > main {
+      opacity:.15;
+      transition:opacity .16s ease;
+    }
     #details-overlay {
       display:none;
       position:fixed;
       inset:0;
       z-index:90;
       min-height:100dvh;
-      background:rgba(0,0,0,.85);
+      background:transparent;
       backdrop-filter:none;
       -webkit-backdrop-filter:none;
       overflow:auto;
@@ -1125,6 +1131,7 @@
       const list = document.getElementById('episodeList');
       const seasonControl = document.getElementById('seasonControl');
       const seasonSelect = document.getElementById('seasonSelect');
+      document.body.classList.add('details-open');
       overlay.style.display = 'block';
       seasonControl.style.display = 'none';
       seasonSelect.innerHTML = '';
@@ -1211,6 +1218,7 @@
     }
 
     function closeDetails() {
+      document.body.classList.remove('details-open');
       document.getElementById('details-overlay').style.display = 'none';
       document.getElementById('episodeList').innerHTML = '';
       const seasonControl = document.getElementById('seasonControl');
