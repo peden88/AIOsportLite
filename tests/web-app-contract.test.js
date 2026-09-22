@@ -53,7 +53,12 @@ t(/<header>[\s\S]*?class="catalog-rail"[\s\S]*?id="tabs"[\s\S]*?<\/header>/.test
 t(!html.includes('syncHeaderCollapse') && !html.includes('header-compact'), 'sticky navigation does not mutate header height while scrolling');
 t(/\.top-header\s*\{[\s\S]*?position\s*:\s*relative/.test(html), 'logo search and logout use normal document flow');
 t(/header\s*\{[\s\S]*?position\s*:\s*sticky[\s\S]*?top\s*:\s*0/.test(html), 'mode and catalog navigation remains sticky');
-t(/body::before\s*\{[\s\S]*?url\('\/aioplay-brand\.webp'\)[\s\S]*?filter\s*:\s*blur\(/.test(html), 'web app has a blurred AIOPlay brand background');
+t(/body::before\s*\{[\s\S]*?linear-gradient\([\s\S]*?135deg[\s\S]*?54,216,255[\s\S]*?22,104,255[\s\S]*?120,87,255[\s\S]*?opacity\s*:\s*\.255/.test(html), 'web app uses the AIOPlay cyan blue violet diagonal gradient background');
+t(/\.content-state\s*\{[\s\S]*?place-items\s*:\s*center[\s\S]*?font\s*:\s*600\s+1\.5rem/.test(html), 'loading and empty states are centered and enlarged');
+t(html.includes("setGridState('Fetching matches…')"), 'sports loading text uses the centered state');
+t(html.includes("setGridState('Nothing to show here right now.')"), 'empty catalog text uses the centered state');
+t(/\.mode-tab\s*\{[\s\S]*?var\(--accent-gradient\) border-box/.test(html), 'top navigation uses gradient pill outlines');
+t(/\.tab\s*\{[\s\S]*?var\(--accent-gradient\) border-box/.test(html), 'catalog navigation uses gradient pill outlines');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
