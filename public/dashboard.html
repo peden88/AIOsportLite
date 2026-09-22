@@ -282,14 +282,30 @@ async function refresh() {
     const seenAgo = Math.max(0, Math.round((Date.now() - Number(stream.lastSeenAt || Date.now())) / 1000));
     const user = esc(stream.displayName || stream.username || 'User');
     const username = esc(stream.username || '');
-    const title = esc(stream.title || stream.contentId || 'Untitled');
+    const isEpisode = String(stream.contentType || '').toLowerCase() === 'episode';
+    const season = Number(stream.season);
+    const episode = Number(stream.episode);
+    const episodeCode = isEpisode && Number.isFinite(season) && Number.isFinite(episode)
+      ? 'S' + String(Math.trunc(season)).padStart(2, '0')
+        + 'E' + String(Math.trunc(episode)).padStart(2, '0')
+      : '';
+    const title = esc(
+      isEpisode
+        ? (stream.seriesTitle || stream.title || stream.contentId || 'Untitled series')
+        : (stream.title || stream.contentId || 'Untitled')
+    );
+    const episodeDetail = isEpisode
+      ? [episodeCode, stream.episodeTitle].filter(Boolean).map(esc).join(' · ')
+      : '';
     const contentType = esc(stream.contentType || 'stream');
     const client = stream.client === 'app' ? 'App' : 'Web';
     const device = esc(stream.deviceName || client);
     const allowance = Number(stream.maxConcurrentStreams || 1);
     return '<div class="stream-entry">'
       + '<div><div class="stream-title">'+user+'</div><div class="stream-meta">@'+username+' · allowance '+allowance+'</div></div>'
-      + '<div><div class="stream-title">'+title+'</div><div class="stream-meta">'+contentType+' · '+esc(stream.contentId || '')+'</div></div>'
+      + '<div><div class="stream-title">'+title+'</div><div class="stream-meta">'
+        + (episodeDetail ? episodeDetail+' · ' : '')
+        + contentType+' · '+esc(stream.contentId || '')+'</div></div>'
       + '<div><div class="stream-title">'+client+'</div><div class="stream-meta">'+device+'</div></div>'
       + '<div><div class="stream-title">Started '+secs(startedAgo)+' ago</div><div class="stream-meta">Heartbeat '+secs(seenAgo)+' ago</div></div>'
       + '<button class="danger stop-stream" data-lease="'+esc(stream.id)+'">Stop</button>'
