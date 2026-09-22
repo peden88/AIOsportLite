@@ -20,8 +20,22 @@
     }
     * { box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; min-height: 100vh; }
-    header { position: sticky; top: 0; z-index: 50; background: var(--glass); backdrop-filter: blur(16px); padding: 16px 20px 12px; border-bottom: 1px solid var(--card-border); }
-    .header-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; max-width: 1180px; margin: 0 auto; }
+    header {
+      position:sticky; top:0; z-index:50; background:var(--glass);
+      backdrop-filter:blur(16px); padding:16px 20px 10px;
+      border-bottom:1px solid var(--card-border);
+      transition:padding .18s ease, background .18s ease;
+    }
+    .header-row {
+      display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px;
+      align-items:center; width:100%; max-width:1180px; margin:0 auto;
+      max-height:54px; opacity:1; transform:translateY(0); overflow:hidden;
+      transition:max-height .2s ease, opacity .14s ease, transform .2s ease;
+    }
+    header.header-compact { padding-top:7px; padding-bottom:7px; background:rgba(15,15,17,.88); }
+    header.header-compact .header-row {
+      max-height:0; opacity:0; transform:translateY(-10px); pointer-events:none;
+    }
     .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
     .brand { display: flex; align-items: center; }
     .brand img { width: 48px; height: 48px; border-radius: 11px; object-fit: cover; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 12px rgba(22, 104, 255, 0.3); }
@@ -94,7 +108,16 @@
       background:linear-gradient(to bottom, transparent, rgba(255,255,255,.28), transparent);
       margin:0 2px;
     }
-    main { padding: 14px 20px 40px; max-width: 1180px; margin: 0 auto; }
+    .catalog-rail {
+      width:100%;
+      max-width:1180px;
+      margin:8px auto 0;
+      min-width:0;
+    }
+    header.header-compact .control-bar { margin-top:0; }
+    header.header-compact .catalog-rail { margin-top:6px; }
+
+    main { padding:14px 20px 40px; max-width:1180px; margin:0 auto; }
     
     .mode-tabs { display:flex; justify-content:center; align-items:center; gap:6px; margin:0; width:auto; flex-wrap:nowrap; }
     .mode-tab {
@@ -160,7 +183,12 @@
     }
     .player-choice-grid button:hover { border-color:var(--accent); background:rgba(22,104,255,.16); }
     .player-choice-grid .wide { grid-column:1/-1; }
-    .tabs { display:flex; gap:10px; margin-bottom:18px; overflow-x:auto; overflow-y:hidden; padding:2px 0 10px; white-space:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .tabs {
+      display:flex; gap:10px; margin:0; overflow-x:auto; overflow-y:hidden;
+      padding:2px 0 3px; white-space:nowrap; -webkit-overflow-scrolling:touch;
+      scrollbar-width:none; overscroll-behavior-inline:contain;
+      scroll-padding-inline:16px;
+    }
     .tabs::-webkit-scrollbar { display:none; }
     .tab {
       padding:10px 20px; border-radius:20px; background:rgba(255,255,255,.08);
@@ -252,8 +280,9 @@
     .episode-btn { width:100%; text-align:left; background:#1c1c22; border:1px solid var(--card-border); color:#fff; border-radius:10px; padding:12px 14px; cursor:pointer; }
     .episode-btn:hover { border-color:var(--accent); background:#222633; }
     @media(max-width:650px){
-      header { padding: 12px 8px 10px; }
-      .header-row { gap: 8px; }
+      header { padding:12px 8px 8px; }
+      header.header-compact { padding:6px 8px; }
+      .header-row { gap:8px; max-height:50px; }
       .brand img { width: 42px; height: 42px; }
       .header-search { padding: 10px 13px; font-size: 14px; }
       main { padding: 14px 12px 32px; }
@@ -266,7 +295,9 @@
       .mode-tabs { gap:3px; min-width:0; }
       .mode-tab { padding:6px 9px; min-height:30px; font-size:11px; }
       .player-select { height:30px; min-height:30px; max-width:92px; padding:0 20px 0 7px; font-size:11px; }
-      .tabs { gap:7px; margin-bottom:14px; }
+      .catalog-rail { margin-top:6px; }
+      header.header-compact .catalog-rail { margin-top:5px; }
+      .tabs { gap:7px; }
       .tab { padding:8px 13px; font-size:12px; }
       .vod-card { gap:6px; }
       .vod-card .info { min-height:34px; }
@@ -323,12 +354,15 @@
         <option value="custom">Custom</option>
       </select>
     </div>
+
+    <div class="catalog-rail">
+      <div class="tabs" id="tabs" aria-label="Channels and catalogs">
+        <div style="color:var(--text-muted);">Loading catalogs...</div>
+      </div>
+    </div>
   </header>
 
   <main>
-    <div class="tabs" id="tabs">
-      <div style="color:var(--text-muted);">Loading catalogs...</div>
-    </div>
     <div class="grid" id="grid"></div>
   </main>
 
@@ -399,6 +433,16 @@
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
     const STREXO_TEMPLATE_KEY = 'aioplay.strexoTemplate';
     const CUSTOM_TEMPLATE_KEY = 'aioplay.customPlayerTemplate';
+
+    function syncHeaderCollapse() {
+      const header = document.querySelector('header');
+      if (!header) return;
+      header.classList.toggle('header-compact', window.scrollY > 2);
+    }
+
+    window.addEventListener('scroll', syncHeaderCollapse, { passive: true });
+    window.addEventListener('pageshow', syncHeaderCollapse);
+    syncHeaderCollapse();
 
     function vodPlayerPreference() {
       const value = localStorage.getItem(VOD_PLAYER_KEY) || 'internal';
@@ -486,13 +530,24 @@
 
     function setActiveTab(el) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      if (el) el.classList.add('active');
+      if (el) {
+        el.classList.add('active');
+        const rail = tabs();
+        if (rail) {
+          const left = el.offsetLeft - Math.max(12, (rail.clientWidth - el.offsetWidth) / 2);
+          rail.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+        }
+      }
     }
 
     function setActiveMode(mode) {
       currentMode = mode;
       document.querySelectorAll('.mode-tab').forEach(el => {
-        el.classList.toggle('active', el.dataset.mode === mode);
+        const active = el.dataset.mode === mode;
+        el.classList.toggle('active', active);
+        if (active) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        }
       });
       const search = document.getElementById('searchInput');
       search.value = '';
