@@ -18,23 +18,66 @@
       --accent-glow: rgba(22, 104, 255, 0.32);
       --glass: rgba(15, 15, 17, 0.7);
     }
-    * { box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; min-height: 100vh; }
+    * { box-sizing:border-box; }
+    html { background:var(--bg); }
+    body {
+      font-family:'Inter',sans-serif;
+      background:transparent;
+      color:var(--text);
+      margin:0;
+      padding:0;
+      min-height:100vh;
+      isolation:isolate;
+    }
+    body::before {
+      content:'';
+      position:fixed;
+      inset:-18%;
+      z-index:-2;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(22,104,255,.18), transparent 42%),
+        url('/aioplay-brand.webp') center / min(82vw, 860px) auto no-repeat;
+      filter:blur(72px) saturate(1.22);
+      opacity:.34;
+      transform:scale(1.12);
+    }
+    body::after {
+      content:'';
+      position:fixed;
+      inset:0;
+      z-index:-1;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(120,87,255,.08), transparent 34%),
+        linear-gradient(to bottom, rgba(9,9,11,.52), rgba(9,9,11,.76) 54%, rgba(9,9,11,.9));
+    }
+    .top-header {
+      position:relative;
+      z-index:40;
+      padding:16px 20px 9px;
+      background:rgba(9,9,11,.34);
+      backdrop-filter:blur(12px);
+    }
     header {
-      position:sticky; top:0; z-index:50; background:var(--glass);
-      backdrop-filter:blur(16px); padding:16px 20px 10px;
+      position:sticky;
+      top:0;
+      z-index:50;
+      background:rgba(15,15,17,.82);
+      backdrop-filter:blur(18px);
+      padding:7px 20px;
+      border-top:1px solid rgba(255,255,255,.035);
       border-bottom:1px solid var(--card-border);
-      transition:padding .18s ease, background .18s ease;
+      box-shadow:0 8px 28px rgba(0,0,0,.16);
     }
     .header-row {
-      display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px;
-      align-items:center; width:100%; max-width:1180px; margin:0 auto;
-      max-height:54px; opacity:1; transform:translateY(0); overflow:hidden;
-      transition:max-height .2s ease, opacity .14s ease, transform .2s ease;
-    }
-    header.header-compact { padding-top:7px; padding-bottom:7px; background:rgba(15,15,17,.88); }
-    header.header-compact .header-row {
-      max-height:0; opacity:0; transform:translateY(-10px); pointer-events:none;
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr) auto;
+      gap:12px;
+      align-items:center;
+      width:100%;
+      max-width:1180px;
+      margin:0 auto;
     }
     .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
     .brand { display: flex; align-items: center; }
@@ -53,7 +96,7 @@
       justify-content:center;
       align-items:center;
       gap:6px;
-      margin:9px auto 0;
+      margin:0 auto;
       width:100%;
       max-width:1180px;
       min-height:34px;
@@ -111,12 +154,9 @@
     .catalog-rail {
       width:100%;
       max-width:1180px;
-      margin:8px auto 0;
+      margin:6px auto 0;
       min-width:0;
     }
-    header.header-compact .control-bar { margin-top:0; }
-    header.header-compact .catalog-rail { margin-top:6px; }
-
     main { padding:14px 20px 40px; max-width:1180px; margin:0 auto; }
     
     .mode-tabs { display:flex; justify-content:center; align-items:center; gap:6px; margin:0; width:auto; flex-wrap:nowrap; }
@@ -280,9 +320,9 @@
     .episode-btn { width:100%; text-align:left; background:#1c1c22; border:1px solid var(--card-border); color:#fff; border-radius:10px; padding:12px 14px; cursor:pointer; }
     .episode-btn:hover { border-color:var(--accent); background:#222633; }
     @media(max-width:650px){
-      header { padding:12px 8px 8px; }
-      header.header-compact { padding:6px 8px; }
-      .header-row { gap:8px; max-height:50px; }
+      .top-header { padding:12px 8px 7px; }
+      header { padding:6px 8px; }
+      .header-row { gap:8px; }
       .brand img { width: 42px; height: 42px; }
       .header-search { padding: 10px 13px; font-size: 14px; }
       main { padding: 14px 12px 32px; }
@@ -295,8 +335,7 @@
       .mode-tabs { gap:3px; min-width:0; }
       .mode-tab { padding:6px 9px; min-height:30px; font-size:11px; }
       .player-select { height:30px; min-height:30px; max-width:92px; padding:0 20px 0 7px; font-size:11px; }
-      .catalog-rail { margin-top:6px; }
-      header.header-compact .catalog-rail { margin-top:5px; }
+      .catalog-rail { margin-top:5px; }
       .tabs { gap:7px; }
       .tab { padding:8px 13px; font-size:12px; }
       .vod-card { gap:6px; }
@@ -321,7 +360,7 @@
 </head>
 <body>
 
-  <header>
+  <div class="top-header">
     <div class="header-row">
       <div class="brand">
         <img src="/aioplay-brand.webp" alt="AIOPlay">
@@ -333,7 +372,9 @@
         </button>
       </div>
     </div>
+  </div>
 
+  <header>
     <div class="control-bar">
       <div class="admin-toolbar">
         <a href="/dashboard" class="admin-only admin-icon-button" title="Dashboard — caches, warming and health" aria-label="Dashboard" style="border-radius:50%;text-decoration:none;transition:all .2s;">
@@ -433,16 +474,6 @@
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
     const STREXO_TEMPLATE_KEY = 'aioplay.strexoTemplate';
     const CUSTOM_TEMPLATE_KEY = 'aioplay.customPlayerTemplate';
-
-    function syncHeaderCollapse() {
-      const header = document.querySelector('header');
-      if (!header) return;
-      header.classList.toggle('header-compact', window.scrollY > 2);
-    }
-
-    window.addEventListener('scroll', syncHeaderCollapse, { passive: true });
-    window.addEventListener('pageshow', syncHeaderCollapse);
-    syncHeaderCollapse();
 
     function vodPlayerPreference() {
       const value = localStorage.getItem(VOD_PLAYER_KEY) || 'internal';
