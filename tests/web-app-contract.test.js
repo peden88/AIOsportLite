@@ -23,7 +23,7 @@ console.log('--- VOD discovery contract');
 t(html.includes('/api/v1/vod/catalogs'), 'web app discovers global AIOMetadata catalogs');
 t(html.includes('/api/v1/vod/search'), 'web app searches through the global AIOMetadata service');
 t(html.includes('/api/v1/vod/meta/series/'), 'series details load episodes from AIOMetadata');
-t(html.includes("fetchAndPlay(video.id, 'episode', 'series')"), 'episodes play through AIOStreams as series resources');
+t(/fetchAndPlay\(\s*video\.id,\s*'episode',\s*'series',/.test(html), 'episodes play through AIOStreams as series resources');
 t(!html.includes('AIOMETADATA_MANIFEST_URL'), 'web page never receives the AIOMetadata manifest URL');
 t(!html.includes('AIOSTREAMS_MANIFEST_URL'), 'web page never receives the AIOStreams manifest URL');
 
@@ -35,14 +35,19 @@ t(!headerHtml.includes('<span>AIOPlay</span>'), 'user header shows the AIOPlay m
 t(html.includes('class="header-row"'), 'logo, search and logout share one top row');
 t(html.includes('grid-template-columns: auto minmax(0, 1fr) auto'), 'top row reserves logo, fluid search and logout columns');
 t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live VOD selector is centered to the page');
+t(/\.mode-tab\s*\{[\s\S]*?border-radius\s*:\s*20px/.test(html), 'top navigation reuses Nuvio season-pill styling');
 t(/<header>[\s\S]*?<div class="mode-tabs" id="modeTabs"><\/div>[\s\S]*?<\/header>/.test(html), 'Live VOD selector sits directly in the page header below search');
 t(html.includes("add('sports', 'Live')"), 'Sports mode is labelled Live');
 t(html.includes("add('vod', 'VOD')"), 'Movies and Series are combined into one VOD mode');
+t(html.includes("add('continue', 'Continue Watching')"), 'signed-in VOD users get a Continue Watching mode');
+t(html.includes('/api/v1/progress?continue=1'), 'Continue Watching is loaded from per-user server progress');
+t(html.includes("method: 'PUT'") && html.includes('/api/v1/progress'), 'internal web playback writes progress back to the server');
 t(!html.includes("add('movie', 'Movies')") && !html.includes("add('series', 'Series')"), 'separate Movies and Series top-level modes are absent');
-t(html.includes('.vod-card .poster-container { aspect-ratio: 2/3; }'), 'web VOD cards use portrait poster proportions');
+t(/\.vod-card \.poster-container\s*\{[\s\S]*?aspect-ratio\s*:\s*2\s*\/\s*3/.test(html), 'web VOD cards use portrait poster proportions');
+t(/\.vod-card \.info\s*\{[\s\S]*?position\s*:\s*static/.test(html), 'VOD title labels sit below poster artwork');
 t(html.includes("for (const catalog of data.catalogs || [])"), 'web VOD catalog rail preserves AIOMetadata order without sorting');
 t(html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), 'content cards use a two-column grid');
-t(html.includes('overflow-x: auto; overflow-y:hidden'), 'catalog selector remains horizontally scrollable');
+t(/\.tabs\s*\{[\s\S]*?overflow-x\s*:\s*auto/.test(html), 'catalog selector remains horizontally scrollable');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
