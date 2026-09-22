@@ -5,6 +5,7 @@ const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const headerHtml = (html.match(/<header>[\s\S]*?<\/header>/) || [''])[0];
+const topHeaderHtml = (html.match(/<div class="top-header">[\s\S]*?<\/div>\s*<header>/) || [''])[0];
 
 let pass = 0, fail = 0;
 function t(condition, label) {
@@ -31,7 +32,7 @@ t(!html.includes('AIOSTREAMS_MANIFEST_URL'), 'web page never receives the AIOStr
 console.log('--- user web layout contract');
 t(!html.includes('Tip on Ko-fi'), 'user header has no Ko-fi button');
 t(!html.includes('>GitHub<'), 'user header has no GitHub button');
-t(!html.match(/<div class="top-header">[\s\S]*?<span>AIOPlay<\/span>/), 'user top row shows the AIOPlay mark without redundant product text');
+t(!topHeaderHtml.includes('<span>AIOPlay</span>'), 'user top row shows the AIOPlay mark without redundant product text');
 t(html.includes('class="header-row"'), 'logo, search and logout share one top row');
 t(/\.header-row\s*\{[\s\S]*?grid-template-columns\s*:\s*auto\s+minmax\(0\s*,\s*1fr\)\s+auto/.test(html), 'top row reserves logo, fluid search and logout columns');
 t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live VOD selector is centered to the page');
