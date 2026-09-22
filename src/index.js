@@ -1180,7 +1180,12 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
         client: playbackClient,
         contentType,
         contentId: id,
-        title: String(body.title || body.name || id)
+        title: String(body.title || body.name || id),
+        parentId: String(body.parentId || ''),
+        seriesTitle: String(body.seriesTitle || body.parentName || ''),
+        season: body.season,
+        episode: body.episode,
+        episodeTitle: String(body.episodeTitle || '')
       });
     }
 
