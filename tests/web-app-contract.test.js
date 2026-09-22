@@ -53,6 +53,10 @@ t(/<header>[\s\S]*?class="catalog-rail"[\s\S]*?id="tabs"[\s\S]*?<\/header>/.test
 t(!html.includes('syncHeaderCollapse') && !html.includes('header-compact'), 'sticky navigation does not mutate header height while scrolling');
 t(/\.top-header\s*\{[\s\S]*?position\s*:\s*relative/.test(html), 'logo search and logout use normal document flow');
 t(/header\s*\{[\s\S]*?position\s*:\s*sticky[\s\S]*?top\s*:\s*0/.test(html), 'mode and catalog navigation remains sticky');
+t(/header\s*\{[\s\S]*?background\s*:\s*rgba\(15\s*,\s*15\s*,\s*17\s*,\s*\.615\)/.test(html), 'sticky mode and catalog glass is 25 percent more transparent');
+t(/header\s*\{[\s\S]*?box-shadow\s*:\s*none/.test(html), 'sticky navigation has no dark drop shadow over the page gradient');
+t(/\.catalog-rail\.is-empty\s*\{[\s\S]*?display\s*:\s*none/.test(html), 'empty catalog rails collapse instead of leaving a dark strip');
+t(html.includes("setCatalogRailVisible(mode !== 'continue')"), 'Continue Watching hides the unused catalog rail');
 t(/html\s*\{[\s\S]*?linear-gradient\([\s\S]*?135deg[\s\S]*?114,228,255[\s\S]*?92,149,255[\s\S]*?161,137,255/.test(html), 'web app uses the lightened AIOPlay cyan blue violet diagonal gradient background');
 t(!html.includes('body::before') && !html.includes('body::after'), 'global background uses no fixed pseudo-element layers that can seam on iOS');
 t(/\.content-state\s*\{[\s\S]*?place-items\s*:\s*center[\s\S]*?font\s*:\s*600\s+1\.5rem/.test(html), 'loading and empty states are centered and enlarged');
