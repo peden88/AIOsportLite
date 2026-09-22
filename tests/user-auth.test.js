@@ -28,15 +28,18 @@ const t = (want, got, label) => {
   });
   t('admin.user', admin.username, 'usernames are canonical lower-case');
   t('admin', admin.role, 'administrator role is retained');
+  t(1, admin.maxConcurrentStreams, 'new users default to one concurrent stream');
   t(undefined, admin.password, 'password hash is never exposed');
 
   const ordinary = await auth.createUser({
     username: 'viewer_1',
     password: 'viewer-password-123',
     displayName: 'Living Room',
-    role: 'user'
+    role: 'user',
+    maxConcurrentStreams: 3
   });
   t(2, auth.listUsers().length, 'multiple users persist in one account store');
+  t(3, ordinary.maxConcurrentStreams, 'administrator can create an account with three streams');
 
   const bad = await auth.login('viewer_1', 'wrong-password', { kind: 'app', deviceName: 'TV' });
   t(null, bad, 'wrong password is rejected');
@@ -54,6 +57,8 @@ const t = (want, got, label) => {
   t(1, revoked, 'administrator can revoke all user sessions');
   t(null, auth.authenticateToken(session.token), 'revoked token cannot authenticate');
 
+  const limited = await auth.updateUser(ordinary.id, { maxConcurrentStreams: 2 });
+  t(2, limited.maxConcurrentStreams, 'administrator can change a user stream allowance');
   const disabled = await auth.updateUser(ordinary.id, { enabled: false });
   t(false, disabled.enabled, 'ordinary account can be disabled');
 
@@ -77,6 +82,7 @@ const t = (want, got, label) => {
   auth._resetForTests();
   t(3, auth.listUsers().length, 'account store survives module reload/reset');
   t('admin', auth.listUsers().find(u => u.id === secondAdmin.id).role, 'persisted role survives reload');
+t(2, auth.listUsers().find(u => u.id === ordinary.id).maxConcurrentStreams, 'stream allowance survives reload');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
