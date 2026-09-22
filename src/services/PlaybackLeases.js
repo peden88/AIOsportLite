@@ -138,6 +138,20 @@ function releaseUser(userId) {
   return released;
 }
 
+function releaseAuthSession(authSessionId) {
+  cleanup();
+  let released = 0;
+  const target = String(authSessionId || '');
+  if (!target) return 0;
+  for (const [id, lease] of leases) {
+    if (lease.authSessionId === target) {
+      leases.delete(id);
+      released++;
+    }
+  }
+  return released;
+}
+
 function enforceLimit(userId, limit) {
   const safeLimit = clampLimit(limit);
   const active = activeForUser(userId);
@@ -196,9 +210,11 @@ module.exports = {
   bind,
   touchLease,
   touchSession,
+  leaseForSession: bySession,
   releaseLease,
   releaseSession,
   releaseUser,
+  releaseAuthSession,
   enforceLimit,
   isLeaseActive,
   listActive,
