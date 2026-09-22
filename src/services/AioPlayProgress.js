@@ -79,7 +79,10 @@ function itemKey(item) {
   if (type === 'series') {
     const season = nullableInt(item.season);
     const episode = nullableInt(item.episode);
-    return ['series', contentId, season ?? '', episode ?? '', videoId].join('|');
+    if (season !== null && episode !== null) {
+      return ['series', contentId, season, episode].join('|');
+    }
+    return ['series', contentId, 'video', videoId].join('|');
   }
   return ['movie', contentId].join('|');
 }
