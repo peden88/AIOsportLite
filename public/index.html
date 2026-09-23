@@ -1820,6 +1820,7 @@
         mode: currentMode,
         catalog: currentCatalogState,
         search: document.getElementById('searchInput')?.value || '',
+        searchType,
         scrollY: Math.max(0, Math.round(window.scrollY || 0)),
         focusedId: lastActiveCard?.dataset?.contentId || '',
         focusedKey: lastActiveCard?.dataset?.contentKey || '',
@@ -1844,6 +1845,78 @@
       } catch (_) {
         return null;
       }
+    }
+
+    function recentSearches() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+        return Array.isArray(parsed)
+          ? parsed.map(String).map(value => value.trim()).filter(Boolean).slice(0, 6)
+          : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function rememberSearch(query) {
+      const clean = String(query || '').trim();
+      if (clean.length < 2) return;
+      const values = [clean, ...recentSearches().filter(value =>
+        value.toLowerCase() !== clean.toLowerCase()
+      )].slice(0, 6);
+      try { localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(values)); } catch (_) {}
+      renderRecentSearches();
+    }
+
+    function renderRecentSearches() {
+      const host = document.getElementById('recentSearches');
+      if (!host) return;
+      host.innerHTML = '';
+      const values = recentSearches();
+      if (!values.length) return;
+      const label = document.createElement('span');
+      label.className = 'recent-search-label';
+      label.textContent = 'Recent';
+      host.appendChild(label);
+      values.forEach(value => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'recent-search';
+        button.textContent = value;
+        button.onclick = () => {
+          const input = document.getElementById('searchInput');
+          input.value = value;
+          applySearch(value);
+          input.focus();
+        };
+        host.appendChild(button);
+      });
+    }
+
+    function setSearchContextVisible(visible, title = '') {
+      const panel = document.getElementById('searchContext');
+      if (!panel) return;
+      panel.hidden = !visible;
+      if (title) document.getElementById('searchContextTitle').textContent = title;
+      if (visible) renderRecentSearches();
+    }
+
+    function setSearchType(type, { rerun = true } = {}) {
+      searchType = ['movie','series'].includes(String(type || '')) ? String(type) : '';
+      document.querySelectorAll('.search-filter').forEach(button => {
+        button.classList.toggle('active', button.dataset.searchType === searchType);
+      });
+      if (rerun) {
+        const input = document.getElementById('searchInput');
+        if (input?.value.trim()) applySearch(input.value);
+      }
+    }
+
+    function progressMatchScore(meta) {
+      const type = String(meta?.type || '').toLowerCase();
+      if (type === 'movie') return cachedMovieProgress(meta.id) ? 2 : 0;
+      if (type === 'series' || type === 'tv') return cachedSeriesProgress(meta.id) ? 2 : 0;
+      return 0;
     }
 
     function restoreGridPosition(snapshot) {
@@ -2293,6 +2366,7 @@
 
         if (initialMode) {
           restoringUiState = true;
+          setSearchType(snapshot?.searchType || '', { rerun:false });
           await loadMode(initialMode, { snapshot, push:false });
           const search = document.getElementById('searchInput');
           if (snapshot?.search) {
@@ -2414,7 +2488,7 @@
       currentCatalogState = { kind:'continue', id:'continue', type:'' };
       tabs().innerHTML = '';
       currentVodType = '';
-      setGridState('Loading Continue Watching…');
+      beginGridTransition({ posterMode:true });
       try {
         const res = await fetch('/api/v1/progress?continue=1', { cache: 'no-store' });
         const data = await res.json().catch(() => ({}));
@@ -2455,7 +2529,7 @@
     async function loadSportsCatalog(catalogId, tab, { push = true } = {}) {
       setActiveTab(tab);
       currentCatalogState = { kind:'sports', id:catalogId, type:'tv' };
-      setGridState('Fetching matches…');
+      beginGridTransition({ posterMode:false });
       try {
         const res = await fetch('/api/v1/sports/catalog/' + encodeURIComponent(catalogId));
         const data = await res.json();
@@ -2478,7 +2552,7 @@
         type:String(catalog.type || ''),
         name:String(catalog.name || '')
       };
-      setGridState('Loading titles…');
+      beginGridTransition({ posterMode:true });
       try {
         const url = '/api/v1/vod/catalog/' + encodeURIComponent(catalog.type) + '/' + encodeURIComponent(catalog.id);
         const res = await fetch(url);
@@ -2495,12 +2569,19 @@
 
     async function applySearch(raw, { persist = true } = {}) {
       const clean = String(raw || '').trim();
+      setSearchContextVisible(
+        !!clean || document.activeElement === document.getElementById('searchInput'),
+        clean ? ('Results for “' + clean + '”') : 'Recent searches'
+      );
+
       if (currentMode === 'sports' || currentMode === 'continue') {
         const query = clean.toLowerCase();
-        renderGrid(currentItems.filter(meta =>
+        const filtered = currentItems.filter(meta =>
           String(meta.name || '').toLowerCase().includes(query) ||
           String(meta.description || '').toLowerCase().includes(query)
-        ));
+        );
+        renderGrid(filtered);
+        if (clean.length >= 2) rememberSearch(clean);
         if (persist) persistUiState();
         return;
       }
@@ -2525,13 +2606,21 @@
         return;
       }
 
-      setGridState('Searching…');
+      beginGridTransition({ posterMode:true });
       try {
-        const url = '/api/v1/vod/search?q=' + encodeURIComponent(clean);
+        const url = '/api/v1/vod/search?q=' + encodeURIComponent(clean) +
+          (searchType ? ('&type=' + encodeURIComponent(searchType)) : '');
         const res = await fetch(url);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Search failed');
-        renderGrid(data.metas || []);
+        const results = [...(data.metas || [])].sort((a, b) =>
+          progressMatchScore(b) - progressMatchScore(a)
+        );
+        document.getElementById('searchContextTitle').textContent =
+          results.length + (results.length === 1 ? ' result' : ' results') +
+          ' for “' + clean + '”';
+        rememberSearch(clean);
+        renderGrid(results);
       } catch (err) {
         console.error(err);
         setGridState('Search is temporarily unavailable.', true);
@@ -2539,14 +2628,23 @@
       if (persist) persistUiState();
     }
 
-    document.getElementById('searchInput').addEventListener('input', e => {
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', e => {
       const raw = e.target.value;
       clearTimeout(searchTimer);
       if (currentMode === 'sports' || currentMode === 'continue' || !raw.trim()) {
         applySearch(raw);
         return;
       }
-      searchTimer = setTimeout(() => applySearch(raw), 350);
+      searchTimer = setTimeout(() => applySearch(raw), 300);
+    });
+    searchInput.addEventListener('focus', () => {
+      setSearchContextVisible(true, searchInput.value.trim()
+        ? ('Results for “' + searchInput.value.trim() + '”')
+        : 'Recent searches');
+    });
+    document.querySelectorAll('.search-filter').forEach(button => {
+      button.addEventListener('click', () => setSearchType(button.dataset.searchType));
     });
 
     function makeImage(src, className, alt = '') {
