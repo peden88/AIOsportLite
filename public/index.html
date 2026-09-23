@@ -1471,7 +1471,9 @@
     }
 
     async function quickActionNextEpisode(meta) {
-      const row = meta?._progress || cachedEpisodeProgress(meta, meta);
+      const row = meta?._progress ||
+        cachedSeriesProgress(meta?.parentId || meta?.id) ||
+        cachedEpisodeProgress(meta, meta);
       const parentId = row?.contentId || meta?.parentId || meta?.id;
       if (!parentId) return null;
       const seriesPreview = {
@@ -1513,7 +1515,9 @@
       const row = meta?._progress || (
         normalizedVodType(meta) === 'movie'
           ? cachedMovieProgress(meta.id)
-          : null
+          : normalizedVodType(meta) === 'series'
+            ? cachedSeriesProgress(meta.id)
+            : null
       );
       const actions = [];
       if (row && Number(row.progressPercent || 0) > 0 && Number(row.progressPercent || 0) < 90) {
@@ -2242,6 +2246,15 @@
         String(row.contentType || '').toLowerCase() === 'movie' &&
         String(row.contentId || '') === String(contentId || '')
       ) || null;
+    }
+
+    function cachedSeriesProgress(contentId) {
+      return sharedProgressItems
+        .filter(row =>
+          ['series','tv','episode'].includes(String(row.contentType || '').toLowerCase()) &&
+          String(row.contentId || '') === String(contentId || '')
+        )
+        .sort((a, b) => Number(b.lastWatched || 0) - Number(a.lastWatched || 0))[0] || null;
     }
 
     function cachedEpisodeProgress(meta, video) {
