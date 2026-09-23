@@ -1681,6 +1681,51 @@
       }
     }
 
+    async function prepareNextEpisode(progressContext) {
+      currentNextEpisode = null;
+      const button = document.getElementById('playerNextUp');
+      if (button) button.hidden = true;
+      if (!progressContext || progressContext.contentType !== 'series') return;
+
+      const preview = {
+        id: progressContext.contentId,
+        type:'series',
+        name:progressContext.name
+      };
+      const meta = await loadMetaFor(preview);
+      const next = findNextVideo(meta, progressContext);
+      if (!meta || !next) return;
+
+      currentNextEpisode = {
+        meta,
+        video:next,
+        progress:progressContextForEpisode(meta, next)
+      };
+      document.getElementById('playerNextTitle').textContent =
+        meta.name || progressContext.name || 'Next episode';
+      const code = next.season != null && next.episode != null
+        ? 'S' + String(next.season).padStart(2, '0') +
+          'E' + String(next.episode).padStart(2, '0')
+        : '';
+      document.getElementById('playerNextMeta').textContent =
+        [code, next.title || next.name || ''].filter(Boolean).join(' · ');
+    }
+
+    function updateNextUpVisibility(video) {
+      const button = document.getElementById('playerNextUp');
+      if (!button || !currentNextEpisode || !video) {
+        if (button) button.hidden = true;
+        return;
+      }
+      if (!Number.isFinite(video.duration) || video.duration <= 0) {
+        button.hidden = true;
+        return;
+      }
+      const remaining = Math.max(0, video.duration - Number(video.currentTime || 0));
+      const fraction = Number(video.currentTime || 0) / video.duration;
+      button.hidden = !(remaining <= 180 || fraction >= 0.85);
+    }
+
     function setActiveTab(el) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       if (el) {
@@ -2561,8 +2606,14 @@
       playbackHeartbeatTimer = setInterval(beat, 30000);
     }
 
-    async function fetchAndPlay(id, contentType, stremioType, progressContext = null) {
-      await closePlayer(false);
+    async function fetchAndPlay(
+      id,
+      contentType,
+      stremioType,
+      progressContext = null,
+      sourceElement = null
+    ) {
+      await closePlayer(false, { returnToOrigin:false });
       currentProgressContext = progressContext;
       lastProgressSyncAt = 0;
       const generation = ++playbackGeneration;
@@ -2577,9 +2628,24 @@
           }
         : (matchingItem || { id, name: String(id) });
       setPlayerPresentation(playbackMeta, contentType);
-      document.getElementById('player-overlay').style.display = 'flex';
+      const detailsWasOpen = document.getElementById('details-overlay').style.display === 'block';
+      playerReturnToDetails = detailsWasOpen;
+      const transitionSource = sourceElement?.querySelector?.('.poster-container') || sourceElement;
+      await withSharedTransition(
+        transitionSource,
+        async () => {
+          if (detailsWasOpen) {
+            document.body.classList.remove('details-open');
+            document.getElementById('details-overlay').style.display = 'none';
+          }
+          document.getElementById('player-overlay').style.display = 'flex';
+        },
+        () => document.getElementById('playerBackdrop')
+      );
+      persistUiState({ push:true, overlay:'player' });
       showPlayerHud(true);
       showPlaybackLoading('Finding a working stream...');
+      prepareNextEpisode(progressContext);
 
       try {
         const payload = {
@@ -2823,7 +2889,7 @@
       video.load();
     }
 
-    async function closePlayer(invalidate = true) {
+    async function closePlayer(invalidate = true, { returnToOrigin = true } = {}) {
       const session = currentPlaybackSession;
       if (currentProgressContext) {
         await syncCurrentProgress(true, false);
@@ -2834,8 +2900,11 @@
       pendingVodPlayback = null;
       currentProgressContext = null;
       currentPlaybackMeta = null;
+      currentNextEpisode = null;
       lastProgressSyncAt = 0;
       clearTimeout(playerHudTimer);
+      const nextUp = document.getElementById('playerNextUp');
+      if (nextUp) nextUp.hidden = true;
       const chooser = document.getElementById('player-choice-overlay');
       if (chooser) chooser.style.display = 'none';
       if (invalidate) playbackGeneration++;
@@ -2844,7 +2913,16 @@
       document.getElementById('playback-message').style.display = 'none';
       document.getElementById('playerBackdrop').style.backgroundImage = '';
       stopVideoEngine();
-      restoreLastCardFocus();
+
+      if (returnToOrigin && playerReturnToDetails && currentDetailsMeta) {
+        document.body.classList.add('details-open');
+        document.getElementById('details-overlay').style.display = 'block';
+        persistUiState({ overlay:'details' });
+      } else if (returnToOrigin) {
+        persistUiState();
+        restoreLastCardFocus();
+      }
+      if (returnToOrigin) playerReturnToDetails = false;
 
       if (session) {
         try {
@@ -2855,6 +2933,7 @@
 
     const progressVideo = document.getElementById('video');
     progressVideo.addEventListener('timeupdate', () => {
+      updateNextUpVisibility(progressVideo);
       if (currentProgressContext && !progressVideo.paused) syncCurrentProgress(false, false);
     });
     progressVideo.addEventListener('pause', () => {
@@ -2862,9 +2941,14 @@
       if (currentProgressContext && !progressVideo.ended) syncCurrentProgress(true, false);
     });
     progressVideo.addEventListener('play', () => showPlayerHud(false));
-    progressVideo.addEventListener('ended', () => {
+    progressVideo.addEventListener('ended', async () => {
       showPlayerHud(true);
-      if (currentProgressContext) syncCurrentProgress(true, true);
+      if (currentProgressContext) {
+        await syncCurrentProgress(true, true);
+      }
+      if (currentMode === 'continue') {
+        loadContinueWatching({ push:false });
+      }
     });
 
     const playerOverlay = document.getElementById('player-overlay');
@@ -2875,6 +2959,17 @@
       if (currentPlaybackSession && !requestingFallback) {
         requestNextPlayback(playbackGeneration);
       }
+    });
+    document.getElementById('playerNextUp').addEventListener('click', async () => {
+      const next = currentNextEpisode;
+      if (!next) return;
+      await fetchAndPlay(
+        next.video.id,
+        'episode',
+        'series',
+        next.progress,
+        document.getElementById('playerBackdrop')
+      );
     });
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
