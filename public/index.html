@@ -754,6 +754,12 @@
       background:rgba(39,48,57,.92);
       outline:none;
     }
+    .player-next-up {
+      transition:opacity .22s ease,transform .22s ease,background .16s ease;
+    }
+    .vod-card .title { font-size:clamp(.84rem,1.05vw,1rem); }
+    .vod-card .desc { font-size:clamp(.67rem,.78vw,.76rem); }
+
     .player-next-label {
       display:block;
       color:#9aadb5;
@@ -1663,11 +1669,13 @@
       rail.dataset.gesturesReady = '1';
 
       let dragging = false;
+      let moved = false;
       let startX = 0;
       let startScroll = 0;
       rail.addEventListener('pointerdown', event => {
         if (event.pointerType === 'touch') return;
         dragging = true;
+        moved = false;
         startX = event.clientX;
         startScroll = rail.scrollLeft;
         rail.classList.add('is-dragging');
@@ -1675,7 +1683,9 @@
       });
       rail.addEventListener('pointermove', event => {
         if (!dragging) return;
-        rail.scrollLeft = startScroll - (event.clientX - startX);
+        const delta = event.clientX - startX;
+        if (Math.abs(delta) > 5) moved = true;
+        rail.scrollLeft = startScroll - delta;
       });
       const stop = event => {
         dragging = false;
@@ -1684,6 +1694,12 @@
       };
       rail.addEventListener('pointerup', stop);
       rail.addEventListener('pointercancel', stop);
+      rail.addEventListener('click', event => {
+        if (!moved) return;
+        moved = false;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }, true);
       rail.addEventListener('wheel', event => {
         if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
         if (rail.scrollWidth <= rail.clientWidth) return;
@@ -2653,7 +2669,7 @@
       tabs().innerHTML = mode === 'continue'
         ? ''
         : '<div style="color:var(--text-muted);">Loading catalogs...</div>';
-      grid().innerHTML = '';
+      showGridSkeleton({ posterMode:mode !== 'sports' });
 
       if (mode === 'sports') {
         await loadSportsTabs(snapshot);
@@ -2891,6 +2907,14 @@
         ? ('Results for “' + searchInput.value.trim() + '”')
         : 'Recent searches');
     });
+    searchInput.addEventListener('keydown', event => {
+      if (event.key !== 'ArrowDown') return;
+      const first = grid().querySelector('.card');
+      if (!first) return;
+      event.preventDefault();
+      first.focus();
+      first.scrollIntoView({ block:'nearest', behavior:'smooth' });
+    });
     document.querySelectorAll('.search-filter').forEach(button => {
       button.addEventListener('click', () => setSearchType(button.dataset.searchType));
     });
@@ -2912,6 +2936,24 @@
         img.style.display = 'none';
       }
       return img;
+    }
+
+    function setProgressiveImage(img, src) {
+      if (!img) return;
+      const safe = safeImageUrl(src);
+      img.classList.add('progressive-image');
+      img.classList.remove('is-loaded');
+      if (!safe) {
+        img.removeAttribute('src');
+        img.style.display = 'none';
+        return;
+      }
+      img.style.display = 'block';
+      const reveal = () => img.classList.add('is-loaded');
+      img.addEventListener('load', reveal, { once:true });
+      img.addEventListener('error', () => { img.style.display = 'none'; }, { once:true });
+      img.src = safe;
+      if (img.complete && img.naturalWidth > 0) reveal();
     }
 
     function focusCardInDirection(card, key) {
@@ -3336,9 +3378,7 @@
       document.getElementById('detailsDescription').textContent = preview.description || '';
       fillDetailsMeta(preview);
       const poster = document.getElementById('detailsPoster');
-      const image = safeImageUrl(preview.poster || preview.background);
-      poster.src = image || '';
-      poster.style.display = image ? 'block' : 'none';
+      setProgressiveImage(poster, preview.poster || preview.background);
       list.innerHTML = type === 'series'
         ? '<div style="color:var(--text-muted);">Loading episodes...</div>'
         : '';
@@ -3359,9 +3399,7 @@
       document.getElementById('detailsDescription').textContent = currentDetailsMeta.description || preview.description || '';
       fillDetailsMeta(currentDetailsMeta);
       const poster = document.getElementById('detailsPoster');
-      const metaPoster = safeImageUrl(currentDetailsMeta.poster || preview.poster);
-      poster.src = metaPoster || '';
-      poster.style.display = metaPoster ? 'block' : 'none';
+      setProgressiveImage(poster, currentDetailsMeta.poster || preview.poster);
 
       const actions = document.getElementById('detailsActions');
       const progress = cachedMovieProgress(currentDetailsMeta.id);
@@ -3426,9 +3464,7 @@
         document.getElementById('detailsTitle').textContent = meta.name || preview.name || 'Series';
         document.getElementById('detailsDescription').textContent = meta.description || preview.description || '';
         fillDetailsMeta(currentDetailsMeta);
-        const metaPoster = safeImageUrl(meta.poster || preview.poster);
-        poster.src = metaPoster || '';
-        poster.style.display = metaPoster ? 'block' : 'none';
+        setProgressiveImage(poster, meta.poster || preview.poster);
 
         const videos = Array.isArray(meta.videos) ? meta.videos.filter(v => v && v.id) : [];
         videos.sort((a, b) =>
