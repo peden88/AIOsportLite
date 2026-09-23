@@ -987,7 +987,7 @@
 
   <div id="details-overlay">
     <div class="details-shell">
-      <button type="button" class="details-close" onclick="closeDetails()">Close</button>
+      <button type="button" class="details-close" onclick="closeDetailsFromUi()">Close</button>
       <div class="details-head">
         <img id="detailsPoster" alt="">
         <div>
@@ -1022,7 +1022,7 @@
   <div id="player-overlay">
     <div id="playerBackdrop" class="player-backdrop" aria-hidden="true"></div>
     <div class="player-brand" aria-label="AIOPlay"><img src="/aioplay-brand.webp" alt=""><span>AIOPlay</span></div>
-    <button id="close-btn" onclick="closePlayer()">Close Player</button>
+    <button id="close-btn" onclick="closePlayerFromUi()">Close Player</button>
 
     <div id="video-container">
       <div class="loader" id="loader">
@@ -2567,6 +2567,14 @@
       if (restoreFocus) restoreLastCardFocus();
     }
 
+    function closeDetailsFromUi() {
+      if (history.state?.aioplay?.overlay === 'details') {
+        history.back();
+      } else {
+        closeDetails();
+      }
+    }
+
     function showPlaybackLoading(text = 'Loading stream...') {
       const loader = document.getElementById('loader');
       const message = document.getElementById('playback-message');
@@ -2642,7 +2650,7 @@
         : (matchingItem || { id, name: String(id) });
       setPlayerPresentation(playbackMeta, contentType);
       const detailsWasOpen = document.getElementById('details-overlay').style.display === 'block';
-      playerReturnToDetails = detailsWasOpen;
+      playerReturnToDetails = detailsWasOpen || playerReturnToDetails;
       const transitionSource = sourceElement?.querySelector?.('.poster-container') || sourceElement;
       await withSharedTransition(
         transitionSource,
@@ -2944,6 +2952,14 @@
       }
     }
 
+    function closePlayerFromUi() {
+      if (history.state?.aioplay?.overlay === 'player') {
+        history.back();
+      } else {
+        closePlayer();
+      }
+    }
+
     const progressVideo = document.getElementById('video');
     progressVideo.addEventListener('timeupdate', () => {
       updateNextUpVisibility(progressVideo);
@@ -2989,9 +3005,9 @@
         if (document.getElementById('player-choice-overlay').style.display === 'flex') {
           closeVodPlayerChoice();
         } else if (document.getElementById('player-overlay').style.display === 'flex') {
-          closePlayer();
+          closePlayerFromUi();
         } else if (document.getElementById('details-overlay').style.display === 'block') {
-          closeDetails();
+          closeDetailsFromUi();
         }
       } else if (
         event.key === '/' &&
@@ -3001,6 +3017,48 @@
         event.preventDefault();
         document.getElementById('searchInput')?.focus();
       }
+    });
+
+    let statePersistTimer = null;
+    window.addEventListener('scroll', () => {
+      clearTimeout(statePersistTimer);
+      statePersistTimer = setTimeout(() => persistUiState(), 120);
+    }, { passive:true });
+    window.addEventListener('pagehide', () => persistUiState());
+
+    document.addEventListener('pointerdown', event => {
+      const menu = document.getElementById('quickActions');
+      if (!menu || menu.hidden) return;
+      if (!menu.contains(event.target) && !event.target.closest?.('.card-quick-trigger')) {
+        hideQuickActions();
+      }
+    });
+
+    window.addEventListener('popstate', async event => {
+      const snapshot = event.state?.aioplay || savedUiState();
+      restoringUiState = true;
+      hideQuickActions();
+
+      if (document.getElementById('player-overlay').style.display === 'flex') {
+        await closePlayer(true, { returnToOrigin:false });
+      }
+      if (document.getElementById('details-overlay').style.display === 'block') {
+        closeDetails({ restoreFocus:false, persist:false });
+      }
+
+      if (snapshot?.mode) {
+        await loadMode(snapshot.mode, { snapshot, push:false });
+        const search = document.getElementById('searchInput');
+        search.value = snapshot.search || '';
+        if (snapshot.search) await applySearch(snapshot.search, { persist:false });
+        restoreGridPosition(snapshot);
+      }
+
+      if (snapshot?.overlay === 'details' && currentDetailsMeta) {
+        document.body.classList.add('details-open');
+        document.getElementById('details-overlay').style.display = 'block';
+      }
+      restoringUiState = false;
     });
 
     initVodPlayerControl();
