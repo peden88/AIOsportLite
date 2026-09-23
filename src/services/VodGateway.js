@@ -69,7 +69,18 @@ function cleanId(id) {
 }
 
 async function catalogs() {
-  return { catalogs: await clientFor('metadata').catalogDescriptors() };
+  const descriptors = await clientFor('metadata').catalogDescriptors();
+
+  // The web picker can only render catalogs that are valid with no required
+  // Stremio extras. AIOMetadata also advertises function-style catalogs such as
+  // Search, Anime Search, People Search and Calendar views; those are invoked
+  // through dedicated UI/API flows and fail when treated like ordinary shelves.
+  return {
+    catalogs: descriptors.filter(descriptor =>
+      Array.isArray(descriptor.requiredExtras) &&
+      descriptor.requiredExtras.length === 0
+    )
+  };
 }
 
 async function catalog(type, catalogId, extra = {}) {
