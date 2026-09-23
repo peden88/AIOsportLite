@@ -3411,6 +3411,49 @@
       });
     }
 
+    function setDetailsTitleArt(meta) {
+      const logo = document.getElementById('detailsLogo');
+      const copy = document.getElementById('detailsCopy');
+      if (!logo || !copy) return;
+
+      const artwork = safeImageUrl(
+        meta?.logo ||
+        meta?.titleLogo ||
+        meta?.titleArt ||
+        meta?.clearLogo
+      );
+
+      if (!artwork) {
+        logo.hidden = true;
+        logo.removeAttribute('src');
+        logo.classList.remove('is-loaded');
+        copy.classList.remove('has-title-art');
+        return;
+      }
+
+      logo.hidden = false;
+      copy.classList.add('has-title-art');
+      setProgressiveImage(logo, artwork);
+    }
+
+    function mountedViewMatchesSnapshot(snapshot) {
+      if (!snapshot || snapshot.mode !== currentMode) return false;
+
+      const expected = snapshot.catalog || null;
+      const mounted = currentCatalogState || null;
+      if (!!expected !== !!mounted) return false;
+      if (expected && mounted) {
+        if (String(expected.kind || '') !== String(mounted.kind || '')) return false;
+        if (String(expected.id || '') !== String(mounted.id || '')) return false;
+        if (String(expected.type || '') !== String(mounted.type || '')) return false;
+      }
+
+      const currentSearch = document.getElementById('searchInput')?.value || '';
+      if (String(snapshot.search || '') !== String(currentSearch)) return false;
+      if (String(snapshot.searchType || '') !== String(searchType || '')) return false;
+      return grid().childElementCount > 0;
+    }
+
     function prepareDetailsShell(preview, type) {
       const overlay = document.getElementById('details-overlay');
       const list = document.getElementById('episodeList');
@@ -3426,6 +3469,7 @@
       currentDetailsMeta = { ...preview, type };
       document.getElementById('detailsTitle').textContent = preview.name || (type === 'movie' ? 'Movie' : 'Series');
       document.getElementById('detailsDescription').textContent = preview.description || '';
+      setDetailsTitleArt(preview);
       fillDetailsMeta(preview);
       const poster = document.getElementById('detailsPoster');
       setProgressiveImage(poster, preview.poster || preview.background);
@@ -3447,6 +3491,7 @@
       currentDetailsMeta = { ...preview, ...meta, type:'movie' };
       document.getElementById('detailsTitle').textContent = currentDetailsMeta.name || preview.name || 'Movie';
       document.getElementById('detailsDescription').textContent = currentDetailsMeta.description || preview.description || '';
+      setDetailsTitleArt(currentDetailsMeta);
       fillDetailsMeta(currentDetailsMeta);
       const poster = document.getElementById('detailsPoster');
       setProgressiveImage(poster, currentDetailsMeta.poster || preview.poster);
@@ -3513,6 +3558,7 @@
         currentDetailsMeta = { ...preview, ...meta, type:'series' };
         document.getElementById('detailsTitle').textContent = meta.name || preview.name || 'Series';
         document.getElementById('detailsDescription').textContent = meta.description || preview.description || '';
+        setDetailsTitleArt(currentDetailsMeta);
         fillDetailsMeta(currentDetailsMeta);
         setProgressiveImage(poster, meta.poster || preview.poster);
 
@@ -3593,6 +3639,7 @@
     }
 
     function closeDetails({ restoreFocus = true, persist = true } = {}) {
+      document.body.classList.add('catalog-return-instant');
       document.body.classList.remove('details-open');
       document.getElementById('details-overlay').style.display = 'none';
       document.getElementById('episodeList').innerHTML = '';
@@ -3607,6 +3654,11 @@
       }
       if (persist) persistUiState();
       if (restoreFocus) restoreLastCardFocus();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document.body.classList.remove('catalog-return-instant');
+        });
+      });
     }
 
     function closeDetailsFromUi() {
