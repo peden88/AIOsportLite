@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="dark light">
   <title>AIOPlay</title>
   <link rel="icon" type="image/webp" href="/aioplay-brand.webp">
   <link rel="apple-touch-icon" href="/aioplay-brand.webp">
@@ -22,6 +22,35 @@
       --accent-glow:rgba(22,104,255,.32);
       --glass:rgba(15,15,17,.7);
     }
+    html.light-theme {
+      --bg:#eef3f7;
+      --card-bg:rgba(255,255,255,.72);
+      --card-border:rgba(22,38,56,.13);
+      --text:#15202b;
+      --text-muted:#5d6b78;
+      --accent-glow:rgba(22,104,255,.18);
+      --glass:rgba(248,251,253,.82);
+      background-color:#dce8f2;
+      background-image:linear-gradient(135deg,#e9f3f8 0%,#dce9f3 48%,#e8e4f5 100%);
+    }
+    html.light-theme .top-header { background:rgba(248,251,253,.70); }
+    html.light-theme header { background:rgba(244,248,251,.76); border-color:rgba(30,50,70,.08); }
+    html.light-theme .header-search { background:rgba(255,255,255,.70); border-color:rgba(30,50,70,.14); color:#15202b; }
+    html.light-theme .header-search:focus { background:#fff; }
+    html.light-theme .header-icon-button,
+    html.light-theme #signOutBtn { background:rgba(255,255,255,.76) !important; border-color:rgba(30,50,70,.18) !important; color:#263746 !important; }
+    html.light-theme .header-icon-button:hover,
+    html.light-theme .header-icon-button:focus-visible { background:#fff; }
+    html.light-theme .vod-card .poster-container { box-shadow:0 7px 20px rgba(38,55,70,.15); }
+    html.light-theme .vod-card .info { text-shadow:0 1px 1px rgba(255,255,255,.7); }
+    html.light-theme .mobile-bottom-nav { background:rgba(247,250,252,.94); border-color:rgba(30,50,70,.13); box-shadow:0 18px 50px rgba(40,55,70,.20); }
+    html.light-theme .mobile-bottom-nav button { color:rgba(38,55,70,.62); }
+    html.light-theme .mobile-bottom-nav button.active { color:#15202b; background:#dfe8ef; border-color:rgba(30,50,70,.15); }
+    html.light-theme .details-shell { background:rgba(245,249,252,.985); border-color:rgba(30,50,70,.13); box-shadow:0 24px 80px rgba(38,55,70,.22); }
+    html.light-theme .details-backdrop::after { background:linear-gradient(90deg,rgba(245,249,252,.94) 0%,rgba(245,249,252,.78) 42%,rgba(245,249,252,.64) 100%),linear-gradient(180deg,rgba(245,249,252,.20) 0%,rgba(245,249,252,.70) 58%,rgba(245,249,252,.98) 100%); }
+    html.light-theme body.live-mode { background:linear-gradient(180deg,#eef4f8 0%,#e5edf3 52%,#eef4f8 100%); }
+    html.light-theme body.live-mode .top-header { background:#edf3f7; }
+    html.light-theme body.live-mode header { background:rgba(237,243,247,.985); }
     * { box-sizing:border-box; }
     html {
       min-height:100%;
@@ -1718,7 +1747,7 @@
         bottom:calc(8px + env(safe-area-inset-bottom, 0px));
         z-index:80;
         display:grid;
-        grid-template-columns:repeat(4,minmax(0,1fr));
+        grid-template-columns:repeat(5,minmax(0,1fr));
         gap:4px;
         padding:6px;
         border:1px solid rgba(255,255,255,.09);
@@ -1823,7 +1852,7 @@
       </div>
       <input type="text" id="searchInput" class="header-search" placeholder="Search matches…" aria-label="Search">
       <div class="header-actions">
-        <button type="button" id="motionToggle" class="header-icon-button" title="Toggle reduced motion" aria-label="Toggle reduced motion" aria-pressed="false">◐</button>
+        <button type="button" id="themeToggle" class="header-icon-button" title="Use light appearance" aria-label="Switch to light appearance" aria-pressed="false">☼</button>
         <button type="button" id="signOutBtn" title="Sign out of this browser" aria-label="Sign out" style="display: none; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; cursor: pointer; padding: 0;">
           <svg height="18" width="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
         </button>
@@ -2058,6 +2087,7 @@
     const UI_STATE_KEY = 'aioplay.webUiState.v2';
     const RECENT_SEARCHES_KEY = 'aioplay.recentSearches.v1';
     const MOTION_KEY = 'aioplay.reducedMotion';
+    const THEME_KEY = 'aioplay.appearance.v1';
 
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
@@ -2242,6 +2272,24 @@
       document.querySelectorAll('.vod-player-control').forEach(el => {
         el.style.display = visible ? 'block' : 'none';
       });
+    }
+
+    function applyThemePreference() {
+      const light = localStorage.getItem(THEME_KEY) === 'light';
+      document.documentElement.classList.toggle('light-theme', light);
+      const button = document.getElementById('themeToggle');
+      if (button) {
+        button.setAttribute('aria-pressed', light ? 'true' : 'false');
+        button.setAttribute('aria-label', light ? 'Switch to dark appearance' : 'Switch to light appearance');
+        button.title = light ? 'Use dark appearance' : 'Use light appearance';
+        button.textContent = light ? '☾' : '☼';
+      }
+    }
+
+    function toggleThemePreference() {
+      const light = !document.documentElement.classList.contains('light-theme');
+      localStorage.setItem(THEME_KEY, light ? 'light' : 'dark');
+      applyThemePreference();
     }
 
     function applyMotionPreference() {
@@ -2448,11 +2496,13 @@
       const sportsEnabled = !!bootstrap?.services?.sports?.enabled;
       const vodEnabled = !!bootstrap?.services?.vod?.enabled;
       const continueEnabled = !!(vodEnabled && bootstrap?.accountUser);
+      const libraryEnabled = continueEnabled;
 
       const visibility = {
         sports:sportsEnabled,
         vod:vodEnabled,
-        continue:continueEnabled
+        continue:continueEnabled,
+        library:libraryEnabled
       };
       nav.querySelectorAll('[data-mobile-mode]').forEach(button => {
         button.hidden = !visibility[button.dataset.mobileMode];
@@ -5474,7 +5524,8 @@
       restoringUiState = false;
     });
 
-    document.getElementById('motionToggle').addEventListener('click', toggleMotionPreference);
+    document.getElementById('themeToggle').addEventListener('click', toggleThemePreference);
+    applyThemePreference();
     applyMotionPreference();
     initCatalogRailGestures();
     initDetailsSwipeDismiss();
