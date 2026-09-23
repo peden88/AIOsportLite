@@ -421,7 +421,70 @@
         linear-gradient(90deg,rgba(8,11,15,.92) 0%,rgba(8,11,15,.74) 42%,rgba(8,11,15,.58) 100%),
         linear-gradient(180deg,rgba(8,11,15,.18) 0%,rgba(8,11,15,.62) 56%,rgba(8,11,15,.96) 100%);
     }
-    .details-head { display:grid; grid-template-columns:180px 1fr; gap:24px; }
+    .details-head {
+      display:grid;
+      grid-template-columns:180px minmax(0,1fr) auto;
+      gap:24px;
+      align-items:start;
+    }
+    .details-copy { min-width:0; }
+    .details-hero-action {
+      min-width:104px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      gap:8px;
+      padding-top:54px;
+    }
+    .details-hero-action[hidden] { display:none !important; }
+    .details-play-orb {
+      width:82px;
+      height:82px;
+      padding:0;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.16);
+      background:#42c776;
+      color:#07120c;
+      cursor:pointer;
+      box-shadow:
+        0 14px 34px rgba(0,0,0,.32),
+        0 0 0 6px rgba(66,199,118,.08);
+      transition:
+        transform .14s ease,
+        background .14s ease,
+        box-shadow .14s ease;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .details-play-orb svg {
+      width:36px;
+      height:36px;
+      display:block;
+      fill:#fff;
+      stroke:none;
+      transform:translateX(2px);
+      filter:drop-shadow(0 2px 4px rgba(0,0,0,.18));
+    }
+    .details-play-orb:hover,
+    .details-play-orb:focus-visible {
+      outline:none;
+      background:#53d486;
+      transform:scale(1.055);
+      box-shadow:
+        0 16px 38px rgba(0,0,0,.34),
+        0 0 0 7px rgba(66,199,118,.12);
+    }
+    .details-play-orb:active {
+      transform:scale(.97);
+    }
+    .details-play-label {
+      color:rgba(245,248,246,.86);
+      font:800 .70rem/1 'Inter',sans-serif;
+      letter-spacing:.02em;
+      text-align:center;
+    }
     .details-poster {
       width:180px;
       aspect-ratio:2/3;
@@ -630,8 +693,31 @@
       .card:hover .info { padding-bottom:9px; }
       .title { font-size:.93rem; margin-bottom:0; }
       .desc { display:none; }
-      .details-head{grid-template-columns:1fr}
+      .details-head{
+        grid-template-columns:130px minmax(0,1fr);
+        gap:18px 20px;
+        align-items:start;
+      }
       .details-poster{width:130px}
+      .details-hero-action{
+        grid-column:2;
+        grid-row:1;
+        min-width:0;
+        padding-top:54px;
+        justify-self:center;
+      }
+      .details-play-orb{
+        width:80px;
+        height:80px;
+      }
+      .details-play-orb svg{
+        width:35px;
+        height:35px;
+      }
+      .details-copy{
+        grid-column:1 / -1;
+        grid-row:2;
+      }
       .details-title-art{width:min(290px,70vw);max-height:64px;margin-top:2px;margin-bottom:10px}
       .details-copy.has-title-art h2{font-size:18px}
       .episode-list{
@@ -973,18 +1059,6 @@
       background:#273039;
       border-color:rgba(255,255,255,.22);
       outline:none;
-    }
-    .details-actions .details-primary-action {
-      background:#dfe6ea;
-      border-color:#dfe6ea;
-      color:#0b1015;
-      padding-inline:16px;
-    }
-    .details-actions .details-primary-action:hover,
-    .details-actions .details-primary-action:focus-visible {
-      background:#f1f4f5;
-      border-color:#f1f4f5;
-      color:#080c10;
     }
     .player-next-up {
       position:absolute;
@@ -1804,6 +1878,14 @@
       <button type="button" class="details-close" onclick="closeDetailsFromUi()">Close</button>
       <div class="details-head">
         <img id="detailsPoster" class="details-poster" alt="">
+        <div id="detailsHeroAction" class="details-hero-action" hidden>
+          <button type="button" id="detailsMoviePlay" class="details-play-orb" aria-label="Play">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8.5 6.5v11l9-5.5z"></path>
+            </svg>
+          </button>
+          <span id="detailsMoviePlayLabel" class="details-play-label">Play</span>
+        </div>
         <div id="detailsCopy" class="details-copy">
           <img id="detailsLogo" class="details-title-art" alt="" hidden>
           <h2 id="detailsTitle"></h2>
