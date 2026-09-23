@@ -598,6 +598,177 @@
       letter-spacing:.04em;
     }
     .progress-fill { background:#9aadb5; }
+
+    .vod-card .info { min-height:74px; }
+    .vod-card .title { margin-bottom:4px; }
+    .card-meta-line {
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin:0 0 5px;
+      color:rgba(255,255,255,.66);
+      font-size:.70rem;
+      line-height:1.2;
+    }
+    .card-meta-line span:not(:last-child)::after {
+      content:'·';
+      margin-left:6px;
+      color:rgba(255,255,255,.28);
+    }
+    .continuity-badge {
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      width:max-content;
+      margin-top:5px;
+      padding:3px 6px;
+      border-radius:6px;
+      background:rgba(154,173,181,.10);
+      border:1px solid rgba(154,173,181,.16);
+      color:rgba(226,234,238,.78);
+      font-size:.62rem;
+      font-weight:700;
+      letter-spacing:.02em;
+      text-transform:uppercase;
+    }
+    .up-next-badge {
+      position:absolute;
+      left:8px;
+      top:8px;
+      z-index:4;
+      padding:4px 7px;
+      border-radius:7px;
+      background:rgba(8,11,15,.82);
+      border:1px solid rgba(255,255,255,.10);
+      color:#edf1f3;
+      font-size:.62rem;
+      font-weight:800;
+      letter-spacing:.04em;
+    }
+    .card-quick-trigger {
+      position:absolute;
+      right:7px;
+      top:7px;
+      z-index:6;
+      width:30px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(8,11,15,.70);
+      color:#f2f4f5;
+      font:800 18px/1 'Inter',sans-serif;
+      cursor:pointer;
+      opacity:0;
+      transform:translateY(-2px);
+      transition:opacity .14s ease,transform .14s ease,background .14s ease;
+      backdrop-filter:blur(8px);
+    }
+    .vod-card:hover .card-quick-trigger,
+    .vod-card:focus-within .card-quick-trigger,
+    .card-quick-trigger:focus-visible {
+      opacity:1;
+      transform:none;
+    }
+    .card-quick-trigger:hover,.card-quick-trigger:focus-visible {
+      background:#273039;
+      outline:none;
+    }
+    .quick-actions {
+      position:fixed;
+      z-index:180;
+      min-width:190px;
+      padding:6px;
+      border-radius:12px;
+      background:rgba(13,17,23,.97);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow:0 22px 54px rgba(0,0,0,.48);
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+    }
+    .quick-actions button {
+      width:100%;
+      display:flex;
+      justify-content:flex-start;
+      padding:9px 10px;
+      border:0;
+      border-radius:8px;
+      background:transparent;
+      color:#edf1f3;
+      font:600 .78rem/1.2 'Inter',sans-serif;
+      cursor:pointer;
+      text-align:left;
+    }
+    .quick-actions button:hover,.quick-actions button:focus-visible {
+      background:#273039;
+      outline:none;
+    }
+    .details-meta {
+      display:flex;
+      gap:7px;
+      flex-wrap:wrap;
+      margin:0 0 10px;
+      color:rgba(255,255,255,.68);
+      font-size:.78rem;
+    }
+    .details-meta span {
+      padding:4px 7px;
+      border-radius:7px;
+      background:rgba(255,255,255,.055);
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .details-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+    .details-actions button {
+      padding:9px 13px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.09);
+      background:#1a2129;
+      color:#f1f3f4;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .details-actions button:hover,.details-actions button:focus-visible {
+      background:#273039;
+      border-color:rgba(255,255,255,.22);
+      outline:none;
+    }
+    .player-next-up {
+      position:absolute;
+      right:28px;
+      bottom:174px;
+      z-index:105;
+      width:min(330px,34vw);
+      padding:13px 15px;
+      text-align:left;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(8,11,15,.76);
+      color:#f4f6f7;
+      box-shadow:0 18px 46px rgba(0,0,0,.34);
+      backdrop-filter:blur(14px);
+      cursor:pointer;
+    }
+    .player-next-up:hover,.player-next-up:focus-visible {
+      background:rgba(39,48,57,.92);
+      outline:none;
+    }
+    .player-next-label {
+      display:block;
+      color:#9aadb5;
+      font-size:.60rem;
+      font-weight:800;
+      letter-spacing:.08em;
+      margin-bottom:5px;
+    }
+    .player-next-up strong { display:block; font:700 .95rem/1.2 'Outfit',sans-serif; }
+    .player-next-up span:last-child { display:block; margin-top:3px; color:rgba(255,255,255,.62); font-size:.70rem; }
+    ::view-transition-old(aioplay-poster),
+    ::view-transition-new(aioplay-poster) {
+      animation-duration:280ms;
+      animation-timing-function:cubic-bezier(.2,.7,.2,1);
+    }
     #details-overlay {
       background:rgba(7,10,14,.22);
       backdrop-filter:blur(8px);
@@ -754,6 +925,10 @@
       .player-hud-actions { position:absolute; right:0; bottom:calc(100% + 8px); }
       .player-hud-title { font-size:1.05rem; }
       .player-hud-logo { width:min(230px,60vw); max-height:50px; }
+      .card-meta-line { font-size:.62rem; gap:4px; }
+      .card-meta-line span:not(:last-child)::after { margin-left:4px; }
+      .card-quick-trigger { opacity:1; width:28px; height:28px; }
+      .player-next-up { right:12px; bottom:150px; width:min(300px,78vw); }
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
@@ -807,16 +982,6 @@
   </header>
 
   <main>
-    <section id="heroInfo" class="hero-info" aria-live="polite">
-      <div class="hero-logo-wrap">
-        <img id="heroLogo" class="hero-logo" alt="">
-        <div id="heroTitle" class="hero-title"></div>
-      </div>
-      <div class="hero-copy">
-        <div id="heroMeta" class="hero-meta"></div>
-        <div id="heroDescription" class="hero-description"></div>
-      </div>
-    </section>
     <div class="grid" id="grid"></div>
   </main>
 
@@ -827,7 +992,9 @@
         <img id="detailsPoster" alt="">
         <div>
           <h2 id="detailsTitle"></h2>
+          <div id="detailsMeta" class="details-meta"></div>
           <p id="detailsDescription"></p>
+          <div id="detailsActions" class="details-actions"></div>
         </div>
       </div>
       <div class="season-control" id="seasonControl">
@@ -875,8 +1042,15 @@
           <button type="button" id="playerSwitchSource" class="player-hud-btn">Switch source</button>
         </div>
       </div>
+      <button type="button" id="playerNextUp" class="player-next-up" hidden>
+        <span class="player-next-label">UP NEXT</span>
+        <strong id="playerNextTitle"></strong>
+        <span id="playerNextMeta"></span>
+      </button>
     </div>
   </div>
+
+  <div id="quickActions" class="quick-actions" hidden role="menu" aria-label="Title actions"></div>
 
   <script>
     let hls = null;
