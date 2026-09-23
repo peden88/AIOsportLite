@@ -72,8 +72,13 @@ t(html.includes("setCatalogRailVisible(mode !== 'continue')"), 'Continue Watchin
 t(/html\s*\{[\s\S]*?background-color\s*:\s*#414a7f[\s\S]*?linear-gradient\([\s\S]*?135deg[\s\S]*?#355f7f[\s\S]*?#2f4d7f[\s\S]*?#414a7f/.test(html), 'web app uses one opaque continuous AIOPlay gradient through the Safari underlay');
 t(!html.includes('body::before') && !html.includes('body::after'), 'global background uses no fixed pseudo-element layers that can seam on iOS');
 t(/\.content-state\s*\{[\s\S]*?place-items\s*:\s*center[\s\S]*?font\s*:\s*600\s+1\.5rem/.test(html), 'loading and empty states are centered and enlarged');
-t(html.includes("setGridState('Fetching matches…')"), 'sports loading text uses the centered state');
+t(html.includes("beginGridTransition({ posterMode:false })"), 'sports catalog loading uses the premium skeleton grid');
 t(html.includes("setGridState('Nothing to show here right now.')"), 'empty catalog text uses the centered state');
+t(html.includes('id="playerMinimize"'), 'web player exposes the mini-player control');
+t(html.includes('id="searchFilters"'), 'global search exposes All Movies Series filters');
+t(html.includes('prefers-reduced-motion:reduce'), 'web UI respects reduced motion preferences');
+t(html.includes('player-timeline-marker'), 'player HUD supports timeline markers');
+t(html.includes("IntersectionObserver"), 'visible VOD cards progressively hydrate metadata');
 t(/\.mode-tab\s*\{[\s\S]*?var\(--accent-gradient\) border-box/.test(html), 'top navigation uses gradient pill outlines');
 t(/\.admin-only\s*\{\s*display\s*:\s*none\s*!important\s*;?\s*\}/.test(html), 'admin controls are hidden before role resolution');
 t(html.includes("gate.user.role === 'admin'"), 'admin controls are only revealed after an admin role is confirmed');
