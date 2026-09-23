@@ -427,10 +427,337 @@
     }
     .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* AIOPlay premium web skin — mirrors the TV app without forcing TV layout
+       conventions onto pointer/touch browsers. */
+    :root {
+      --bg:#0a0e13;
+      --panel:#11161d;
+      --card-bg:rgba(17,22,29,.78);
+      --card-border:rgba(255,255,255,.075);
+      --text:#f3f5f7;
+      --text-muted:#9ca6af;
+      --accent:#8fa2ae;
+      --accent-cyan:#9aadb5;
+      --accent-blue:#71859b;
+      --accent-violet:#837a8d;
+      --accent-warm:#9a8d7d;
+      --accent-gradient:linear-gradient(135deg,var(--accent-cyan),var(--accent-blue) 52%,var(--accent-violet));
+      --accent-glow:rgba(125,145,160,.20);
+      --glass:rgba(10,14,19,.76);
+      --rail:rgba(10,14,19,.84);
+      --soft-line:rgba(255,255,255,.07);
+    }
+    html {
+      background:#0a0e13;
+      background-image:linear-gradient(135deg,#0a0e13 0%,#11161d 52%,#171920 100%);
+    }
+    body { position:relative; background:transparent; }
+    .app-hero {
+      position:fixed;
+      inset:0;
+      z-index:-3;
+      background:#0a0e13 center/cover no-repeat;
+      opacity:0;
+      transform:scale(1.018);
+      transition:opacity .28s ease, background-image .28s ease;
+      pointer-events:none;
+    }
+    .app-hero.is-visible { opacity:1; }
+    .app-hero-scrim {
+      position:fixed;
+      inset:0;
+      z-index:-2;
+      pointer-events:none;
+      background:
+        linear-gradient(90deg,rgba(10,14,19,.96) 0%,rgba(10,14,19,.86) 28%,rgba(10,14,19,.48) 64%,rgba(10,14,19,.18) 100%),
+        linear-gradient(180deg,rgba(7,10,14,.18) 0%,rgba(7,10,14,.34) 48%,rgba(7,10,14,.94) 100%),
+        rgba(0,0,0,.24);
+    }
+    .top-header {
+      background:rgba(10,14,19,.64);
+      border-bottom:1px solid var(--soft-line);
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+    }
+    header {
+      background:rgba(10,14,19,.72);
+      border-color:var(--soft-line);
+      backdrop-filter:blur(20px);
+      -webkit-backdrop-filter:blur(20px);
+    }
+    .brand img {
+      box-shadow:none;
+      border-color:rgba(255,255,255,.12);
+      filter:saturate(.82);
+    }
+    .header-search {
+      background:rgba(17,22,29,.74);
+      border-color:rgba(255,255,255,.08);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+    }
+    .header-search:focus {
+      border-color:rgba(154,173,181,.7);
+      background:rgba(17,22,29,.90);
+      box-shadow:0 0 0 3px rgba(154,173,181,.10);
+    }
+    .mode-tab,.tab,.admin-toolbar .admin-action,.admin-icon-button {
+      background:rgba(20,26,33,.90) !important;
+      border:1px solid rgba(255,255,255,.08) !important;
+      color:#dfe5e9 !important;
+      box-shadow:none !important;
+    }
+    .mode-tab:hover,.mode-tab:focus-visible,
+    .tab:hover,.tab:focus-visible,
+    .admin-toolbar .admin-action:hover,.admin-toolbar .admin-action:focus-visible,
+    .admin-icon-button:hover,.admin-icon-button:focus-visible {
+      background:rgba(39,48,57,.96) !important;
+      border-color:rgba(255,255,255,.28) !important;
+      color:#fff !important;
+      transform:none;
+      filter:none;
+    }
+    .mode-tab.active,.tab.active {
+      background:#273039 !important;
+      border-color:rgba(154,173,181,.72) !important;
+      color:#fff !important;
+      box-shadow:0 8px 24px rgba(0,0,0,.18) !important;
+    }
+    main { padding-top:10px; }
+    .hero-info {
+      display:none;
+      min-height:84px;
+      margin:0 0 10px;
+      padding:12px 14px;
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+      background:linear-gradient(90deg,rgba(10,14,19,.72),rgba(17,22,29,.46));
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+      overflow:hidden;
+    }
+    .hero-info.visible { display:flex; align-items:center; gap:18px; }
+    .hero-logo-wrap {
+      width:min(230px,26vw);
+      min-width:140px;
+      height:58px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+    }
+    .hero-logo {
+      display:none;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      object-position:left center;
+      filter:drop-shadow(0 4px 16px rgba(0,0,0,.35));
+    }
+    .hero-title {
+      font:700 1.18rem/1.15 'Outfit',sans-serif;
+      letter-spacing:-.015em;
+      color:#f5f7f8;
+    }
+    .hero-copy { min-width:0; flex:1; }
+    .hero-meta { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:5px; }
+    .hero-chip {
+      padding:3px 7px;
+      border-radius:6px;
+      background:rgba(0,0,0,.34);
+      border:1px solid rgba(255,255,255,.055);
+      color:rgba(255,255,255,.82);
+      font-size:.68rem;
+      line-height:1;
+      white-space:nowrap;
+    }
+    .hero-description {
+      color:rgba(255,255,255,.68);
+      font-size:.76rem;
+      line-height:1.35;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .card { transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease; }
+    .card:hover { transform:translateY(-3px) scale(1.012); box-shadow:0 14px 34px rgba(0,0,0,.34); border-color:rgba(154,173,181,.55); }
+    .vod-card .poster-container {
+      border:2px solid transparent;
+      background:rgba(17,22,29,.82);
+      box-shadow:0 8px 22px rgba(0,0,0,.24);
+    }
+    .vod-card:hover .poster-container,.vod-card:focus-visible .poster-container {
+      border-color:rgba(245,247,248,.88);
+      transform:scale(1.018);
+      box-shadow:0 12px 30px rgba(0,0,0,.38),0 0 0 3px rgba(154,173,181,.08);
+    }
+    .live-badge {
+      background:rgba(20,24,29,.86);
+      border:1px solid rgba(255,255,255,.11);
+      color:#f1f3f4;
+      animation:none;
+      letter-spacing:.04em;
+    }
+    .progress-fill { background:#9aadb5; }
+    #details-overlay {
+      background:rgba(7,10,14,.22);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+    }
+    .details-shell {
+      background:rgba(13,17,23,.94);
+      border-color:rgba(255,255,255,.08);
+      box-shadow:0 28px 90px rgba(0,0,0,.44);
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+    }
+    .details-close,.episode-btn,.season-select,.player-choice-sheet {
+      background:#151b22;
+      border-color:rgba(255,255,255,.08);
+    }
+    .episode-btn:hover,.episode-btn:focus-visible {
+      border-color:rgba(154,173,181,.58);
+      background:#202831;
+      outline:none;
+    }
+    #player-overlay {
+      background:#05070a;
+      backdrop-filter:none;
+    }
+    .player-backdrop {
+      position:absolute;
+      inset:0;
+      background:center/cover no-repeat;
+      opacity:.24;
+      filter:saturate(.78);
+      transform:scale(1.02);
+      transition:background-image .22s ease,opacity .22s ease;
+      pointer-events:none;
+    }
+    .player-backdrop::after {
+      content:'';
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(90deg,rgba(5,7,10,.90),rgba(5,7,10,.36) 58%,rgba(5,7,10,.20)),
+        linear-gradient(180deg,rgba(5,7,10,.26),rgba(5,7,10,.88));
+    }
+    .player-brand {
+      background:rgba(10,14,19,.62);
+      border-color:rgba(255,255,255,.08);
+      box-shadow:none;
+    }
+    .player-brand span {
+      background:none;
+      color:#edf1f3;
+      -webkit-text-fill-color:initial;
+    }
+    #close-btn {
+      background:rgba(20,26,33,.72);
+      border-color:rgba(255,255,255,.10);
+      backdrop-filter:blur(10px);
+    }
+    .player-hud {
+      position:absolute;
+      left:28px;
+      right:28px;
+      bottom:34px;
+      z-index:103;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:22px;
+      pointer-events:none;
+      opacity:1;
+      transition:opacity .22s ease,transform .22s ease;
+    }
+    .player-hud.is-idle { opacity:0; transform:translateY(8px); }
+    .player-hud-main {
+      max-width:min(720px,72vw);
+      padding:16px 18px;
+      border:1px solid rgba(255,255,255,.075);
+      border-radius:15px;
+      background:rgba(8,11,15,.64);
+      backdrop-filter:blur(14px);
+      -webkit-backdrop-filter:blur(14px);
+      box-shadow:0 18px 48px rgba(0,0,0,.30);
+    }
+    .player-hud-logo {
+      display:none;
+      width:min(300px,36vw);
+      max-height:70px;
+      object-fit:contain;
+      object-position:left center;
+      margin-bottom:7px;
+    }
+    .player-hud-title {
+      font:700 1.35rem/1.15 'Outfit',sans-serif;
+      color:#f5f7f8;
+      margin-bottom:5px;
+    }
+    .player-hud-subtitle { color:rgba(255,255,255,.78); font-size:.88rem; }
+    .player-hud-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:9px; }
+    .player-hud-chip {
+      padding:4px 7px;
+      border-radius:7px;
+      background:rgba(255,255,255,.08);
+      color:rgba(255,255,255,.80);
+      font-size:.70rem;
+    }
+    .player-hud-actions {
+      pointer-events:auto;
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .player-hud-btn {
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(20,26,33,.82);
+      color:#f1f3f4;
+      border-radius:12px;
+      padding:9px 12px;
+      font:600 .78rem/1 'Inter',sans-serif;
+      cursor:pointer;
+      backdrop-filter:blur(10px);
+    }
+    .player-hud-btn:hover,.player-hud-btn:focus-visible {
+      border-color:rgba(255,255,255,.35);
+      background:#273039;
+      outline:none;
+    }
+    .loader {
+      z-index:104;
+      padding:22px 26px;
+      border-radius:16px;
+      background:rgba(8,11,15,.58);
+      border:1px solid rgba(255,255,255,.07);
+      backdrop-filter:blur(12px);
+    }
+    .spinner { border-top-color:#9aadb5; }
+    #playback-message {
+      z-index:104;
+      border-radius:16px;
+      background:rgba(8,11,15,.72);
+      border:1px solid rgba(255,255,255,.08);
+      backdrop-filter:blur(12px);
+    }
+    @media(max-width:650px){
+      .hero-info { min-height:70px; padding:9px 10px; }
+      .hero-logo-wrap { min-width:92px; width:30vw; height:42px; }
+      .hero-description { display:none; }
+      .hero-chip { font-size:.60rem; }
+      .player-hud { left:12px; right:12px; bottom:18px; }
+      .player-hud-main { max-width:100%; padding:11px 12px; }
+      .player-hud-actions { position:absolute; right:0; bottom:calc(100% + 8px); }
+      .player-hud-title { font-size:1.05rem; }
+      .player-hud-logo { width:min(230px,60vw); max-height:50px; }
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
 <body>
+
+  <div id="appHero" class="app-hero" aria-hidden="true"></div>
+  <div class="app-hero-scrim" aria-hidden="true"></div>
 
   <div class="top-header">
     <div class="header-row">
@@ -476,6 +803,16 @@
   </header>
 
   <main>
+    <section id="heroInfo" class="hero-info" aria-live="polite">
+      <div class="hero-logo-wrap">
+        <img id="heroLogo" class="hero-logo" alt="">
+        <div id="heroTitle" class="hero-title"></div>
+      </div>
+      <div class="hero-copy">
+        <div id="heroMeta" class="hero-meta"></div>
+        <div id="heroDescription" class="hero-description"></div>
+      </div>
+    </section>
     <div class="grid" id="grid"></div>
   </main>
 
@@ -512,6 +849,7 @@
   </div>
 
   <div id="player-overlay">
+    <div id="playerBackdrop" class="player-backdrop" aria-hidden="true"></div>
     <div class="player-brand" aria-label="AIOPlay"><img src="/aioplay-brand.webp" alt=""><span>AIOPlay</span></div>
     <button id="close-btn" onclick="closePlayer()">Close Player</button>
 
@@ -522,6 +860,17 @@
       </div>
       <div id="playback-message"><strong>Unable to start playback</strong><span>There are no working streams for this event right now.</span></div>
       <video id="video" controls autoplay></video>
+      <div id="playerHud" class="player-hud">
+        <div class="player-hud-main">
+          <img id="playerHudLogo" class="player-hud-logo" alt="">
+          <div id="playerHudTitle" class="player-hud-title"></div>
+          <div id="playerHudSubtitle" class="player-hud-subtitle"></div>
+          <div id="playerHudChips" class="player-hud-chips"></div>
+        </div>
+        <div class="player-hud-actions">
+          <button type="button" id="playerSwitchSource" class="player-hud-btn">Switch source</button>
+        </div>
+      </div>
     </div>
   </div>
 
