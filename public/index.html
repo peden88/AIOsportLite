@@ -890,6 +890,12 @@
     let currentProgressContext = null;
     let lastProgressSyncAt = 0;
     let sharedProgressItems = [];
+    let currentPlaybackMeta = null;
+    let heroTimer = null;
+    let heroPrefetchTimer = null;
+    let playerHudTimer = null;
+    let lastActiveCard = null;
+    const vodMetaCache = new Map();
 
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
@@ -993,6 +999,190 @@
         return ['http:', 'https:'].includes(u.protocol) ? u.toString() : '';
       } catch (_) {
         return '';
+      }
+    }
+
+    function normalizedVodType(meta) {
+      const raw = String(meta?.type || currentVodType || '').toLowerCase();
+      if (raw === 'series' || raw === 'tv' || raw === 'episode') return 'series';
+      if (raw === 'movie') return 'movie';
+      return '';
+    }
+
+    function heroLabels(meta) {
+      const labels = [];
+      if (currentMode === 'sports') {
+        labels.push('LIVE');
+      } else if (meta?._progress && meta._progress.season != null && meta._progress.episode != null) {
+        labels.push(
+          'S' + String(meta._progress.season).padStart(2, '0') +
+          'E' + String(meta._progress.episode).padStart(2, '0')
+        );
+      } else {
+        const release = meta?.releaseInfo || meta?.year;
+        if (release) labels.push(String(release));
+        const rating = Number(meta?.imdbRating ?? meta?.rating);
+        if (Number.isFinite(rating) && rating > 0) labels.push('★ ' + rating.toFixed(1));
+        if (meta?.runtime) labels.push(String(meta.runtime));
+        const genres = Array.isArray(meta?.genres) ? meta.genres : [];
+        labels.push(...genres.filter(Boolean).slice(0, 2).map(String));
+      }
+      return labels.slice(0, 5);
+    }
+
+    function updateHero(meta) {
+      if (!meta) return;
+      const hero = document.getElementById('appHero');
+      const info = document.getElementById('heroInfo');
+      const logo = document.getElementById('heroLogo');
+      const title = document.getElementById('heroTitle');
+      const metaHost = document.getElementById('heroMeta');
+      const description = document.getElementById('heroDescription');
+      if (!hero || !info || !logo || !title || !metaHost || !description) return;
+
+      const artwork = safeImageUrl(meta.background || meta.backdrop || meta.poster);
+      hero.style.backgroundImage = artwork ? 'url("' + artwork.replace(/"/g, '%22') + '")' : '';
+      hero.classList.toggle('is-visible', !!artwork);
+
+      const logoUrl = safeImageUrl(meta.logo);
+      if (logoUrl) {
+        logo.src = logoUrl;
+        logo.style.display = 'block';
+        title.style.display = 'none';
+      } else {
+        logo.removeAttribute('src');
+        logo.style.display = 'none';
+        title.style.display = 'block';
+        title.textContent = String(meta.name || meta.title || '');
+      }
+
+      metaHost.innerHTML = '';
+      heroLabels(meta).forEach(label => {
+        const chip = document.createElement('span');
+        chip.className = 'hero-chip';
+        chip.textContent = label;
+        metaHost.appendChild(chip);
+      });
+
+      const episodeLine = meta?._progress?.episodeTitle
+        ? (
+            'S' + String(meta._progress.season ?? '').padStart(2, '0') +
+            'E' + String(meta._progress.episode ?? '').padStart(2, '0') +
+            ' · ' + meta._progress.episodeTitle
+          )
+        : '';
+      description.textContent = episodeLine || String(meta.description || '');
+      info.classList.add('visible');
+    }
+
+    function scheduleHero(meta) {
+      clearTimeout(heroTimer);
+      clearTimeout(heroPrefetchTimer);
+      heroTimer = setTimeout(() => updateHero(meta), 150);
+
+      const type = normalizedVodType(meta);
+      if (!type || currentMode === 'sports' || !meta?.id) return;
+      heroPrefetchTimer = setTimeout(async () => {
+        const key = type + '|' + meta.id;
+        if (vodMetaCache.has(key)) {
+          if (lastActiveCard?.dataset?.contentId === String(meta.id)) {
+            updateHero({ ...meta, ...vodMetaCache.get(key) });
+          }
+          return;
+        }
+        try {
+          const res = await fetch(
+            '/api/v1/vod/meta/' + encodeURIComponent(type) + '/' + encodeURIComponent(meta.id)
+          );
+          const body = await res.json();
+          if (!res.ok || !body.meta) return;
+          vodMetaCache.set(key, body.meta);
+          if (lastActiveCard?.dataset?.contentId === String(meta.id)) {
+            updateHero({ ...meta, ...body.meta });
+          }
+        } catch (_) {}
+      }, 360);
+    }
+
+    function rememberCard(card, meta) {
+      lastActiveCard = card;
+      card.dataset.contentId = String(meta?.id || '');
+      scheduleHero(meta);
+    }
+
+    function restoreLastCardFocus() {
+      requestAnimationFrame(() => {
+        if (lastActiveCard && document.body.contains(lastActiveCard)) {
+          try { lastActiveCard.focus({ preventScroll: true }); } catch (_) { lastActiveCard.focus(); }
+        }
+      });
+    }
+
+    function setPlayerPresentation(meta, contentType) {
+      currentPlaybackMeta = meta || {};
+      const backdrop = document.getElementById('playerBackdrop');
+      const logo = document.getElementById('playerHudLogo');
+      const title = document.getElementById('playerHudTitle');
+      const subtitle = document.getElementById('playerHudSubtitle');
+      const chips = document.getElementById('playerHudChips');
+      const switchButton = document.getElementById('playerSwitchSource');
+      if (!backdrop || !logo || !title || !subtitle || !chips || !switchButton) return;
+
+      const artwork = safeImageUrl(meta?.backdrop || meta?.background || meta?.poster);
+      backdrop.style.backgroundImage = artwork ? 'url("' + artwork.replace(/"/g, '%22') + '")' : '';
+
+      const logoUrl = safeImageUrl(meta?.logo);
+      if (logoUrl) {
+        logo.src = logoUrl;
+        logo.style.display = 'block';
+      } else {
+        logo.removeAttribute('src');
+        logo.style.display = 'none';
+      }
+
+      const isEpisode = contentType === 'episode' || String(meta?.contentType || '').toLowerCase() === 'series';
+      title.textContent = isEpisode
+        ? String(meta?.name || meta?.parentName || 'AIOPlay')
+        : String(meta?.name || meta?.title || 'AIOPlay');
+
+      const season = meta?.season;
+      const episode = meta?.episode;
+      const code = season != null && episode != null
+        ? 'S' + String(season).padStart(2, '0') + 'E' + String(episode).padStart(2, '0')
+        : '';
+      const epTitle = String(meta?.episodeTitle || '');
+      subtitle.textContent = isEpisode
+        ? [code, epTitle].filter(Boolean).join(' · ')
+        : String(meta?.description || '');
+
+      chips.innerHTML = '';
+      const labels = [];
+      if (contentType === 'sport_event' || contentType === 'live_channel' || contentType === 'sport') {
+        labels.push('LIVE');
+      }
+      if (meta?.releaseInfo || meta?.year) labels.push(String(meta.releaseInfo || meta.year));
+      if (meta?.runtime) labels.push(String(meta.runtime));
+      labels.slice(0, 4).forEach(label => {
+        const chip = document.createElement('span');
+        chip.className = 'player-hud-chip';
+        chip.textContent = label;
+        chips.appendChild(chip);
+      });
+      switchButton.disabled = !currentPlaybackSession;
+    }
+
+    function showPlayerHud(sticky = false) {
+      const hud = document.getElementById('playerHud');
+      if (!hud) return;
+      hud.classList.remove('is-idle');
+      clearTimeout(playerHudTimer);
+      if (!sticky) {
+        playerHudTimer = setTimeout(() => {
+          const video = document.getElementById('video');
+          if (video && !video.paused && document.getElementById('loader')?.style.display === 'none') {
+            hud.classList.add('is-idle');
+          }
+        }, 3200);
       }
     }
 
@@ -1258,11 +1448,16 @@
         return;
       }
 
+      updateHero(metas[0]);
+
       for (const meta of metas) {
         const card = document.createElement('div');
         card.className = 'card';
 
         card.tabIndex = 0;
+        card.addEventListener('mouseenter', () => rememberCard(card, meta));
+        card.addEventListener('focus', () => rememberCard(card, meta));
+        card.addEventListener('pointerdown', () => { lastActiveCard = card; });
         card.onkeydown = event => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
