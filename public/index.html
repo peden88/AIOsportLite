@@ -4289,6 +4289,63 @@
       );
     }
 
+    function seriesHeroTarget(meta, videos) {
+      const ordered = Array.isArray(videos) ? videos.filter(v => v?.id) : [];
+      if (!ordered.length) return null;
+
+      const rows = ordered.map(video => ({
+        video,
+        progress:cachedEpisodeProgress(meta, video)
+      }));
+      const partial = rows
+        .filter(row => {
+          const pct = Number(row.progress?.progressPercent || 0);
+          return pct > 0 && pct < 90;
+        })
+        .sort((a, b) => Number(b.progress?.lastWatched || 0) - Number(a.progress?.lastWatched || 0))[0];
+      if (partial) return { ...partial, mode:'resume' };
+
+      const hasWatched = rows.some(row => Number(row.progress?.progressPercent || 0) >= 90);
+      const next = rows.find(row => Number(row.progress?.progressPercent || 0) < 90);
+      if (next) return { ...next, mode:hasWatched ? 'next' : 'play' };
+
+      // Entire available run is watched: replay the first episode rather than
+      // hiding the primary action.
+      return { ...rows[0], mode:'replay' };
+    }
+
+    function configureSeriesHeroAction(meta, videos) {
+      const slot = document.getElementById('detailsHeroAction');
+      const play = document.getElementById('detailsMoviePlay');
+      const label = document.getElementById('detailsMoviePlayLabel');
+      const target = seriesHeroTarget(meta, videos);
+      if (!slot || !play || !label || !target) return;
+
+      const { video, mode } = target;
+      const season = Number(video.season) || 0;
+      const episode = Number(video.episode) || 0;
+      const code = season > 0 && episode > 0
+        ? ('S' + String(season).padStart(2, '0') + 'E' + String(episode).padStart(2, '0'))
+        : '';
+      const action = mode === 'resume' ? 'Resume' : mode === 'next' ? 'Next Episode' : mode === 'replay' ? 'Replay' : 'Play';
+
+      slot.hidden = false;
+      label.textContent = code ? (action + ' · ' + code) : action;
+      play.setAttribute('aria-label', code ? (action + ' ' + code) : action);
+      play.title = code ? (action + ' ' + code) : action;
+      play.onclick = async () => {
+        currentDetailsEpisodeId = String(video.id);
+        currentDetailsSeason = season;
+        await fetchAndPlay(
+          video.id,
+          'episode',
+          'series',
+          progressContextForEpisode(meta, video),
+          document.getElementById('detailsPoster')
+        );
+      };
+    }
+
     function prepareDetailsShell(preview, type) {
       const overlay = document.getElementById('details-overlay');
       const list = document.getElementById('episodeList');
@@ -4398,6 +4455,8 @@
           (Number(a.season) || 0) - (Number(b.season) || 0) ||
           (Number(a.episode) || 0) - (Number(b.episode) || 0)
         );
+
+        configureSeriesHeroAction(currentDetailsMeta, videos);
 
         if (!videos.length) {
           list.innerHTML = '<div style="color:var(--text-muted);">No episodes are available in metadata for this title.</div>';
