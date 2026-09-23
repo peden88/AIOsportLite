@@ -1947,11 +1947,30 @@
       for (const meta of metas) {
         const card = document.createElement('div');
         card.className = 'card';
+        card.dataset.contentId = String(meta.id || '');
+        card.dataset.contentKey = cardIdentity(meta);
 
         card.tabIndex = 0;
         card.addEventListener('mouseenter', () => rememberCard(card, meta));
-        card.addEventListener('focus', () => rememberCard(card, meta));
-        card.addEventListener('pointerdown', () => { lastActiveCard = card; });
+        card.addEventListener('focus', () => {
+          rememberCard(card, meta);
+          persistUiState();
+        });
+        card.addEventListener('pointerdown', event => {
+          lastActiveCard = card;
+          if (currentMode !== 'sports' && event.pointerType !== 'mouse') {
+            clearTimeout(longPressTimer);
+            longPressTimer = setTimeout(() => showQuickActions(card, meta), 560);
+          }
+        });
+        ['pointerup','pointercancel','pointerleave'].forEach(eventName => {
+          card.addEventListener(eventName, () => clearTimeout(longPressTimer));
+        });
+        card.addEventListener('contextmenu', event => {
+          if (currentMode === 'sports') return;
+          event.preventDefault();
+          showQuickActions(card, meta);
+        });
         card.onkeydown = event => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -1960,7 +1979,7 @@
         };
 
         if (currentMode === 'sports') {
-          card.onclick = () => fetchAndPlay(meta.id, 'sport_event', '');
+          card.onclick = () => fetchAndPlay(meta.id, 'sport_event', '', null, card);
         } else {
           card.classList.add('vod-card');
           const vodType = String(meta.type || currentVodType || 'movie').toLowerCase();
@@ -1971,13 +1990,14 @@
                 row.videoId || row.contentId,
                 row.contentType === 'series' ? 'episode' : 'movie',
                 row.contentType === 'series' ? 'series' : 'movie',
-                row
+                row,
+                card
               );
             };
           } else {
             card.onclick = vodType === 'series'
-              ? () => openSeries(meta)
-              : () => fetchAndPlay(meta.id, 'movie', 'movie', progressContextForMovie(meta));
+              ? () => openSeries(meta, card)
+              : () => fetchAndPlay(meta.id, 'movie', 'movie', progressContextForMovie(meta), card);
           }
         }
 
@@ -2002,17 +2022,57 @@
           posterBox.appendChild(badge);
         }
 
+        if (currentMode !== 'sports') {
+          if (meta._progress?.upNext || meta._progress?.source === 'aioplay_up_next') {
+            const upNext = document.createElement('div');
+            upNext.className = 'up-next-badge';
+            upNext.textContent = 'UP NEXT';
+            posterBox.appendChild(upNext);
+          }
+
+          const quick = document.createElement('button');
+          quick.type = 'button';
+          quick.className = 'card-quick-trigger';
+          quick.setAttribute('aria-label', 'Title actions');
+          quick.textContent = '⋯';
+          quick.onclick = event => {
+            event.preventDefault();
+            event.stopPropagation();
+            showQuickActions(quick, meta);
+          };
+          posterBox.appendChild(quick);
+        }
+
         const info = document.createElement('div');
         info.className = 'info';
         const title = document.createElement('div');
         title.className = 'title';
         title.textContent = name.replace('🔴 [LIVE] ', '');
+        const metaLine = document.createElement('div');
+        metaLine.className = 'card-meta-line';
+        cardMetadataLabels(meta).forEach(label => {
+          const span = document.createElement('span');
+          span.textContent = label;
+          metaLine.appendChild(span);
+        });
+
         const desc = document.createElement('div');
         desc.className = 'desc';
         desc.textContent = String(meta.description || '');
-        info.append(title, desc);
+        info.append(title);
+        if (currentMode !== 'sports' && metaLine.childElementCount) {
+          info.appendChild(metaLine);
+        }
+        info.appendChild(desc);
 
         if (meta._progress) {
+          const continuity = continuityLabel(meta._progress);
+          if (continuity) {
+            const badge = document.createElement('div');
+            badge.className = 'continuity-badge';
+            badge.textContent = continuity;
+            info.appendChild(badge);
+          }
           const track = document.createElement('div');
           track.className = 'progress-track';
           const fill = document.createElement('div');
@@ -2028,6 +2088,16 @@
 
         card.append(posterBox, info);
         host.appendChild(card);
+
+        if (
+          String(savedUiState()?.focusedKey || '') === card.dataset.contentKey ||
+          (
+            !savedUiState()?.focusedKey &&
+            String(savedUiState()?.focusedId || '') === card.dataset.contentId
+          )
+        ) {
+          lastActiveCard = card;
+        }
       }
     }
 
