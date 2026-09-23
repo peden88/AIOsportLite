@@ -543,6 +543,12 @@
       touch-action:pan-x pan-y;
     }
     .episode-list::-webkit-scrollbar { display:none; }
+    .episode-scroll-controls{display:flex;justify-content:center;align-items:center;gap:12px;margin:7px 0 2px;}
+    .episode-scroll-controls[hidden]{display:none!important;}
+    .episode-scroll-controls button{width:42px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(21,27,34,.94);color:#f3f5f7;font:800 24px/1 'Inter',sans-serif;cursor:pointer;}
+    .episode-scroll-controls button:hover,.episode-scroll-controls button:focus-visible{outline:none;background:#273039;border-color:rgba(154,173,181,.62);}
+    .episode-scroll-controls button:disabled{opacity:.3;cursor:default;}
+    @media(min-width:651px){.episode-list{scroll-snap-type:none;overscroll-behavior-x:contain;}}
 
     .episode-btn {
       flex:0 0 clamp(220px,31vw,290px);
@@ -1927,6 +1933,10 @@
         <select id="seasonSelect" class="season-select" aria-label="Season"></select>
       </div>
       <div class="episode-list" id="episodeList"></div>
+      <div class="episode-scroll-controls" id="episodeScrollControls" hidden>
+        <button type="button" id="episodeScrollLeft" aria-label="Scroll episodes left">‹</button>
+        <button type="button" id="episodeScrollRight" aria-label="Scroll episodes right">›</button>
+      </div>
     </div>
   </div>
 
@@ -2181,8 +2191,7 @@
     function buildExternalPlayerUrl(kind, streamUrl) {
       const encoded = encodeURIComponent(streamUrl);
       if (kind === 'vlc') {
-        const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent || '');
-        return isMac ? 'vlc://' + streamUrl : 'vlc-x-callback://x-callback-url/stream?url=' + encoded;
+        return 'vlc-x-callback://x-callback-url/stream?url=' + encoded;
       }
       if (kind === 'outplayer') {
         return 'outplayer://x-callback-url/play?url=' + encoded;
@@ -2198,6 +2207,26 @@
     }
 
     function triggerExternalPlayer(kind, streamUrl) {
+      const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent || '');
+      if (kind === 'vlc' && isMac) {
+        // VLC for macOS does not register the iOS x-callback URL scheme, and
+        // Safari rejects both vlc-x-callback:// and vlc:// as invalid. Hand
+        // VLC a standard M3U playlist instead; this avoids the invalid-address
+        // error and works with VLC when .m3u files are opened/associated with it.
+        const playlist = '#EXTM3U\\n#EXTINF:-1,AIOPlay\\n' + streamUrl + '\\n';
+        const blob = new Blob([playlist], { type:'application/vnd.apple.mpegurl' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'AIOPlay-VLC.m3u';
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        return true;
+      }
+
       const playerUrl = buildExternalPlayerUrl(kind, streamUrl);
       if (!playerUrl) return false;
       try {
@@ -3361,21 +3390,56 @@
     }
 
     function setupEpisodeRail(rail) {
-      if (!rail || rail.dataset.railReady === '1') return;
-      rail.dataset.railReady = '1';
+      if (!rail) return;
+      const controls = document.getElementById('episodeScrollControls');
+      const left = document.getElementById('episodeScrollLeft');
+      const right = document.getElementById('episodeScrollRight');
 
-      // Touch uses native momentum scrolling. Mouse wheels/trackpads are mapped
-      // horizontally so the rail feels natural on desktop too.
-      rail.addEventListener('wheel', event => {
-        if (rail.scrollWidth <= rail.clientWidth) return;
-        const horizontal = Math.abs(event.deltaX) >= 1 ? event.deltaX : 0;
-        const fallback = Math.abs(event.deltaY) > 1 ? event.deltaY : 0;
-        const delta = horizontal || fallback;
-        if (!delta) return;
-        const before = rail.scrollLeft;
-        rail.scrollLeft += delta;
-        if (rail.scrollLeft !== before) event.preventDefault();
-      }, { passive:false });
+      const updateControls = () => {
+        const scrollable = rail.scrollWidth > rail.clientWidth + 2;
+        if (controls) controls.hidden = !scrollable;
+        if (left) left.disabled = rail.scrollLeft <= 2;
+        if (right) right.disabled = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 2;
+      };
+
+      if (rail.dataset.railReady !== '1') {
+        rail.dataset.railReady = '1';
+        let accumulatedX = 0;
+        let frame = 0;
+        rail.addEventListener('wheel', event => {
+          if (rail.scrollWidth <= rail.clientWidth) return;
+          // Safari sends a stream of small deltaX values for a two-finger
+          // horizontal gesture. Accumulate them per frame instead of allowing
+          // scroll snapping/rounding to consume the momentum after 1–2 cards.
+          const dx = Math.abs(event.deltaX) > .05 ? event.deltaX : 0;
+          if (!dx) return;
+          event.preventDefault();
+          accumulatedX += dx * 1.45;
+          if (!frame) {
+            frame = requestAnimationFrame(() => {
+              rail.scrollLeft += accumulatedX;
+              accumulatedX = 0;
+              frame = 0;
+              updateControls();
+            });
+          }
+        }, { passive:false });
+        rail.addEventListener('scroll', updateControls, { passive:true });
+      }
+
+      if (left && left.dataset.ready !== '1') {
+        left.dataset.ready = '1';
+        left.addEventListener('click', () => rail.scrollBy({
+          left:-Math.max(240, rail.clientWidth * .72), behavior:'smooth'
+        }));
+      }
+      if (right && right.dataset.ready !== '1') {
+        right.dataset.ready = '1';
+        right.addEventListener('click', () => rail.scrollBy({
+          left:Math.max(240, rail.clientWidth * .72), behavior:'smooth'
+        }));
+      }
+      requestAnimationFrame(updateControls);
     }
 
     function restoreDetailsEpisodeFocus() {
@@ -4650,7 +4714,8 @@
 
         const renderSeason = season => {
           list.innerHTML = '';
-          setupEpisodeRail(list);
+          const episodeControls = document.getElementById('episodeScrollControls');
+          if (episodeControls) episodeControls.hidden = true;
           const selected = videos.filter(video => (Number(video.season) || 0) === season);
 
           if (!selected.length) {
@@ -4768,6 +4833,7 @@
 
             list.appendChild(button);
           });
+          setupEpisodeRail(list);
 
           restoreDetailsEpisodeFocus();
         };
