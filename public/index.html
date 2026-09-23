@@ -4168,22 +4168,37 @@
       ) {
         await closePlayer(true, { returnToOrigin:false });
       }
-      if (document.getElementById('details-overlay').style.display === 'block') {
+
+      const detailsOverlay = document.getElementById('details-overlay');
+      const detailsWasOpen = detailsOverlay.style.display === 'block';
+      const sameMountedView = mountedViewMatchesSnapshot(snapshot);
+
+      // Details and Player are overlays over the existing catalog. If browser
+      // Back only changes the overlay state, never rebuild the grid underneath:
+      // the same poster elements, decoded images, scroll position and focus
+      // remain resident and can be revealed immediately.
+      if (detailsWasOpen && snapshot?.overlay !== 'details') {
         closeDetails({ restoreFocus:false, persist:false });
       }
 
-      if (snapshot?.mode) {
+      if (!sameMountedView && snapshot?.mode) {
         await loadMode(snapshot.mode, { snapshot, push:false });
         const search = document.getElementById('searchInput');
         search.value = snapshot.search || '';
+        setSearchType(snapshot.searchType || '', { rerun:false });
         if (snapshot.search) await applySearch(snapshot.search, { persist:false });
+        restoreGridPosition(snapshot);
+      } else if (sameMountedView) {
         restoreGridPosition(snapshot);
       }
 
       if (snapshot?.overlay === 'details' && currentDetailsMeta) {
         document.body.classList.add('details-open');
-        document.getElementById('details-overlay').style.display = 'block';
+        detailsOverlay.style.display = 'block';
+        setDetailsTitleArt(currentDetailsMeta);
+        restoreDetailsEpisodeFocus();
       }
+
       restoringUiState = false;
     });
 
