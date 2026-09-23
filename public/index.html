@@ -2213,7 +2213,7 @@
         // Safari rejects both vlc-x-callback:// and vlc:// as invalid. Hand
         // VLC a standard M3U playlist instead; this avoids the invalid-address
         // error and works with VLC when .m3u files are opened/associated with it.
-        const playlist = '#EXTM3U\\n#EXTINF:-1,AIOPlay\\n' + streamUrl + '\\n';
+        const playlist = '#EXTM3U\n#EXTINF:-1,AIOPlay\n' + streamUrl + '\n';
         const blob = new Blob([playlist], { type:'application/vnd.apple.mpegurl' });
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
