@@ -1235,7 +1235,9 @@
         const key = type + '|' + meta.id;
         if (vodMetaCache.has(key)) {
           if (lastActiveCard?.dataset?.contentId === String(meta.id)) {
-            updateHero({ ...meta, ...vodMetaCache.get(key) });
+            const merged = { ...meta, ...vodMetaCache.get(key) };
+            updateHero(merged);
+            hydrateCardMetadata(lastActiveCard, merged);
           }
           return;
         }
@@ -1247,7 +1249,9 @@
           if (!res.ok || !body.meta) return;
           vodMetaCache.set(key, body.meta);
           if (lastActiveCard?.dataset?.contentId === String(meta.id)) {
-            updateHero({ ...meta, ...body.meta });
+            const merged = { ...meta, ...body.meta };
+            updateHero(merged);
+            hydrateCardMetadata(lastActiveCard, merged);
           }
         } catch (_) {}
       }, 360);
@@ -1300,6 +1304,23 @@
       const genres = Array.isArray(meta.genres) ? meta.genres : [];
       labels.push(...genres.filter(Boolean).slice(0, 2).map(String));
       return labels.slice(0, 5);
+    }
+
+    function hydrateCardMetadata(card, meta) {
+      if (!card || !meta) return;
+      const line = card.querySelector('.card-meta-line');
+      if (line) {
+        line.innerHTML = '';
+        cardMetadataLabels(meta).forEach(label => {
+          const span = document.createElement('span');
+          span.textContent = label;
+          line.appendChild(span);
+        });
+      }
+      const desc = card.querySelector('.desc');
+      if (desc && !desc.textContent.trim() && meta.description) {
+        desc.textContent = String(meta.description);
+      }
     }
 
     function continuityLabel(row) {
