@@ -4513,12 +4513,16 @@
     async function closeDetailsFromUi() {
       const overlay = document.getElementById('details-overlay');
       if (!overlay || overlay.style.display !== 'block') return;
-      await animateDetailsDismiss();
+      const historyOwned = history.state?.aioplay?.overlay === 'details';
 
-      if (history.state?.aioplay?.overlay === 'details') {
+      await animateDetailsDismiss();
+      closeDetails({
+        restoreFocus:true,
+        persist:!historyOwned
+      });
+
+      if (historyOwned) {
         history.back();
-      } else {
-        closeDetails();
       }
     }
 
