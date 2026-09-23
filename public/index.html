@@ -1076,6 +1076,7 @@
     let currentCatalogState = null;
     let currentDetailsMeta = null;
     let currentNextEpisode = null;
+    let playerReturnToDetails = false;
     let restoringUiState = false;
     let longPressTimer = null;
     const vodMetaCache = new Map();
@@ -2313,25 +2314,105 @@
       }
     }
 
-    async function openSeries(preview) {
+    function fillDetailsMeta(meta) {
+      const host = document.getElementById('detailsMeta');
+      if (!host) return;
+      host.innerHTML = '';
+      cardMetadataLabels(meta).forEach(label => {
+        const span = document.createElement('span');
+        span.textContent = label;
+        host.appendChild(span);
+      });
+    }
+
+    function prepareDetailsShell(preview, type) {
       const overlay = document.getElementById('details-overlay');
-      const type = 'series';
-      const cacheKey = type + '|' + preview.id;
       const list = document.getElementById('episodeList');
       const seasonControl = document.getElementById('seasonControl');
       const seasonSelect = document.getElementById('seasonSelect');
+      const actions = document.getElementById('detailsActions');
       document.body.classList.add('details-open');
       overlay.style.display = 'block';
       seasonControl.style.display = 'none';
       seasonSelect.innerHTML = '';
       seasonSelect.onchange = null;
-      document.getElementById('detailsTitle').textContent = preview.name || 'Series';
+      actions.innerHTML = '';
+      currentDetailsMeta = { ...preview, type };
+      document.getElementById('detailsTitle').textContent = preview.name || (type === 'movie' ? 'Movie' : 'Series');
       document.getElementById('detailsDescription').textContent = preview.description || '';
+      fillDetailsMeta(preview);
       const poster = document.getElementById('detailsPoster');
-      const image = safeImageUrl(preview.poster);
+      const image = safeImageUrl(preview.poster || preview.background);
       poster.src = image || '';
       poster.style.display = image ? 'block' : 'none';
-      list.innerHTML = '<div style="color:var(--text-muted);">Loading episodes...</div>';
+      list.innerHTML = type === 'series'
+        ? '<div style="color:var(--text-muted);">Loading episodes...</div>'
+        : '';
+    }
+
+    async function openMovie(preview, sourceElement = null) {
+      const source = sourceElement?.querySelector?.('.poster-container') || sourceElement;
+      await withSharedTransition(
+        source,
+        async () => prepareDetailsShell(preview, 'movie'),
+        () => document.getElementById('detailsPoster')
+      );
+      persistUiState({ push:true, overlay:'details' });
+
+      const meta = await loadMetaFor({ ...preview, type:'movie' }) || preview;
+      currentDetailsMeta = { ...preview, ...meta, type:'movie' };
+      document.getElementById('detailsTitle').textContent = currentDetailsMeta.name || preview.name || 'Movie';
+      document.getElementById('detailsDescription').textContent = currentDetailsMeta.description || preview.description || '';
+      fillDetailsMeta(currentDetailsMeta);
+      const poster = document.getElementById('detailsPoster');
+      const metaPoster = safeImageUrl(currentDetailsMeta.poster || preview.poster);
+      poster.src = metaPoster || '';
+      poster.style.display = metaPoster ? 'block' : 'none';
+
+      const actions = document.getElementById('detailsActions');
+      const progress = cachedMovieProgress(currentDetailsMeta.id);
+      const play = document.createElement('button');
+      play.type = 'button';
+      play.textContent = progress && Number(progress.progressPercent || 0) > 0 && Number(progress.progressPercent || 0) < 90
+        ? 'Resume'
+        : 'Play';
+      play.onclick = () => fetchAndPlay(
+        currentDetailsMeta.id,
+        'movie',
+        'movie',
+        progress || progressContextForMovie(currentDetailsMeta),
+        document.getElementById('detailsPoster')
+      );
+      actions.appendChild(play);
+      if (progress && Number(progress.progressPercent || 0) > 0) {
+        const restart = document.createElement('button');
+        restart.type = 'button';
+        restart.textContent = 'Restart';
+        restart.onclick = () => fetchAndPlay(
+          currentDetailsMeta.id,
+          'movie',
+          'movie',
+          { ...progress, position:0, progressPercent:0 },
+          document.getElementById('detailsPoster')
+        );
+        actions.appendChild(restart);
+      }
+    }
+
+    async function openSeries(preview, sourceElement = null) {
+      const type = 'series';
+      const cacheKey = type + '|' + preview.id;
+      const list = document.getElementById('episodeList');
+      const seasonControl = document.getElementById('seasonControl');
+      const seasonSelect = document.getElementById('seasonSelect');
+      const source = sourceElement?.querySelector?.('.poster-container') || sourceElement;
+      await withSharedTransition(
+        source,
+        async () => prepareDetailsShell(preview, 'series'),
+        () => document.getElementById('detailsPoster')
+      );
+      persistUiState({ push:true, overlay:'details' });
+      const poster = document.getElementById('detailsPoster');
 
       try {
         let meta = vodMetaCache.get(cacheKey) || null;
@@ -2342,8 +2423,10 @@
           meta = body.meta;
           vodMetaCache.set(cacheKey, meta);
         }
+        currentDetailsMeta = { ...preview, ...meta, type:'series' };
         document.getElementById('detailsTitle').textContent = meta.name || preview.name || 'Series';
         document.getElementById('detailsDescription').textContent = meta.description || preview.description || '';
+        fillDetailsMeta(currentDetailsMeta);
         const metaPoster = safeImageUrl(meta.poster || preview.poster);
         poster.src = metaPoster || '';
         poster.style.display = metaPoster ? 'block' : 'none';
@@ -2386,12 +2469,12 @@
             const prefix = ep ? ('E' + ep + ' · ') : '';
             button.textContent = prefix + (video.title || video.name || ('Episode ' + (ep || '')));
             button.onclick = async () => {
-              closeDetails();
               await fetchAndPlay(
                 video.id,
                 'episode',
                 'series',
-                progressContextForEpisode(meta, video)
+                progressContextForEpisode(meta, video),
+                document.getElementById('detailsPoster')
               );
             };
             list.appendChild(button);
@@ -2409,10 +2492,12 @@
       }
     }
 
-    function closeDetails() {
+    function closeDetails({ restoreFocus = true, persist = true } = {}) {
       document.body.classList.remove('details-open');
       document.getElementById('details-overlay').style.display = 'none';
       document.getElementById('episodeList').innerHTML = '';
+      document.getElementById('detailsActions').innerHTML = '';
+      document.getElementById('detailsMeta').innerHTML = '';
       const seasonControl = document.getElementById('seasonControl');
       const seasonSelect = document.getElementById('seasonSelect');
       if (seasonControl) seasonControl.style.display = 'none';
@@ -2420,7 +2505,8 @@
         seasonSelect.innerHTML = '';
         seasonSelect.onchange = null;
       }
-      restoreLastCardFocus();
+      if (persist) persistUiState();
+      if (restoreFocus) restoreLastCardFocus();
     }
 
     function showPlaybackLoading(text = 'Loading stream...') {
