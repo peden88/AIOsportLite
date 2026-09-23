@@ -1863,6 +1863,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path><path d="m10 9 5 3-5 3z"></path></svg>
       <span>Continue</span>
     </button>
+    <button type="button" data-mobile-mode="library" aria-label="Library">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"></path><path d="M8 3v4M16 3v4"></path></svg>
+      <span>Library</span>
+    </button>
     <button type="button" id="mobileSearchNav" aria-label="Search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg>
       <span>Search</span>
@@ -4484,6 +4488,26 @@
         : '';
     }
 
+    function appendDetailsAccountActions(meta) {
+      const actions = document.getElementById('detailsActions');
+      if (!actions || !bootstrap?.accountUser) return;
+      const library = document.createElement('button');
+      library.type = 'button';
+      library.textContent = isInWebLibrary(meta) ? '✓ In Library' : '+ Library';
+      library.onclick = async () => {
+        await toggleWebLibrary(meta);
+        library.textContent = isInWebLibrary(meta) ? '✓ In Library' : '+ Library';
+      };
+      const watched = document.createElement('button');
+      watched.type = 'button';
+      watched.textContent = isWebWatched(meta) ? '✓ Watched' : 'Mark Watched';
+      watched.onclick = async () => {
+        await toggleWebWatched(meta);
+        watched.textContent = isWebWatched(meta) ? '✓ Watched' : 'Mark Watched';
+      };
+      actions.append(library, watched);
+    }
+
     async function openMovie(preview, sourceElement = null) {
       const source = sourceElement?.querySelector?.('.poster-container') || sourceElement;
       await withSharedTransition(
@@ -4504,6 +4528,7 @@
       const poster = document.getElementById('detailsPoster');
       setProgressiveImage(poster, currentDetailsMeta.poster || preview.poster);
       configureMovieHeroAction(currentDetailsMeta);
+      appendDetailsAccountActions(currentDetailsMeta);
 
       const actions = document.getElementById('detailsActions');
       const progress = cachedMovieProgress(currentDetailsMeta.id);
@@ -4566,6 +4591,7 @@
         );
 
         configureSeriesHeroAction(currentDetailsMeta, videos);
+        appendDetailsAccountActions(currentDetailsMeta);
 
         if (!videos.length) {
           list.innerHTML = '<div style="color:var(--text-muted);">No episodes are available in metadata for this title.</div>';
