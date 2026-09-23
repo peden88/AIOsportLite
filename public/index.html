@@ -1073,7 +1073,13 @@
     let heroPrefetchTimer = null;
     let playerHudTimer = null;
     let lastActiveCard = null;
+    let currentCatalogState = null;
+    let currentDetailsMeta = null;
+    let currentNextEpisode = null;
+    let restoringUiState = false;
+    let longPressTimer = null;
     const vodMetaCache = new Map();
+    const UI_STATE_KEY = 'aioplay.webUiState.v2';
 
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
@@ -1211,46 +1217,10 @@
     function updateHero(meta) {
       if (!meta) return;
       const hero = document.getElementById('appHero');
-      const info = document.getElementById('heroInfo');
-      const logo = document.getElementById('heroLogo');
-      const title = document.getElementById('heroTitle');
-      const metaHost = document.getElementById('heroMeta');
-      const description = document.getElementById('heroDescription');
-      if (!hero || !info || !logo || !title || !metaHost || !description) return;
-
+      if (!hero) return;
       const artwork = safeImageUrl(meta.background || meta.backdrop || meta.poster);
       hero.style.backgroundImage = artwork ? 'url("' + artwork.replace(/"/g, '%22') + '")' : '';
       hero.classList.toggle('is-visible', !!artwork);
-
-      const logoUrl = safeImageUrl(meta.logo);
-      if (logoUrl) {
-        logo.src = logoUrl;
-        logo.style.display = 'block';
-        title.style.display = 'none';
-      } else {
-        logo.removeAttribute('src');
-        logo.style.display = 'none';
-        title.style.display = 'block';
-        title.textContent = String(meta.name || meta.title || '');
-      }
-
-      metaHost.innerHTML = '';
-      heroLabels(meta).forEach(label => {
-        const chip = document.createElement('span');
-        chip.className = 'hero-chip';
-        chip.textContent = label;
-        metaHost.appendChild(chip);
-      });
-
-      const episodeLine = meta?._progress?.episodeTitle
-        ? (
-            'S' + String(meta._progress.season ?? '').padStart(2, '0') +
-            'E' + String(meta._progress.episode ?? '').padStart(2, '0') +
-            ' · ' + meta._progress.episodeTitle
-          )
-        : '';
-      description.textContent = episodeLine || String(meta.description || '');
-      info.classList.add('visible');
     }
 
     function scheduleHero(meta) {
@@ -1294,6 +1264,352 @@
           try { lastActiveCard.focus({ preventScroll: true }); } catch (_) { lastActiveCard.focus(); }
         }
       });
+    }
+
+    function cardIdentity(meta) {
+      return [
+        String(meta?.type || currentVodType || ''),
+        String(meta?.id || '')
+      ].join('|');
+    }
+
+    function cardMetadataLabels(meta) {
+      if (!meta) return [];
+      if (meta._progress) {
+        const row = meta._progress;
+        const labels = [];
+        if (row.season != null && row.episode != null) {
+          labels.push(
+            'S' + String(row.season).padStart(2, '0') +
+            'E' + String(row.episode).padStart(2, '0')
+          );
+        }
+        const pct = Number(row.progressPercent);
+        if (Number.isFinite(pct) && pct > 0 && pct < 90) {
+          labels.push(Math.round(pct) + '% watched');
+        }
+        return labels;
+      }
+      const labels = [];
+      const release = meta.releaseInfo || meta.year;
+      if (release) labels.push(String(release));
+      const rating = Number(meta.imdbRating ?? meta.rating);
+      if (Number.isFinite(rating) && rating > 0) labels.push('★ ' + rating.toFixed(1));
+      if (meta.runtime) labels.push(String(meta.runtime));
+      const genres = Array.isArray(meta.genres) ? meta.genres : [];
+      labels.push(...genres.filter(Boolean).slice(0, 2).map(String));
+      return labels.slice(0, 5);
+    }
+
+    function continuityLabel(row) {
+      if (!row) return '';
+      if (row.upNext || row.source === 'aioplay_up_next') {
+        const origin = String(row.continuitySource || '');
+        if (origin.includes('tv')) return 'Up next · from TV';
+        if (origin.includes('web')) return 'Up next · from Web';
+        return 'Up next';
+      }
+      const source = String(row.source || '');
+      if (source.includes('tv')) return 'Continue from TV';
+      if (source.includes('web')) return 'Continue from Web';
+      return 'Continue on AIOPlay';
+    }
+
+    function currentUiSnapshot() {
+      return {
+        mode: currentMode,
+        catalog: currentCatalogState,
+        search: document.getElementById('searchInput')?.value || '',
+        scrollY: Math.max(0, Math.round(window.scrollY || 0)),
+        focusedId: lastActiveCard?.dataset?.contentId || '',
+        focusedKey: lastActiveCard?.dataset?.contentKey || '',
+        updatedAt: Date.now()
+      };
+    }
+
+    function persistUiState({ push = false, overlay = '' } = {}) {
+      if (restoringUiState) return;
+      const snapshot = { ...currentUiSnapshot(), overlay };
+      try { localStorage.setItem(UI_STATE_KEY, JSON.stringify(snapshot)); } catch (_) {}
+      const method = push ? 'pushState' : 'replaceState';
+      try { history[method]({ aioplay: snapshot }, '', location.href); } catch (_) {}
+    }
+
+    function savedUiState() {
+      const fromHistory = history.state && history.state.aioplay;
+      if (fromHistory && typeof fromHistory === 'object') return fromHistory;
+      try {
+        const parsed = JSON.parse(localStorage.getItem(UI_STATE_KEY) || 'null');
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function restoreGridPosition(snapshot) {
+      if (!snapshot) return;
+      requestAnimationFrame(() => {
+        const key = String(snapshot.focusedKey || '');
+        const id = String(snapshot.focusedId || '');
+        const target = [...document.querySelectorAll('.card')].find(card =>
+          (key && card.dataset.contentKey === key) ||
+          (!key && id && card.dataset.contentId === id)
+        );
+        if (target) {
+          lastActiveCard = target;
+          try { target.focus({ preventScroll: true }); } catch (_) {}
+        }
+        if (Number.isFinite(Number(snapshot.scrollY))) {
+          window.scrollTo({ top: Number(snapshot.scrollY), behavior: 'instant' });
+        }
+      });
+    }
+
+    async function withSharedTransition(sourceElement, update, targetElementGetter) {
+      const source = sourceElement instanceof Element ? sourceElement : null;
+      if (!document.startViewTransition) {
+        await update();
+        return;
+      }
+
+      if (source) source.style.viewTransitionName = 'aioplay-poster';
+      let target = null;
+      try {
+        const transition = document.startViewTransition(async () => {
+          await update();
+          target = typeof targetElementGetter === 'function'
+            ? targetElementGetter()
+            : null;
+          if (target instanceof Element) {
+            target.style.viewTransitionName = 'aioplay-poster';
+          }
+        });
+        await transition.finished.catch(() => {});
+      } finally {
+        if (source) source.style.viewTransitionName = '';
+        if (target instanceof Element) target.style.viewTransitionName = '';
+      }
+    }
+
+    function hideQuickActions() {
+      const menu = document.getElementById('quickActions');
+      if (!menu) return;
+      menu.hidden = true;
+      menu.innerHTML = '';
+    }
+
+    async function updateProgressRow(row, progressPercent) {
+      if (!bootstrap?.accountUser || !row) return false;
+      const next = {
+        contentId: row.contentId,
+        contentType: row.contentType,
+        name: row.name,
+        poster: row.poster || null,
+        backdrop: row.backdrop || row.background || null,
+        logo: row.logo || null,
+        videoId: row.videoId || row.contentId,
+        season: row.season ?? null,
+        episode: row.episode ?? null,
+        episodeTitle: row.episodeTitle || null,
+        position: progressPercent >= 90 ? Math.max(1, Number(row.duration || 1)) : 0,
+        duration: Math.max(1, Number(row.duration || 1)),
+        lastWatched: Date.now(),
+        progressPercent,
+        source: 'aioplay_web'
+      };
+      const res = await fetch('/api/v1/progress', {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ item: next })
+      });
+      if (!res.ok) return false;
+      const key = progressIdentityKey(next);
+      const index = sharedProgressItems.findIndex(item => progressIdentityKey(item) === key);
+      if (index >= 0) sharedProgressItems[index] = next;
+      else sharedProgressItems.unshift(next);
+      return true;
+    }
+
+    async function loadMetaFor(meta) {
+      const type = normalizedVodType(meta);
+      if (!type || !meta?.id) return null;
+      const key = type + '|' + meta.id;
+      if (vodMetaCache.has(key)) return vodMetaCache.get(key);
+      try {
+        const res = await fetch(
+          '/api/v1/vod/meta/' + encodeURIComponent(type) + '/' + encodeURIComponent(meta.id)
+        );
+        const body = await res.json();
+        if (!res.ok || !body.meta) return null;
+        vodMetaCache.set(key, body.meta);
+        return body.meta;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function findNextVideo(meta, row) {
+      const videos = Array.isArray(meta?.videos)
+        ? [...meta.videos]
+            .filter(video => video && video.id)
+            .sort((a, b) =>
+              (Number(a.season) || 0) - (Number(b.season) || 0) ||
+              (Number(a.episode) || 0) - (Number(b.episode) || 0)
+            )
+        : [];
+      if (!videos.length || !row) return null;
+      const index = videos.findIndex(video =>
+        String(video.id) === String(row.videoId || '') ||
+        (
+          row.season != null && row.episode != null &&
+          Number(video.season) === Number(row.season) &&
+          Number(video.episode) === Number(row.episode)
+        )
+      );
+      return index >= 0 ? (videos[index + 1] || null) : null;
+    }
+
+    async function quickActionNextEpisode(meta) {
+      const row = meta?._progress || cachedEpisodeProgress(meta, meta);
+      const parentId = row?.contentId || meta?.parentId || meta?.id;
+      if (!parentId) return null;
+      const seriesPreview = {
+        id: parentId,
+        type: 'series',
+        name: row?.name || meta?.name || 'Series'
+      };
+      const fullMeta = await loadMetaFor(seriesPreview);
+      const next = findNextVideo(fullMeta, row);
+      if (!fullMeta || !next) return null;
+      return {
+        meta: fullMeta,
+        video: next,
+        progress: progressContextForEpisode(fullMeta, next)
+      };
+    }
+
+    function positionQuickActions(anchor, menu) {
+      const rect = anchor.getBoundingClientRect();
+      const width = 210;
+      const left = Math.min(
+        window.innerWidth - width - 10,
+        Math.max(10, rect.right - width)
+      );
+      const top = Math.min(
+        window.innerHeight - 260,
+        Math.max(10, rect.bottom + 6)
+      );
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+    }
+
+    async function showQuickActions(anchor, meta) {
+      if (currentMode === 'sports') return;
+      const menu = document.getElementById('quickActions');
+      if (!menu) return;
+      hideQuickActions();
+
+      const row = meta?._progress || (
+        normalizedVodType(meta) === 'movie'
+          ? cachedMovieProgress(meta.id)
+          : null
+      );
+      const actions = [];
+      if (row && Number(row.progressPercent || 0) > 0 && Number(row.progressPercent || 0) < 90) {
+        actions.push(['Resume', async () => {
+          if (row.contentType === 'series') {
+            await fetchAndPlay(row.videoId, 'episode', 'series', row, anchor.closest('.card'));
+          } else {
+            await fetchAndPlay(meta.id, 'movie', 'movie', row, anchor.closest('.card'));
+          }
+        }]);
+        actions.push(['Restart', async () => {
+          const restart = { ...row, position:0, progressPercent:0 };
+          if (row.contentType === 'series') {
+            await fetchAndPlay(row.videoId, 'episode', 'series', restart, anchor.closest('.card'));
+          } else {
+            await fetchAndPlay(meta.id, 'movie', 'movie', restart, anchor.closest('.card'));
+          }
+        }]);
+      } else {
+        actions.push(['Play', async () => {
+          if (meta?._progress?.contentType === 'series') {
+            const row = meta._progress;
+            await fetchAndPlay(row.videoId, 'episode', 'series', row, anchor.closest('.card'));
+          } else if (normalizedVodType(meta) === 'series') {
+            await openSeries(meta, anchor.closest('.card'));
+          } else {
+            await fetchAndPlay(meta.id, 'movie', 'movie', progressContextForMovie(meta), anchor.closest('.card'));
+          }
+        }]);
+      }
+
+      actions.push(['Details', async () => {
+        if (normalizedVodType(meta) === 'series' || meta?._progress?.contentType === 'series') {
+          const preview = meta?._progress?.contentType === 'series'
+            ? {
+                ...meta,
+                id: meta._progress.contentId,
+                type:'series',
+                name:meta._progress.name || meta.name
+              }
+            : meta;
+          await openSeries(preview, anchor.closest('.card'));
+        } else {
+          await openMovie(meta, anchor.closest('.card'));
+        }
+      }]);
+
+      if (meta?._progress?.contentType === 'series' || normalizedVodType(meta) === 'series') {
+        const next = await quickActionNextEpisode(meta);
+        if (next) {
+          actions.push(['Next episode', async () => {
+            await fetchAndPlay(
+              next.video.id,
+              'episode',
+              'series',
+              next.progress,
+              anchor.closest('.card')
+            );
+          }]);
+        }
+      }
+
+      if (row && Number(row.progressPercent || 0) >= 90) {
+        actions.push(['Mark unwatched', async () => {
+          await updateProgressRow(row, 0);
+          if (currentMode === 'continue') await loadContinueWatching();
+        }]);
+      } else {
+        const writable = row || (
+          normalizedVodType(meta) === 'movie'
+            ? progressContextForMovie(meta)
+            : null
+        );
+        if (writable) {
+          actions.push(['Mark watched', async () => {
+            await updateProgressRow(writable, 100);
+            if (currentMode === 'continue') await loadContinueWatching();
+          }]);
+        }
+      }
+
+      actions.forEach(([label, action]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.role = 'menuitem';
+        button.textContent = label;
+        button.onclick = async event => {
+          event.stopPropagation();
+          hideQuickActions();
+          await action();
+        };
+        menu.appendChild(button);
+      });
+
+      menu.hidden = false;
+      positionQuickActions(anchor, menu);
+      requestAnimationFrame(() => menu.querySelector('button')?.focus());
     }
 
     function setPlayerPresentation(meta, contentType) {
