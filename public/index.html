@@ -1983,6 +1983,8 @@
     let currentProgressContext = null;
     let lastProgressSyncAt = 0;
     let sharedProgressItems = [];
+    let sharedLibraryItems = [];
+    let sharedWatchState = [];
     let currentPlaybackMeta = null;
     let heroTimer = null;
     let heroPrefetchTimer = null;
@@ -2866,6 +2868,50 @@
       }
     }
 
+    function libraryKey(meta) {
+      return normalizedVodType(meta) + '|' + String(meta?.contentId || meta?.id || '');
+    }
+    function isInWebLibrary(meta) {
+      const key = libraryKey(meta);
+      return sharedLibraryItems.some(item => libraryKey(item) === key);
+    }
+    function isWebWatched(meta) {
+      const id = String(meta?._progress?.contentId || meta?.parentId || meta?.contentId || meta?.id || '');
+      const type = normalizedVodType(meta);
+      return sharedWatchState.some(row => String(row.id) === id && row.type === type && row.watched && row.season == null && row.episode == null);
+    }
+    async function toggleWebLibrary(meta) {
+      const present = isInWebLibrary(meta);
+      const type = normalizedVodType(meta) || 'movie';
+      const id = String(meta?.contentId || meta?.id || '');
+      const res = await fetch(present
+        ? '/api/v1/library/' + encodeURIComponent(type) + '/' + encodeURIComponent(id)
+        : '/api/v1/library', {
+        method: present ? 'DELETE' : 'PUT',
+        headers: present ? {} : {'Content-Type':'application/json'},
+        body: present ? undefined : JSON.stringify({ item:{...meta, id, type} })
+      });
+      if (!res.ok) return false;
+      if (present) sharedLibraryItems = sharedLibraryItems.filter(item => libraryKey(item) !== libraryKey(meta));
+      else {
+        const body = await res.json().catch(() => ({}));
+        sharedLibraryItems = [body.item || {...meta,id,type}, ...sharedLibraryItems.filter(item => libraryKey(item) !== libraryKey(meta))];
+      }
+      if (currentMode === 'library') await loadLibrary({ push:false }); else renderGrid(currentItems);
+      return true;
+    }
+    async function toggleWebWatched(meta) {
+      const watched = !isWebWatched(meta);
+      const id = String(meta?._progress?.contentId || meta?.parentId || meta?.contentId || meta?.id || '');
+      const type = normalizedVodType(meta) || 'movie';
+      const res = await fetch('/api/v1/watch-state', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id,type,watched}) });
+      if (!res.ok) return false;
+      sharedWatchState = sharedWatchState.filter(row => !(String(row.id) === id && row.type === type && row.season == null && row.episode == null));
+      sharedWatchState.push({id,type,watched,season:null,episode:null,updatedAt:Date.now()});
+      renderGrid(currentItems);
+      return true;
+    }
+
     function hideQuickActions() {
       const menu = document.getElementById('quickActions');
       if (!menu) return;
@@ -3022,6 +3068,13 @@
           }
         }]);
       }
+
+      actions.push([isInWebLibrary(meta) ? 'Remove from Library' : 'Add to Library', async () => {
+        await toggleWebLibrary(meta);
+      }]);
+      actions.push([isWebWatched(meta) ? 'Mark unwatched' : 'Mark watched', async () => {
+        await toggleWebWatched(meta);
+      }]);
 
       actions.push(['Details', async () => {
         if (normalizedVodType(meta) === 'series' || meta?._progress?.contentType === 'series') {
@@ -3388,9 +3441,9 @@
       search.placeholder = mode === 'sports'
         ? 'Search live…'
         : 'Search all movies and series…';
-      setVodPlayerControlsVisible(mode === 'vod' || mode === 'continue');
+      setVodPlayerControlsVisible(mode === 'vod' || mode === 'continue' || mode === 'library');
       const filters = document.getElementById('searchFilters');
-      if (filters) filters.style.display = mode === 'vod' ? 'flex' : 'none';
+      if (filters) filters.style.display = (mode === 'vod' || mode === 'library') ? 'flex' : 'none';
       if (!search.value.trim()) setSearchContextVisible(false);
       updateMobileBottomNavState();
     }
@@ -3407,6 +3460,12 @@
               const progressBody = await progressResponse.json();
               sharedProgressItems = Array.isArray(progressBody.items) ? progressBody.items : [];
             }
+            const [libraryResponse, watchResponse] = await Promise.all([
+              fetch('/api/v1/library', { cache:'no-store' }),
+              fetch('/api/v1/watch-state', { cache:'no-store' })
+            ]);
+            if (libraryResponse.ok) sharedLibraryItems = (await libraryResponse.json()).items || [];
+            if (watchResponse.ok) sharedWatchState = (await watchResponse.json()).items || [];
           }
         } catch (_) {
           bootstrap.accountUser = null;
@@ -3417,7 +3476,7 @@
         const vod = bootstrap.services && bootstrap.services.vod && bootstrap.services.vod.enabled;
         const snapshot = savedUiState();
         const requestedMode = snapshot?.mode;
-        const validMode = requestedMode === 'continue'
+        const validMode = (requestedMode === 'continue' || requestedMode === 'library')
           ? !!(vod && bootstrap.accountUser)
           : requestedMode === 'vod'
             ? !!vod
@@ -3464,7 +3523,10 @@
 
       if (bootstrap.services?.sports?.enabled) add('sports', 'Live');
       if (bootstrap.services?.vod?.enabled) add('vod', 'VOD');
-      if (bootstrap.services?.vod?.enabled && bootstrap.accountUser) add('continue', 'Continue Watching');
+      if (bootstrap.services?.vod?.enabled && bootstrap.accountUser) {
+        add('continue', 'Continue Watching');
+        add('library', 'Library');
+      }
       configureMobileBottomNav();
     }
 
@@ -3475,8 +3537,8 @@
       setActiveMode(mode, { preserveSearch:!!snapshot?.search });
       currentItems = [];
       currentCatalogState = null;
-      setCatalogRailVisible(mode !== 'continue');
-      tabs().innerHTML = mode === 'continue'
+      setCatalogRailVisible(mode !== 'continue' && mode !== 'library');
+      tabs().innerHTML = (mode === 'continue' || mode === 'library')
         ? ''
         : '<div style="color:var(--text-muted);">Loading catalogs...</div>';
       showGridSkeleton({ posterMode:mode !== 'sports' });
@@ -3485,6 +3547,8 @@
         await loadSportsTabs(snapshot);
       } else if (mode === 'continue') {
         await loadContinueWatching({ push:false });
+      } else if (mode === 'library') {
+        await loadLibrary({ push:false });
       } else {
         await loadVodTabs(snapshot);
       }
@@ -3550,6 +3614,31 @@
         console.error(err);
         tabs().innerHTML = '<div style="color:var(--accent);">Failed to load VOD catalogs.</div>';
         setGridState('Could not load the VOD catalog list.', true, () => loadVodTabs());
+      }
+    }
+
+    async function loadLibrary({ push = true } = {}) {
+      setCatalogRailVisible(false);
+      currentCatalogState = { kind:'library', id:'library', type:'' };
+      tabs().innerHTML = '';
+      currentVodType = '';
+      beginGridTransition({ posterMode:true });
+      try {
+        const res = await fetch('/api/v1/library', { cache:'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Library failed');
+        sharedLibraryItems = Array.isArray(data.items) ? data.items : [];
+        currentItems = sharedLibraryItems;
+        if (!currentItems.length) {
+          setGridState('Your Library is empty. Open a movie or series and choose + Library to save it here.');
+        } else {
+          renderGrid(currentItems);
+        }
+        if (push && !restoringUiState) persistUiState({ push:true });
+      } catch (err) {
+        console.error(err);
+        currentItems = [];
+        setGridState('Could not load your Library.', true, () => loadLibrary({ push:false }));
       }
     }
 
@@ -3951,7 +4040,13 @@
               : cachedSeriesProgress(meta.id)
           );
           const watchPct = Number(watchRow?.progressPercent || 0);
-          if (normalizedVodType(meta) === 'movie' && watchPct >= 90) {
+          if (isInWebLibrary(meta)) {
+            const saved = document.createElement('div');
+            saved.className = 'up-next-badge';
+            saved.textContent = 'LIBRARY';
+            posterBox.appendChild(saved);
+          }
+          if (isWebWatched(meta) || (normalizedVodType(meta) === 'movie' && watchPct >= 90)) {
             const watched = document.createElement('div');
             watched.className = 'watched-badge';
             watched.title = 'Watched';
