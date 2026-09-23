@@ -30,11 +30,14 @@ t(html.includes('/api/v1/vod/meta/series/'), 'series details load episodes from 
 t(/fetchAndPlay\(\s*video\.id,\s*'episode',\s*'series',/.test(html), 'episodes play through AIOStreams as series resources');
 t(html.includes(": () => openMovie(meta, card);"), 'movie poster selection opens Details instead of starting playback');
 t(html.includes('id="detailsMoviePlay"') && html.includes('class="details-play-orb"'), 'movie Details exposes the round hero Play control');
-t(html.includes("url('assets/aioplay-movie-play-orb.png')"), 'movie hero Play control uses the rendered AIOPlay orb asset');
+t(html.includes("url('assets/aioplay-movie-play-orb.webp')"), 'movie hero Play control uses the rendered AIOPlay orb asset');
 t(/\.details-play-orb\s*\{[\s\S]*?width\s*:\s*70px[\s\S]*?background\s*:\s*transparent\s+url\('assets\/aioplay-movie-play-orb\.png'\)/.test(html), 'movie hero Play control keeps the compact rendered treatment');
-t(html.includes("aioplay-movie-play-orb.png"), 'movie hero Play control uses the exact green-cyan rendered artwork');
+t(html.includes("aioplay-movie-play-orb.webp"), 'movie hero Play control uses the exact green-cyan rendered artwork');
 t(/\.details-play-orb svg\s*\{\s*display\s*:\s*none/.test(html), 'movie hero Play hides the CSS symbol in favour of rendered artwork');
 t(html.includes('configureMovieHeroAction(currentDetailsMeta)'), 'movie Details wires Play or Resume through the hero action');
+t(html.includes('function seriesHeroTarget(meta, videos)'), 'series Details resolves the correct smart Play, Resume or Next Episode target');
+t(html.includes('configureSeriesHeroAction(currentDetailsMeta, videos)'), 'series Details exposes the hero play action after episodes load');
+t(html.includes("mode === 'resume' ? 'Resume' : mode === 'next' ? 'Next Episode'"), 'series hero action labels resume and next episode states');
 t(html.includes("Keep the underlying catalog dimmed while Details fades away"), 'Details dismissal uses the staged mobile fade path');
 t(!html.includes('AIOMETADATA_MANIFEST_URL'), 'web page never receives the AIOMetadata manifest URL');
 t(!html.includes('AIOSTREAMS_MANIFEST_URL'), 'web page never receives the AIOStreams manifest URL');
