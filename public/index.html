@@ -4273,18 +4273,50 @@
       return grid().childElementCount > 0;
     }
 
+    function configureMovieHeroAction(meta) {
+      const slot = document.getElementById('detailsHeroAction');
+      const play = document.getElementById('detailsMoviePlay');
+      const label = document.getElementById('detailsMoviePlayLabel');
+      if (!slot || !play || !label || !meta?.id) return;
+
+      const progress = cachedMovieProgress(meta.id);
+      const resume = !!(
+        progress &&
+        Number(progress.progressPercent || 0) > 0 &&
+        Number(progress.progressPercent || 0) < 90
+      );
+
+      slot.hidden = false;
+      label.textContent = resume ? 'Resume' : 'Play';
+      play.setAttribute('aria-label', resume ? 'Resume movie' : 'Play movie');
+      play.title = resume ? 'Resume' : 'Play';
+      play.onclick = () => fetchAndPlay(
+        currentDetailsMeta?.id || meta.id,
+        'movie',
+        'movie',
+        resume
+          ? progress
+          : progressContextForMovie(currentDetailsMeta || meta),
+        document.getElementById('detailsPoster')
+      );
+    }
+
     function prepareDetailsShell(preview, type) {
       const overlay = document.getElementById('details-overlay');
       const list = document.getElementById('episodeList');
       const seasonControl = document.getElementById('seasonControl');
       const seasonSelect = document.getElementById('seasonSelect');
       const actions = document.getElementById('detailsActions');
+      const heroAction = document.getElementById('detailsHeroAction');
+      const heroPlay = document.getElementById('detailsMoviePlay');
       document.body.classList.add('details-open');
       overlay.style.display = 'block';
       seasonControl.style.display = 'none';
       seasonSelect.innerHTML = '';
       seasonSelect.onchange = null;
       actions.innerHTML = '';
+      if (heroAction) heroAction.hidden = true;
+      if (heroPlay) heroPlay.onclick = null;
       currentDetailsMeta = { ...preview, type };
       document.getElementById('detailsTitle').textContent = preview.name || (type === 'movie' ? 'Movie' : 'Series');
       document.getElementById('detailsDescription').textContent = preview.description || '';
@@ -4306,6 +4338,7 @@
         () => document.getElementById('detailsPoster')
       );
       persistUiState({ push:true, overlay:'details' });
+      configureMovieHeroAction(currentDetailsMeta);
 
       const meta = await loadMetaFor({ ...preview, type:'movie' }) || preview;
       currentDetailsMeta = { ...preview, ...meta, type:'movie' };
@@ -4316,23 +4349,10 @@
       fillDetailsMeta(currentDetailsMeta);
       const poster = document.getElementById('detailsPoster');
       setProgressiveImage(poster, currentDetailsMeta.poster || preview.poster);
+      configureMovieHeroAction(currentDetailsMeta);
 
       const actions = document.getElementById('detailsActions');
       const progress = cachedMovieProgress(currentDetailsMeta.id);
-      const play = document.createElement('button');
-      play.type = 'button';
-      play.className = 'details-primary-action';
-      play.textContent = progress && Number(progress.progressPercent || 0) > 0 && Number(progress.progressPercent || 0) < 90
-        ? '▶ Resume'
-        : '▶ Play';
-      play.onclick = () => fetchAndPlay(
-        currentDetailsMeta.id,
-        'movie',
-        'movie',
-        progress || progressContextForMovie(currentDetailsMeta),
-        document.getElementById('detailsPoster')
-      );
-      actions.appendChild(play);
       if (progress && Number(progress.progressPercent || 0) > 0) {
         const restart = document.createElement('button');
         restart.type = 'button';
@@ -4597,6 +4617,10 @@
       document.getElementById('episodeList').innerHTML = '';
       document.getElementById('detailsActions').innerHTML = '';
       document.getElementById('detailsMeta').innerHTML = '';
+      const heroAction = document.getElementById('detailsHeroAction');
+      const heroPlay = document.getElementById('detailsMoviePlay');
+      if (heroAction) heroAction.hidden = true;
+      if (heroPlay) heroPlay.onclick = null;
       const seasonControl = document.getElementById('seasonControl');
       const seasonSelect = document.getElementById('seasonSelect');
       if (seasonControl) seasonControl.style.display = 'none';
