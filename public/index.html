@@ -1540,6 +1540,7 @@
     let searchType = '';
     let currentDetailsEpisodeId = '';
     let currentDetailsSeason = null;
+    let detailsBackdropToken = 0;
     const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
     const visibleMetadataObserver = 'IntersectionObserver' in window
@@ -3477,6 +3478,41 @@
       setProgressiveImage(logo, artwork);
     }
 
+    function setDetailsBackdrop(meta) {
+      const backdrop = document.getElementById('detailsBackdrop');
+      if (!backdrop) return;
+
+      const primary = safeImageUrl(
+        meta?.background ||
+        meta?.backdrop ||
+        meta?.backdropUrl
+      );
+      const fallback = safeImageUrl(meta?.poster);
+      const artwork = primary || fallback;
+      const token = ++detailsBackdropToken;
+
+      if (!artwork) {
+        backdrop.classList.remove('is-visible', 'poster-fallback');
+        backdrop.style.backgroundImage = '';
+        return;
+      }
+
+      const preload = new Image();
+      preload.onload = () => {
+        if (token !== detailsBackdropToken) return;
+        backdrop.style.backgroundImage =
+          'url("' + artwork.replace(/"/g, '%22') + '")';
+        backdrop.classList.toggle('poster-fallback', !primary);
+        backdrop.classList.add('is-visible');
+      };
+      preload.onerror = () => {
+        if (token !== detailsBackdropToken) return;
+        backdrop.classList.remove('is-visible', 'poster-fallback');
+        backdrop.style.backgroundImage = '';
+      };
+      preload.src = artwork;
+    }
+
     function mountedViewMatchesSnapshot(snapshot) {
       if (!snapshot || snapshot.mode !== currentMode) return false;
 
@@ -3511,6 +3547,7 @@
       document.getElementById('detailsTitle').textContent = preview.name || (type === 'movie' ? 'Movie' : 'Series');
       document.getElementById('detailsDescription').textContent = preview.description || '';
       setDetailsTitleArt(preview);
+      setDetailsBackdrop(preview);
       fillDetailsMeta(preview);
       const poster = document.getElementById('detailsPoster');
       setProgressiveImage(poster, preview.poster || preview.background);
@@ -3533,6 +3570,7 @@
       document.getElementById('detailsTitle').textContent = currentDetailsMeta.name || preview.name || 'Movie';
       document.getElementById('detailsDescription').textContent = currentDetailsMeta.description || preview.description || '';
       setDetailsTitleArt(currentDetailsMeta);
+      setDetailsBackdrop(currentDetailsMeta);
       fillDetailsMeta(currentDetailsMeta);
       const poster = document.getElementById('detailsPoster');
       setProgressiveImage(poster, currentDetailsMeta.poster || preview.poster);
@@ -3600,6 +3638,7 @@
         document.getElementById('detailsTitle').textContent = meta.name || preview.name || 'Series';
         document.getElementById('detailsDescription').textContent = meta.description || preview.description || '';
         setDetailsTitleArt(currentDetailsMeta);
+        setDetailsBackdrop(currentDetailsMeta);
         fillDetailsMeta(currentDetailsMeta);
         setProgressiveImage(poster, meta.poster || preview.poster);
 
@@ -4237,6 +4276,7 @@
         document.body.classList.add('details-open');
         detailsOverlay.style.display = 'block';
         setDetailsTitleArt(currentDetailsMeta);
+        setDetailsBackdrop(currentDetailsMeta);
         restoreDetailsEpisodeFocus();
       }
 
