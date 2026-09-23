@@ -359,6 +359,9 @@
       padding:48px 20px calc(48px + env(safe-area-inset-bottom, 0px));
     }
     .details-shell {
+      position:relative;
+      isolation:isolate;
+      overflow:hidden;
       max-width:1050px;
       margin:0 auto;
       background:rgba(18,18,22,.985);
@@ -366,6 +369,37 @@
       border-radius:20px;
       padding:24px;
       box-shadow:0 24px 80px rgba(0,0,0,.42);
+    }
+    .details-shell > :not(.details-backdrop) {
+      position:relative;
+      z-index:1;
+    }
+    .details-backdrop {
+      position:absolute;
+      inset:0;
+      z-index:0;
+      opacity:0;
+      background-position:center 24%;
+      background-size:cover;
+      background-repeat:no-repeat;
+      filter:saturate(.82) contrast(1.04);
+      transform:scale(1.025);
+      transition:opacity .24s ease;
+      pointer-events:none;
+    }
+    .details-backdrop.is-visible { opacity:.52; }
+    .details-backdrop.poster-fallback {
+      background-position:center 30%;
+      filter:blur(7px) saturate(.74) brightness(.92);
+      transform:scale(1.08);
+    }
+    .details-backdrop::after {
+      content:'';
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(90deg,rgba(8,11,15,.92) 0%,rgba(8,11,15,.74) 42%,rgba(8,11,15,.58) 100%),
+        linear-gradient(180deg,rgba(8,11,15,.18) 0%,rgba(8,11,15,.62) 56%,rgba(8,11,15,.96) 100%);
     }
     .details-head { display:grid; grid-template-columns:180px 1fr; gap:24px; }
     .details-poster {
@@ -458,6 +492,12 @@
       .details-poster{width:130px}
       .details-title-art{width:min(290px,70vw);max-height:64px;margin-top:2px;margin-bottom:10px}
       .details-copy.has-title-art h2{font-size:18px}
+      .details-backdrop.is-visible{opacity:.48}
+      .details-backdrop::after{
+        background:
+          linear-gradient(180deg,rgba(8,11,15,.28) 0%,rgba(8,11,15,.70) 45%,rgba(8,11,15,.97) 100%),
+          linear-gradient(90deg,rgba(8,11,15,.78),rgba(8,11,15,.58));
+      }
       .details-shell{padding:18px}
     }
     .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
@@ -816,7 +856,7 @@
       -webkit-backdrop-filter:blur(8px);
     }
     .details-shell {
-      background:rgba(13,17,23,.94);
+      background:rgba(13,17,23,.82);
       border-color:rgba(255,255,255,.08);
       box-shadow:0 28px 90px rgba(0,0,0,.44);
       backdrop-filter:blur(18px);
@@ -1386,6 +1426,7 @@
 
   <div id="details-overlay">
     <div class="details-shell">
+      <div id="detailsBackdrop" class="details-backdrop" aria-hidden="true"></div>
       <button type="button" class="details-close" onclick="closeDetailsFromUi()">Close</button>
       <div class="details-head">
         <img id="detailsPoster" class="details-poster" alt="">
