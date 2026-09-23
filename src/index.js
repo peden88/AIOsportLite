@@ -291,15 +291,18 @@ const WARM_INTERVAL_MS = Number(process.env.WARM_INTERVAL_MS) || 4 * 60 * 60 * 1
 
 // Serve the web debugger UI and Configuration Page
 app.use(guardStaticPages);
-app.use(express.static(path.join(__dirname, '..', 'public'), { index: false }));
+const publicDir = fs.existsSync(path.join(__dirname, '..', 'public'))
+  ? path.join(__dirname, '..', 'public')
+  : path.join(process.cwd(), 'public');
+app.use(express.static(publicDir, { index: false }));
 
 app.get('/', requirePage, (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  res.sendFile(path.join(publicDir, 'index.html'));
 });
 
 app.get('/login', (req, res) => {
   if (isAuthed(req)) return res.redirect('/');
-  res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
+  res.sendFile(path.join(publicDir, 'login.html'));
 });
 
 async function accountLoginHandler(req, res) {
@@ -871,11 +874,11 @@ app.delete('/api/config/saved', (req, res) => {
 });
 
 app.get('/dashboard', requireAdminPage, (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
+  res.sendFile(path.join(publicDir, 'dashboard.html'));
 });
 
 app.get('/services', requireAdminPage, (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'services.html'));
+  res.sendFile(path.join(publicDir, 'services.html'));
 });
 
 /**
@@ -1172,11 +1175,11 @@ function requireAdminPage(req, res, next) {
 }
 
 app.get(['/configure', '/:config/configure'], requireAdminPage, (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'configure.html'));
+  res.sendFile(path.join(publicDir, 'configure.html'));
 });
 
 app.get('/users', requireAdminPage, (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'users.html'));
+  res.sendFile(path.join(publicDir, 'users.html'));
 });
 
 app.get('/api/matches', requirePage, (req, res) => {
