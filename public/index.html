@@ -1436,9 +1436,14 @@
     let playerReturnToDetails = false;
     let restoringUiState = false;
     let longPressTimer = null;
+    let heroRenderToken = 0;
+    let searchType = '';
+    let currentDetailsEpisodeId = '';
     const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
     const UI_STATE_KEY = 'aioplay.webUiState.v2';
+    const RECENT_SEARCHES_KEY = 'aioplay.recentSearches.v1';
+    const MOTION_KEY = 'aioplay.reducedMotion';
 
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
@@ -1452,13 +1457,77 @@
       rail.classList.toggle('is-empty', !visible);
     }
 
-    function setGridState(message, error = false) {
+    function setGridState(message, error = false, retry = null) {
       const host = grid();
+      host.className = 'grid';
       host.innerHTML = '';
+
       const state = document.createElement('div');
       state.className = 'content-state' + (error ? ' error' : '');
-      state.textContent = message;
+
+      const inner = document.createElement('div');
+      inner.className = 'content-state-inner';
+
+      const brand = document.createElement('img');
+      brand.className = 'content-state-brand';
+      brand.src = '/aioplay-brand.webp';
+      brand.alt = '';
+
+      const title = document.createElement('div');
+      title.className = 'content-state-title';
+      title.textContent = error ? 'AIOPlay hit a problem' : 'AIOPlay';
+
+      const copy = document.createElement('div');
+      copy.className = 'content-state-copy';
+      copy.textContent = message;
+
+      inner.append(brand, title, copy);
+      if (typeof retry === 'function') {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'content-state-action';
+        button.textContent = 'Try again';
+        button.onclick = retry;
+        inner.appendChild(button);
+      }
+      state.appendChild(inner);
       host.appendChild(state);
+    }
+
+    function showGridSkeleton({ posterMode = true, count = null } = {}) {
+      const host = grid();
+      host.innerHTML = '';
+      host.className = 'grid ' + (posterMode ? 'vod-grid' : 'live-grid') + ' is-entering';
+      const desired = count || (posterMode ? 12 : 8);
+      for (let i = 0; i < desired; i++) {
+        const card = document.createElement('div');
+        card.className = 'skeleton-card';
+        const poster = document.createElement('div');
+        poster.className = 'skeleton-poster';
+        const line = document.createElement('div');
+        line.className = 'skeleton-line';
+        const shortLine = document.createElement('div');
+        shortLine.className = 'skeleton-line short';
+        card.append(poster, line, shortLine);
+        host.appendChild(card);
+      }
+    }
+
+    function beginGridTransition({ posterMode = true } = {}) {
+      const host = grid();
+      if (host.children.length && !host.querySelector('.content-state')) {
+        host.classList.add('is-transitioning');
+        setTimeout(() => showGridSkeleton({ posterMode }), 90);
+      } else {
+        showGridSkeleton({ posterMode });
+      }
+    }
+
+    function finishGridTransition() {
+      const host = grid();
+      host.classList.remove('is-transitioning');
+      host.classList.add('is-entering');
+      setTimeout(() => host.classList.remove('is-entering'), 260);
     }
 
     function vodPlayerPreference() {
@@ -1573,13 +1642,64 @@
       return labels.slice(0, 5);
     }
 
+    function directPreviewUrl(meta) {
+      const candidates = [
+        meta?.preview,
+        meta?.previewUrl,
+        meta?.trailer,
+        ...(Array.isArray(meta?.trailers)
+          ? meta.trailers.flatMap(row =>
+              typeof row === 'string'
+                ? [row]
+                : [row?.url, row?.source, row?.video].filter(Boolean)
+            )
+          : [])
+      ].map(safeImageUrl).filter(Boolean);
+
+      return candidates.find(url => /\.(?:mp4|webm|ogg)(?:$|[?#])/i.test(url)) || '';
+    }
+
+    function stopHeroPreview() {
+      const preview = document.getElementById('appHeroPreview');
+      if (!preview) return;
+      preview.classList.remove('is-visible');
+      try { preview.pause(); } catch (_) {}
+      preview.removeAttribute('src');
+      preview.load();
+    }
+
     function updateHero(meta) {
       if (!meta) return;
       const hero = document.getElementById('appHero');
       if (!hero) return;
+      const token = ++heroRenderToken;
       const artwork = safeImageUrl(meta.background || meta.backdrop || meta.poster);
-      hero.style.backgroundImage = artwork ? 'url("' + artwork.replace(/"/g, '%22') + '")' : '';
-      hero.classList.toggle('is-visible', !!artwork);
+      if (!artwork) {
+        hero.style.backgroundImage = '';
+        hero.classList.remove('is-visible');
+        stopHeroPreview();
+        return;
+      }
+
+      const preload = new Image();
+      preload.onload = () => {
+        if (token !== heroRenderToken) return;
+        hero.style.backgroundImage = 'url("' + artwork.replace(/"/g, '%22') + '")';
+        hero.classList.add('is-visible');
+      };
+      preload.src = artwork;
+
+      stopHeroPreview();
+      const previewUrl = directPreviewUrl(meta);
+      if (previewUrl && !document.documentElement.classList.contains('reduce-motion')) {
+        setTimeout(() => {
+          if (token !== heroRenderToken) return;
+          const preview = document.getElementById('appHeroPreview');
+          if (!preview) return;
+          preview.src = previewUrl;
+          preview.play().then(() => preview.classList.add('is-visible')).catch(() => {});
+        }, 850);
+      }
     }
 
     function scheduleHero(meta) {
@@ -2431,12 +2551,20 @@
 
     function makeImage(src, className, alt = '') {
       const img = document.createElement('img');
-      img.className = className;
+      img.className = className + ' progressive-image';
       img.alt = alt;
       img.loading = 'lazy';
+      img.decoding = 'async';
       const safe = safeImageUrl(src);
-      if (safe) img.src = safe;
-      else img.style.display = 'none';
+      if (safe) {
+        const reveal = () => img.classList.add('is-loaded');
+        img.addEventListener('load', reveal, { once:true });
+        img.addEventListener('error', () => { img.style.display = 'none'; }, { once:true });
+        img.src = safe;
+        if (img.complete && img.naturalWidth > 0) reveal();
+      } else {
+        img.style.display = 'none';
+      }
       return img;
     }
 
