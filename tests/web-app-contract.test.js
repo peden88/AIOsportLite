@@ -29,7 +29,8 @@ t(html.includes('/api/v1/vod/search'), 'web app searches through the global AIOM
 t(html.includes('/api/v1/vod/meta/series/'), 'series details load episodes from AIOMetadata');
 t(/fetchAndPlay\(\s*video\.id,\s*'episode',\s*'series',/.test(html), 'episodes play through AIOStreams as series resources');
 t(html.includes(": () => openMovie(meta, card);"), 'movie poster selection opens Details instead of starting playback');
-t(html.includes("play.className = 'details-primary-action'"), 'movie Details exposes an explicit primary Play or Resume action');
+t(html.includes('id="detailsMoviePlay"') && html.includes('class="details-play-orb"'), 'movie Details exposes the round hero Play control');
+t(html.includes('configureMovieHeroAction(currentDetailsMeta)'), 'movie Details wires Play or Resume through the hero action');
 t(html.includes("Keep the underlying catalog dimmed while Details fades away"), 'Details dismissal uses the staged mobile fade path');
 t(!html.includes('AIOMETADATA_MANIFEST_URL'), 'web page never receives the AIOMetadata manifest URL');
 t(!html.includes('AIOSTREAMS_MANIFEST_URL'), 'web page never receives the AIOStreams manifest URL');
