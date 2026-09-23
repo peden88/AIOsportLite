@@ -1003,6 +1003,14 @@
       filter:none;
       transform:none;
     }
+    .background.progressive-image.is-loaded {
+      filter:blur(20px) brightness(.5);
+      transform:scale(1.2);
+    }
+    .card:hover .background.progressive-image.is-loaded {
+      filter:blur(15px) brightness(.7);
+      transform:scale(1.1);
+    }
     .poster-container::before {
       content:'';
       position:absolute;
@@ -1236,6 +1244,13 @@
 
     @media(max-width:650px) {
       .grid.vod-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .vod-card .desc {
+        display:-webkit-box;
+        -webkit-line-clamp:3;
+        -webkit-box-orient:vertical;
+        overflow:hidden;
+        line-height:1.34;
+      }
       .grid.live-grid { grid-template-columns:1fr; }
       .search-context-head { align-items:flex-start; flex-direction:column; }
       .player-timeline { min-width:min(320px,82vw); }
@@ -1442,6 +1457,21 @@
     let currentDetailsSeason = null;
     const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
+    const visibleMetadataObserver = 'IntersectionObserver' in window
+      ? new IntersectionObserver(entries => {
+          entries.forEach(async entry => {
+            if (!entry.isIntersecting) return;
+            const card = entry.target;
+            visibleMetadataObserver.unobserve(card);
+            const meta = card._aioplayMeta;
+            if (!meta || currentMode === 'sports') return;
+            const full = await loadMetaFor(meta);
+            if (full && document.body.contains(card)) {
+              hydrateCardMetadata(card, { ...meta, ...full });
+            }
+          });
+        }, { rootMargin:'220px 0px' })
+      : null;
     const UI_STATE_KEY = 'aioplay.webUiState.v2';
     const RECENT_SEARCHES_KEY = 'aioplay.recentSearches.v1';
     const MOTION_KEY = 'aioplay.reducedMotion';
@@ -1857,6 +1887,21 @@
       const desc = card.querySelector('.desc');
       if (desc && !desc.textContent.trim() && meta.description) {
         desc.textContent = String(meta.description);
+      }
+    }
+
+    function observeCardMetadata(card, meta) {
+      if (!card || !meta || currentMode === 'sports') return;
+      card._aioplayMeta = meta;
+      if (visibleMetadataObserver) {
+        visibleMetadataObserver.observe(card);
+      } else {
+        setTimeout(async () => {
+          const full = await loadMetaFor(meta);
+          if (full && document.body.contains(card)) {
+            hydrateCardMetadata(card, { ...meta, ...full });
+          }
+        }, 0);
       }
     }
 
@@ -3104,6 +3149,7 @@
 
         card.append(posterBox, info);
         host.appendChild(card);
+        observeCardMetadata(card, meta);
 
         if (
           String(savedUiState()?.focusedKey || '') === card.dataset.contentKey ||
@@ -3348,6 +3394,11 @@
     }
 
     async function openSeries(preview, sourceElement = null) {
+      const previousDetailsId = currentDetailsMeta?.id || currentDetailsMeta?.contentId || '';
+      if (String(previousDetailsId) !== String(preview.id || '')) {
+        currentDetailsSeason = null;
+        currentDetailsEpisodeId = '';
+      }
       const type = 'series';
       const cacheKey = type + '|' + preview.id;
       const list = document.getElementById('episodeList');
@@ -3964,7 +4015,11 @@
       restoringUiState = true;
       hideQuickActions();
 
-      if (document.getElementById('player-overlay').style.display === 'flex') {
+      const activePlayer = document.getElementById('player-overlay');
+      if (
+        activePlayer.style.display === 'flex' &&
+        !activePlayer.classList.contains('mini')
+      ) {
         await closePlayer(true, { returnToOrigin:false });
       }
       if (document.getElementById('details-overlay').style.display === 'block') {
