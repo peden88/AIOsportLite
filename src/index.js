@@ -291,9 +291,14 @@ const WARM_INTERVAL_MS = Number(process.env.WARM_INTERVAL_MS) || 4 * 60 * 60 * 1
 
 // Serve the web debugger UI and Configuration Page
 app.use(guardStaticPages);
-const publicDir = fs.existsSync(path.join(__dirname, '..', 'public'))
-  ? path.join(__dirname, '..', 'public')
-  : path.join(process.cwd(), 'public');
+const runtimePublicDir = path.join(process.cwd(), 'public');
+const sourcePublicDir = path.join(__dirname, '..', 'public');
+// ncc bundles src/index.js into /app/dist/index.js, so __dirname/../public is
+// only reliable in source/dev mode. Prefer the runtime working directory used
+// by the Docker image, where COPY . . places the complete public asset tree.
+const publicDir = fs.existsSync(path.join(runtimePublicDir, 'index.html'))
+  ? runtimePublicDir
+  : sourcePublicDir;
 app.use(express.static(publicDir, { index: false }));
 
 app.get('/', requirePage, (req, res) => {
