@@ -31,7 +31,9 @@ t(/fetchAndPlay\(\s*video\.id,\s*'episode',\s*'series',/.test(html), 'episodes p
 t(html.includes(": () => openMovie(meta, card);"), 'movie poster selection opens Details instead of starting playback');
 t(html.includes('id="detailsMoviePlay"') && html.includes('class="details-play-orb"'), 'movie Details exposes the round hero Play control');
 t(/\.details-play-orb\s*\{[\s\S]*?radial-gradient/.test(html), 'movie hero Play control uses layered AIOPlay rings');
-t(/\.details-play-orb\s*\{[\s\S]*?width\s*:\s*70px[\s\S]*?#18f08a[\s\S]*?#12c9d1/.test(html), 'movie hero Play control matches the compact teal-green reference treatment');
+t(/\.details-play-orb\s*\{[\s\S]*?width\s*:\s*70px[\s\S]*?linear-gradient\(145deg[\s\S]*?#057/.test(html), 'movie hero Play control keeps the compact dark-teal outer reference treatment');
+t(/\.details-play-orb::before[\s\S]*?conic-gradient[\s\S]*?#08dc7c[\s\S]*?#1bc9d3/.test(html), 'movie hero Play control renders the green-to-cyan outer ring');
+t(/\.details-play-orb::after[\s\S]*?#0be873[\s\S]*?#1bcbd0/.test(html), 'movie hero Play control renders the luminous green-cyan inner disc');
 t(/\.details-play-orb svg\s*\{[\s\S]*?fill\s*:\s*#17242f/.test(html), 'movie hero Play symbol uses the dark reference-style centre');
 t(html.includes('configureMovieHeroAction(currentDetailsMeta)'), 'movie Details wires Play or Resume through the hero action');
 t(html.includes("Keep the underlying catalog dimmed while Details fades away"), 'Details dismissal uses the staged mobile fade path');
