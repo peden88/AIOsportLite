@@ -1079,6 +1079,7 @@
     let playerReturnToDetails = false;
     let restoringUiState = false;
     let longPressTimer = null;
+    const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
     const UI_STATE_KEY = 'aioplay.webUiState.v2';
 
@@ -2108,7 +2109,10 @@
           lastActiveCard = card;
           if (currentMode !== 'sports' && event.pointerType !== 'mouse') {
             clearTimeout(longPressTimer);
-            longPressTimer = setTimeout(() => showQuickActions(card, meta), 560);
+            longPressTimer = setTimeout(() => {
+              longPressedCards.add(card);
+              showQuickActions(card, meta);
+            }, 560);
           }
         });
         ['pointerup','pointercancel','pointerleave'].forEach(eventName => {
@@ -2125,6 +2129,12 @@
             card.click();
           }
         };
+        card.addEventListener('click', event => {
+          if (!longPressedCards.has(card)) return;
+          longPressedCards.delete(card);
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }, true);
 
         if (currentMode === 'sports') {
           card.onclick = () => fetchAndPlay(meta.id, 'sport_event', '', null, card);
