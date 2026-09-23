@@ -30,10 +30,10 @@ t(html.includes('/api/v1/vod/meta/series/'), 'series details load episodes from 
 t(/fetchAndPlay\(\s*video\.id,\s*'episode',\s*'series',/.test(html), 'episodes play through AIOStreams as series resources');
 t(html.includes(": () => openMovie(meta, card);"), 'movie poster selection opens Details instead of starting playback');
 t(html.includes('id="detailsMoviePlay"') && html.includes('class="details-play-orb"'), 'movie Details exposes the round hero Play control');
-t(html.includes("url('assets/aioplay-movie-play-orb.webp')"), 'movie hero Play control uses the rendered AIOPlay orb asset');
-t(/\.details-play-orb\s*\{[\s\S]*?width\s*:\s*70px[\s\S]*?background\s*:\s*transparent\s+url\('assets\/aioplay-movie-play-orb\.png'\)/.test(html), 'movie hero Play control keeps the compact rendered treatment');
+t(html.includes('class="details-play-orb-image"') && html.includes('src="/assets/aioplay-movie-play-orb.webp"'), 'movie hero Play control renders the approved orb as an explicit image');
+t(/\.details-play-orb\s*\{[\s\S]*?width\s*:\s*70px[\s\S]*?background\s*:\s*transparent/.test(html), 'movie hero Play control keeps the compact 70px transparent treatment');
 t(html.includes("aioplay-movie-play-orb.webp"), 'movie hero Play control uses the exact green-cyan rendered artwork');
-t(/\.details-play-orb svg\s*\{\s*display\s*:\s*none/.test(html), 'movie hero Play hides the CSS symbol in favour of rendered artwork');
+t(html.includes("this.src='/assets/aioplay-movie-play-orb.png'"), 'movie hero Play falls back from WebP to PNG artwork');
 t(html.includes('configureMovieHeroAction(currentDetailsMeta)'), 'movie Details wires Play or Resume through the hero action');
 t(html.includes('function seriesHeroTarget(meta, videos)'), 'series Details resolves the correct smart Play, Resume or Next Episode target');
 t(html.includes('configureSeriesHeroAction(currentDetailsMeta, videos)'), 'series Details exposes the hero play action after episodes load');
