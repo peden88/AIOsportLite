@@ -154,10 +154,11 @@ server = http.createServer((req, res) => {
 
   console.log('--- VOD catalogs from one global AIOMetadata manifest');
   const descriptors = await vod.catalogs();
-  assert.strictEqual(descriptors.catalogs.length, 3);
+  assert.strictEqual(descriptors.catalogs.length, 1);
+  assert.strictEqual(descriptors.catalogs[0].id, 'popular');
   assert.deepStrictEqual(descriptors.catalogs[0].genres, ['Action', 'Drama']);
-  assert.strictEqual(descriptors.catalogs[1].searchable, true);
-  assert.deepStrictEqual(descriptors.catalogs[1].requiredExtras, ['search']);
+  assert.ok(!descriptors.catalogs.some(row => row.id === 'search.movie'));
+  assert.ok(!descriptors.catalogs.some(row => row.id === 'search.series'));
 
   const catalog = await vod.catalog('movie', 'popular', {});
   assert.strictEqual(catalog.metas[0].id, 'tt0133093');
