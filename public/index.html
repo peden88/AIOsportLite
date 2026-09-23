@@ -1232,6 +1232,7 @@
       display:flex;
       gap:5px;
     }
+    .mini-player-bar[hidden] { display:none !important; }
     .mini-player-bar button {
       border:1px solid rgba(255,255,255,.12);
       border-radius:8px;
@@ -2661,6 +2662,9 @@
     }
 
     async function loadMode(mode, { snapshot = null, push = true } = {}) {
+      if (document.getElementById('player-overlay')?.classList.contains('mini')) {
+        playerReturnToDetails = false;
+      }
       setActiveMode(mode, { preserveSearch:!!snapshot?.search });
       currentItems = [];
       currentCatalogState = null;
@@ -3625,6 +3629,8 @@
       progressContext = null,
       sourceElement = null
     ) {
+      const priorReturnToDetails = playerReturnToDetails;
+      const preservePlayerOrigin = sourceElement?.id === 'playerBackdrop';
       await closePlayer(false, { returnToOrigin:false });
       currentProgressContext = progressContext;
       lastProgressSyncAt = 0;
@@ -3641,7 +3647,8 @@
         : (matchingItem || { id, name: String(id) });
       setPlayerPresentation(playbackMeta, contentType);
       const detailsWasOpen = document.getElementById('details-overlay').style.display === 'block';
-      playerReturnToDetails = detailsWasOpen || playerReturnToDetails;
+      playerReturnToDetails = detailsWasOpen ||
+        (preservePlayerOrigin ? priorReturnToDetails : false);
       const transitionSource = sourceElement?.querySelector?.('.poster-container') || sourceElement;
       await withSharedTransition(
         transitionSource,
