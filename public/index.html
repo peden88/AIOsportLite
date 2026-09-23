@@ -1692,7 +1692,7 @@
       }
     }
 
-    function setActiveMode(mode) {
+    function setActiveMode(mode, { preserveSearch = false } = {}) {
       currentMode = mode;
       document.querySelectorAll('.mode-tab').forEach(el => {
         const active = el.dataset.mode === mode;
@@ -1702,7 +1702,7 @@
         }
       });
       const search = document.getElementById('searchInput');
-      search.value = '';
+      if (!preserveSearch) search.value = '';
       search.placeholder = mode === 'sports'
         ? 'Search live…'
         : 'Search all movies and series…';
@@ -1729,9 +1729,33 @@
         buildModes();
         const sports = bootstrap.services && bootstrap.services.sports && bootstrap.services.sports.enabled;
         const vod = bootstrap.services && bootstrap.services.vod && bootstrap.services.vod.enabled;
-        if (sports) await loadMode('sports');
-        else if (vod) await loadMode('vod');
-        else setGridState('No content services are enabled.');
+        const snapshot = savedUiState();
+        const requestedMode = snapshot?.mode;
+        const validMode = requestedMode === 'continue'
+          ? !!(vod && bootstrap.accountUser)
+          : requestedMode === 'vod'
+            ? !!vod
+            : requestedMode === 'sports'
+              ? !!sports
+              : false;
+        const initialMode = validMode
+          ? requestedMode
+          : (sports ? 'sports' : (vod ? 'vod' : ''));
+
+        if (initialMode) {
+          restoringUiState = true;
+          await loadMode(initialMode, { snapshot, push:false });
+          const search = document.getElementById('searchInput');
+          if (snapshot?.search) {
+            search.value = snapshot.search;
+            await applySearch(snapshot.search, { persist:false });
+          }
+          restoreGridPosition(snapshot);
+          restoringUiState = false;
+          persistUiState();
+        } else {
+          setGridState('No content services are enabled.');
+        }
       } catch (err) {
         console.error('Failed to bootstrap app', err);
         setGridState('Could not load the application.', true);
@@ -1747,7 +1771,7 @@
         btn.className = 'mode-tab';
         btn.dataset.mode = mode;
         btn.textContent = label;
-        btn.onclick = () => loadMode(mode);
+        btn.onclick = () => loadMode(mode, { push:true });
         host.appendChild(btn);
       };
 
@@ -1756,59 +1780,79 @@
       if (bootstrap.services?.vod?.enabled && bootstrap.accountUser) add('continue', 'Continue Watching');
     }
 
-    async function loadMode(mode) {
-      setActiveMode(mode);
+    async function loadMode(mode, { snapshot = null, push = true } = {}) {
+      setActiveMode(mode, { preserveSearch:!!snapshot?.search });
       currentItems = [];
+      currentCatalogState = null;
       setCatalogRailVisible(mode !== 'continue');
       tabs().innerHTML = mode === 'continue'
         ? ''
         : '<div style="color:var(--text-muted);">Loading catalogs...</div>';
       grid().innerHTML = '';
 
-      if (mode === 'sports') return loadSportsTabs();
-      if (mode === 'continue') return loadContinueWatching();
-      return loadVodTabs();
+      if (mode === 'sports') {
+        await loadSportsTabs(snapshot);
+      } else if (mode === 'continue') {
+        await loadContinueWatching({ push:false });
+      } else {
+        await loadVodTabs(snapshot);
+      }
+
+      if (push && !restoringUiState) persistUiState({ push:true });
     }
 
-    async function loadSportsTabs() {
+    async function loadSportsTabs(snapshot = null) {
       setCatalogRailVisible(true);
       try {
         const data = await (await fetch('/api/v1/sports/catalogs')).json();
         tabs().innerHTML = '';
         let first = null;
+        let restore = null;
         for (const catalog of data.catalogs || []) {
           if (catalog.type !== 'tv') continue;
           const tab = document.createElement('div');
           tab.className = 'tab';
           tab.textContent = String(catalog.name || catalog.id).replace('nuvio ', '').replace('Nuvio ', '');
-          tab.onclick = () => loadSportsCatalog(catalog.id, tab);
+          tab.onclick = () => loadSportsCatalog(catalog.id, tab, { push:true });
           tabs().appendChild(tab);
-          if (!first) first = { catalog, tab };
+          const pair = { catalog, tab };
+          if (!first) first = pair;
+          if (snapshot?.catalog?.id === catalog.id) restore = pair;
         }
-        if (first) await loadSportsCatalog(first.catalog.id, first.tab);
+        const target = restore || first;
+        if (target) await loadSportsCatalog(target.catalog.id, target.tab, { push:false });
       } catch (err) {
         console.error(err);
         tabs().innerHTML = '<div style="color:var(--accent);">Failed to load sports catalogs.</div>';
       }
     }
 
-    async function loadVodTabs() {
+    async function loadVodTabs(snapshot = null) {
       setCatalogRailVisible(true);
       try {
         const data = await (await fetch('/api/v1/vod/catalogs')).json();
         tabs().innerHTML = '';
 
         let first = null;
+        let restore = null;
         for (const catalog of data.catalogs || []) {
           const tab = document.createElement('div');
           tab.className = 'tab';
           tab.textContent = catalog.name || catalog.id;
-          tab.onclick = () => loadVodCatalog(catalog, tab);
+          tab.onclick = () => loadVodCatalog(catalog, tab, { push:true });
           tabs().appendChild(tab);
-          if (!first) first = { catalog, tab };
+          const pair = { catalog, tab };
+          if (!first) first = pair;
+          if (
+            snapshot?.catalog?.id === catalog.id &&
+            (!snapshot.catalog.type || snapshot.catalog.type === catalog.type)
+          ) {
+            restore = pair;
+          }
         }
 
-        if (first) await loadVodCatalog(first.catalog, first.tab);
+        const target = restore || first;
+        if (target) await loadVodCatalog(target.catalog, target.tab, { push:false });
         else setGridState('No VOD catalogs are available.');
       } catch (err) {
         console.error(err);
@@ -1816,8 +1860,9 @@
       }
     }
 
-    async function loadContinueWatching() {
+    async function loadContinueWatching({ push = true } = {}) {
       setCatalogRailVisible(false);
+      currentCatalogState = { kind:'continue', id:'continue', type:'' };
       tabs().innerHTML = '';
       currentVodType = '';
       setGridState('Loading Continue Watching…');
@@ -1850,6 +1895,7 @@
           _progress: row
         }));
         renderGrid(currentItems);
+        if (push && !restoringUiState) persistUiState({ push:true });
       } catch (err) {
         console.error(err);
         currentItems = [];
@@ -1857,8 +1903,9 @@
       }
     }
 
-    async function loadSportsCatalog(catalogId, tab) {
+    async function loadSportsCatalog(catalogId, tab, { push = true } = {}) {
       setActiveTab(tab);
+      currentCatalogState = { kind:'sports', id:catalogId, type:'tv' };
       setGridState('Fetching matches…');
       try {
         const res = await fetch('/api/v1/sports/catalog/' + encodeURIComponent(catalogId));
@@ -1866,15 +1913,22 @@
         if (!res.ok) throw new Error(data.error || 'Catalog failed');
         currentItems = data.metas || [];
         renderGrid(currentItems);
+        if (push && !restoringUiState) persistUiState({ push:true });
       } catch (err) {
         console.error(err);
         setGridState('Failed to load this sports catalog.', true);
       }
     }
 
-    async function loadVodCatalog(catalog, tab) {
+    async function loadVodCatalog(catalog, tab, { push = true } = {}) {
       setActiveTab(tab);
       currentVodType = String(catalog.type || '').toLowerCase();
+      currentCatalogState = {
+        kind:'vod',
+        id:String(catalog.id || ''),
+        type:String(catalog.type || ''),
+        name:String(catalog.name || '')
+      };
       setGridState('Loading titles…');
       try {
         const url = '/api/v1/vod/catalog/' + encodeURIComponent(catalog.type) + '/' + encodeURIComponent(catalog.id);
@@ -1883,44 +1937,67 @@
         if (!res.ok) throw new Error(data.error || 'Catalog failed');
         currentItems = data.metas || data.metasDetailed || [];
         renderGrid(currentItems);
+        if (push && !restoringUiState) persistUiState({ push:true });
       } catch (err) {
         console.error(err);
         setGridState('Failed to load this VOD catalog.', true);
       }
     }
 
-    document.getElementById('searchInput').addEventListener('input', e => {
-      const raw = e.target.value.trim();
-      clearTimeout(searchTimer);
-
+    async function applySearch(raw, { persist = true } = {}) {
+      const clean = String(raw || '').trim();
       if (currentMode === 'sports' || currentMode === 'continue') {
-        const query = raw.toLowerCase();
+        const query = clean.toLowerCase();
         renderGrid(currentItems.filter(meta =>
           String(meta.name || '').toLowerCase().includes(query) ||
           String(meta.description || '').toLowerCase().includes(query)
         ));
+        if (persist) persistUiState();
         return;
       }
 
-      if (!raw) {
-        renderGrid(currentItems);
-        return;
-      }
-      if (raw.length < 2) return;
-
-      searchTimer = setTimeout(async () => {
-        setGridState('Searching…');
-        try {
-          const url = '/api/v1/vod/search?q=' + encodeURIComponent(raw);
-          const res = await fetch(url);
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Search failed');
-          renderGrid(data.metas || []);
-        } catch (err) {
-          console.error(err);
-          setGridState('Search is temporarily unavailable.', true);
+      if (!clean) {
+        if (currentCatalogState?.kind === 'vod') {
+          const active = [...document.querySelectorAll('.tab')].find(tab => tab.classList.contains('active'));
+          const catalog = {
+            id:currentCatalogState.id,
+            type:currentCatalogState.type,
+            name:currentCatalogState.name
+          };
+          await loadVodCatalog(catalog, active, { push:false });
+        } else {
+          renderGrid(currentItems);
         }
-      }, 350);
+        if (persist) persistUiState();
+        return;
+      }
+      if (clean.length < 2) {
+        if (persist) persistUiState();
+        return;
+      }
+
+      setGridState('Searching…');
+      try {
+        const url = '/api/v1/vod/search?q=' + encodeURIComponent(clean);
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Search failed');
+        renderGrid(data.metas || []);
+      } catch (err) {
+        console.error(err);
+        setGridState('Search is temporarily unavailable.', true);
+      }
+      if (persist) persistUiState();
+    }
+
+    document.getElementById('searchInput').addEventListener('input', e => {
+      const raw = e.target.value;
+      clearTimeout(searchTimer);
+      if (currentMode === 'sports' || currentMode === 'continue' || !raw.trim()) {
+        applySearch(raw);
+        return;
+      }
+      searchTimer = setTimeout(() => applySearch(raw), 350);
     });
 
     function makeImage(src, className, alt = '') {
