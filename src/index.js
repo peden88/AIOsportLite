@@ -417,16 +417,153 @@ app.get('/api/v1/account', requirePage, (req, res) => {
   res.json({ user: account ? account.user : null });
 });
 
-app.get('/api/v1/progress', requirePage, (req, res) => {
+function progressFraction(row) {
+  const explicit = Number(row && row.progressPercent);
+  if (Number.isFinite(explicit)) return Math.max(0, Math.min(1, explicit / 100));
+  const position = Number(row && row.position || 0);
+  const duration = Number(row && row.duration || 0);
+  return duration > 0 ? Math.max(0, Math.min(1, position / duration)) : 0;
+}
+
+function sameEpisode(row, video) {
+  if (!row || !video) return false;
+  if (String(row.videoId || '') === String(video.id || '')) return true;
+  return row.season != null && row.episode != null &&
+    video.season != null && video.episode != null &&
+    Number(row.season) === Number(video.season) &&
+    Number(row.episode) === Number(video.episode);
+}
+
+async function smartContinueItems(userId) {
+  const rows = aioPlayProgress.list(userId);
+  const movies = [];
+  const seriesGroups = new Map();
+
+  for (const row of rows) {
+    if (row.contentType === 'series') {
+      const key = String(row.contentId || '');
+      if (!key) continue;
+      if (!seriesGroups.has(key)) seriesGroups.set(key, []);
+      seriesGroups.get(key).push(row);
+    } else {
+      const fraction = progressFraction(row);
+      if (
+        fraction >= aioPlayProgress.STARTED_THRESHOLD &&
+        fraction < aioPlayProgress.COMPLETED_THRESHOLD
+      ) {
+        movies.push(row);
+      }
+    }
+  }
+
+  const seriesEntries = [...seriesGroups.entries()]
+    .sort((a, b) => Number(b[1][0]?.lastWatched || 0) - Number(a[1][0]?.lastWatched || 0))
+    .slice(0, 30);
+
+  const seriesRows = await Promise.all(seriesEntries.map(async ([contentId, history]) => {
+    const latest = history[0];
+    if (!latest) return null;
+
+    const latestFraction = progressFraction(latest);
+    if (
+      latestFraction >= aioPlayProgress.STARTED_THRESHOLD &&
+      latestFraction < aioPlayProgress.COMPLETED_THRESHOLD
+    ) {
+      return latest;
+    }
+
+    if (latestFraction < aioPlayProgress.COMPLETED_THRESHOLD) return null;
+
+    try {
+      const response = await vodGateway.meta('series', contentId);
+      const meta = response && response.meta ? response.meta : null;
+      const videos = meta && Array.isArray(meta.videos)
+        ? meta.videos
+            .filter(video => video && video.id)
+            .sort((a, b) =>
+              (Number(a.season) || 0) - (Number(b.season) || 0) ||
+              (Number(a.episode) || 0) - (Number(b.episode) || 0)
+            )
+        : [];
+      if (!videos.length) return null;
+
+      const latestIndex = videos.findIndex(video => sameEpisode(latest, video));
+      if (latestIndex < 0) return null;
+
+      const completedHistory = history.filter(
+        row => progressFraction(row) >= aioPlayProgress.COMPLETED_THRESHOLD
+      );
+
+      let next = null;
+      for (let index = latestIndex + 1; index < videos.length; index++) {
+        const candidate = videos[index];
+        const alreadyCompleted = completedHistory.some(row => sameEpisode(row, candidate));
+        if (!alreadyCompleted) {
+          next = candidate;
+          break;
+        }
+      }
+      if (!next) return null;
+
+      const existing = history.find(row =>
+        sameEpisode(row, next) &&
+        progressFraction(row) >= aioPlayProgress.STARTED_THRESHOLD &&
+        progressFraction(row) < aioPlayProgress.COMPLETED_THRESHOLD
+      );
+      if (existing) {
+        return {
+          ...existing,
+          upNext: true,
+          continuitySource: latest.source || existing.source || 'aioplay'
+        };
+      }
+
+      return {
+        contentId,
+        contentType: 'series',
+        name: String(meta.name || latest.name || 'Series'),
+        poster: meta.poster || latest.poster || null,
+        backdrop: meta.background || meta.backdrop || latest.backdrop || null,
+        logo: meta.logo || latest.logo || null,
+        videoId: String(next.id),
+        season: Number.isInteger(Number(next.season)) ? Number(next.season) : null,
+        episode: Number.isInteger(Number(next.episode)) ? Number(next.episode) : null,
+        episodeTitle: String(next.title || next.name || '').trim() || null,
+        position: 0,
+        duration: 0,
+        lastWatched: Number(latest.lastWatched || Date.now()),
+        progressPercent: 0,
+        source: 'aioplay_up_next',
+        continuitySource: latest.source || 'aioplay',
+        upNext: true,
+        updatedAt: Date.now()
+      };
+    } catch (err) {
+      console.warn('[progress] could not resolve next episode for', contentId, err.message);
+      return null;
+    }
+  }));
+
+  return [...movies, ...seriesRows.filter(Boolean)]
+    .sort((a, b) => Number(b.lastWatched || 0) - Number(a.lastWatched || 0));
+}
+
+app.get('/api/v1/progress', requirePage, async (req, res) => {
   const account = currentAccount(req);
   if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
   const continueOnly = ['1', 'true', 'yes'].includes(
     String(req.query.continue || '').trim().toLowerCase()
   );
   res.setHeader('Cache-Control', 'no-store');
-  res.json({
-    items: aioPlayProgress.list(account.user.id, { continueOnly })
-  });
+  if (!continueOnly) {
+    return res.json({ items: aioPlayProgress.list(account.user.id) });
+  }
+  try {
+    res.json({ items: await smartContinueItems(account.user.id) });
+  } catch (err) {
+    console.error('[progress] smart continue failed:', err.message);
+    res.json({ items: aioPlayProgress.list(account.user.id, { continueOnly: true }) });
+  }
 });
 
 app.put('/api/v1/progress', requirePage, express.json({ limit: '256kb' }), (req, res) => {
