@@ -449,7 +449,7 @@
       border-radius:50%;
       cursor:pointer;
       overflow:visible;
-      background:transparent url('assets/aioplay-movie-play-orb.webp') center/contain no-repeat;
+      background:transparent;
       box-shadow:none;
       transition:transform .15s ease,filter .15s ease;
       -webkit-tap-highlight-color:transparent;
@@ -457,6 +457,15 @@
     .details-play-orb::before,
     .details-play-orb::after { content:none; }
     .details-play-orb svg { display:none; }
+    .details-play-orb-image {
+      width:100%;
+      height:100%;
+      display:block;
+      object-fit:contain;
+      pointer-events:none;
+      user-select:none;
+      -webkit-user-drag:none;
+    }
     .details-play-orb:hover,
     .details-play-orb:focus-visible {
       outline:none;
@@ -1868,9 +1877,14 @@
         <img id="detailsPoster" class="details-poster" alt="">
         <div id="detailsHeroAction" class="details-hero-action" hidden>
           <button type="button" id="detailsMoviePlay" class="details-play-orb" aria-label="Play">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8.5 6.5v11l9-5.5z"></path>
-            </svg>
+            <img
+              class="details-play-orb-image"
+              src="/assets/aioplay-movie-play-orb.webp"
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+              onerror="if(!this.dataset.pngFallback){this.dataset.pngFallback='1';this.src='/assets/aioplay-movie-play-orb.png';}"
+            >
           </button>
           <span id="detailsMoviePlayLabel" class="details-play-label">Play</span>
         </div>
