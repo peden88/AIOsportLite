@@ -336,8 +336,8 @@
     body.details-open > .top-header,
     body.details-open > header,
     body.details-open > main {
-      opacity:.15;
-      transition:opacity .16s ease;
+      opacity:.28;
+      transition:opacity .22s cubic-bezier(.2,.72,.22,1);
     }
     #details-overlay {
       display:none;
@@ -353,14 +353,14 @@
       -webkit-overflow-scrolling:touch;
       padding:48px 20px calc(48px + env(safe-area-inset-bottom, 0px));
       opacity:1;
-      transition:opacity .18s ease;
+      transition:opacity .16s cubic-bezier(.22,.68,.24,1);
     }
     #details-overlay.details-fading {
       opacity:0;
       pointer-events:none;
     }
     #details-overlay.details-fading .details-shell {
-      transform:translate3d(0,8px,0) scale(.995);
+      transform:translate3d(0,0,0);
     }
     .details-shell {
       position:relative;
@@ -973,6 +973,18 @@
       background:#273039;
       border-color:rgba(255,255,255,.22);
       outline:none;
+    }
+    .details-actions .details-primary-action {
+      background:#dfe6ea;
+      border-color:#dfe6ea;
+      color:#0b1015;
+      padding-inline:16px;
+    }
+    .details-actions .details-primary-action:hover,
+    .details-actions .details-primary-action:focus-visible {
+      background:#f1f4f5;
+      border-color:#f1f4f5;
+      color:#080c10;
     }
     .player-next-up {
       position:absolute;
@@ -3799,7 +3811,7 @@
           } else {
             card.onclick = vodType === 'series'
               ? () => openSeries(meta, card)
-              : () => fetchAndPlay(meta.id, 'movie', 'movie', progressContextForMovie(meta), card);
+              : () => openMovie(meta, card);
           }
         }
 
@@ -4227,9 +4239,10 @@
       const progress = cachedMovieProgress(currentDetailsMeta.id);
       const play = document.createElement('button');
       play.type = 'button';
+      play.className = 'details-primary-action';
       play.textContent = progress && Number(progress.progressPercent || 0) > 0 && Number(progress.progressPercent || 0) < 90
-        ? 'Resume'
-        : 'Play';
+        ? '▶ Resume'
+        : '▶ Play';
       play.onclick = () => fetchAndPlay(
         currentDetailsMeta.id,
         'movie',
@@ -4467,11 +4480,14 @@
       if (!overlay || overlay.style.display !== 'block') return Promise.resolve();
       if (detailsDismissPromise) return detailsDismissPromise;
 
-      document.body.classList.remove('details-open');
+      // Keep the underlying catalog dimmed while Details fades away. This
+      // avoids the double-exposure/ghosting seen on mobile Safari. Once the
+      // overlay is hidden, closeDetails() removes details-open and the cached
+      // catalog itself eases from 28% back to full opacity.
       overlay.classList.add('details-fading');
 
       detailsDismissPromise = new Promise(resolve => {
-        setTimeout(resolve, reducedMotionActive() ? 0 : 180);
+        setTimeout(resolve, reducedMotionActive() ? 0 : 165);
       }).finally(() => {
         detailsDismissPromise = null;
       });
