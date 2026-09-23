@@ -1198,6 +1198,8 @@
       color:rgba(255,255,255,.80);
       font-size:.70rem;
     }
+    .player-hud-toggle{pointer-events:auto;position:absolute;right:7px;top:7px;z-index:2;width:24px;height:24px;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(20,26,33,.86);color:#fff;cursor:pointer;}
+    .player-hud.is-collapsed .player-hud-toggle{position:static;width:32px;height:32px;}
     .player-hud-actions {
       pointer-events:auto;
       display:flex;
@@ -1779,7 +1781,27 @@
       animation-iteration-count:1 !important;
       transition-duration:.001ms !important;
     }
-  </style>
+  
+    /* Desktop playback/details ergonomics */
+    @media(min-width:651px){
+      .player-hud{left:20px;right:auto;bottom:132px;align-items:flex-end;}
+      .player-hud-main{max-width:min(360px,36vw);padding:8px 9px;border-radius:11px;}
+      .player-hud-logo{width:min(150px,18vw);max-height:35px;margin-bottom:4px;}
+      .player-hud-title{font-size:.78rem;margin-bottom:2px;}
+      .player-hud-subtitle{font-size:.62rem;}
+      .player-hud-chips{gap:3px;margin-top:4px;}
+      .player-hud-chip{padding:2px 4px;border-radius:5px;font-size:.52rem;}
+      .player-timeline{display:none;}
+      .player-hud-actions{gap:5px;}
+      .player-hud-btn{padding:6px 8px;font-size:.62rem;}
+      .player-hud.is-collapsed .player-hud-main{display:none;}
+      .player-hud.is-collapsed{bottom:132px;}
+      .details-shell{position:relative;}
+      .details-head{grid-template-columns:180px minmax(0,1fr);padding-right:112px;}
+      .details-hero-action{position:absolute;right:24px;top:64px;min-width:82px;padding-top:0;z-index:6;}
+      .details-play-label{max-width:96px;}
+    }
+</style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1939,6 +1961,7 @@
       <div id="playback-message"><strong>Unable to start playback</strong><span>There are no working streams for this event right now.</span></div>
       <video id="video" controls autoplay></video>
       <div id="playerHud" class="player-hud">
+        <button type="button" id="playerHudToggle" class="player-hud-toggle" aria-label="Hide playback details" title="Hide playback details">−</button>
         <div class="player-hud-main">
           <img id="playerHudLogo" class="player-hud-logo" alt="">
           <div id="playerHudTitle" class="player-hud-title"></div>
@@ -2158,7 +2181,8 @@
     function buildExternalPlayerUrl(kind, streamUrl) {
       const encoded = encodeURIComponent(streamUrl);
       if (kind === 'vlc') {
-        return 'vlc-x-callback://x-callback-url/stream?url=' + encoded;
+        const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent || '');
+        return isMac ? 'vlc://' + streamUrl : 'vlc-x-callback://x-callback-url/stream?url=' + encoded;
       }
       if (kind === 'outplayer') {
         return 'outplayer://x-callback-url/play?url=' + encoded;
@@ -2176,14 +2200,13 @@
     function triggerExternalPlayer(kind, streamUrl) {
       const playerUrl = buildExternalPlayerUrl(kind, streamUrl);
       if (!playerUrl) return false;
-      const anchor = document.createElement('a');
-      anchor.href = playerUrl;
-      anchor.rel = 'noopener';
-      anchor.style.display = 'none';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      return true;
+      try {
+        window.location.href = playerUrl;
+        return true;
+      } catch (err) {
+        console.warn('Could not launch external player', err);
+        return false;
+      }
     }
 
     function setVodPlayerControlsVisible(visible) {
@@ -3322,6 +3345,21 @@
       showPlayerHud(true);
     }
 
+    function setupPlayerHudToggle() {
+      const hud = document.getElementById('playerHud');
+      const button = document.getElementById('playerHudToggle');
+      if (!hud || !button || button.dataset.ready === '1') return;
+      button.dataset.ready = '1';
+      button.addEventListener('click', event => {
+        event.stopPropagation();
+        const collapsed = hud.classList.toggle('is-collapsed');
+        button.textContent = collapsed ? 'i' : '−';
+        button.title = collapsed ? 'Show playback details' : 'Hide playback details';
+        button.setAttribute('aria-label', button.title);
+        showPlayerHud(true);
+      });
+    }
+
     function setupEpisodeRail(rail) {
       if (!rail || rail.dataset.railReady === '1') return;
       rail.dataset.railReady = '1';
@@ -3330,12 +3368,13 @@
       // horizontally so the rail feels natural on desktop too.
       rail.addEventListener('wheel', event => {
         if (rail.scrollWidth <= rail.clientWidth) return;
-        const dominant = Math.abs(event.deltaX) > Math.abs(event.deltaY)
-          ? event.deltaX
-          : event.deltaY;
-        if (!dominant) return;
-        event.preventDefault();
-        rail.scrollLeft += dominant;
+        const horizontal = Math.abs(event.deltaX) >= 1 ? event.deltaX : 0;
+        const fallback = Math.abs(event.deltaY) > 1 ? event.deltaY : 0;
+        const delta = horizontal || fallback;
+        if (!delta) return;
+        const before = rail.scrollLeft;
+        rail.scrollLeft += delta;
+        if (rail.scrollLeft !== before) event.preventDefault();
       }, { passive:false });
     }
 
