@@ -1726,6 +1726,20 @@
       return '';
     }
 
+    function vodMetaTarget(meta) {
+      const type = normalizedVodType(meta);
+      if (!type) return null;
+      const id = type === 'series'
+        ? (
+            meta?._progress?.contentId ||
+            meta?.parentId ||
+            meta?.contentId ||
+            meta?.id
+          )
+        : (meta?.contentId || meta?.id);
+      return id ? { type, id:String(id) } : null;
+    }
+
     function heroLabels(meta) {
       const labels = [];
       if (currentMode === 'sports') {
@@ -1812,31 +1826,16 @@
       clearTimeout(heroPrefetchTimer);
       heroTimer = setTimeout(() => updateHero(meta), 150);
 
-      const type = normalizedVodType(meta);
-      if (!type || currentMode === 'sports' || !meta?.id) return;
+      const target = vodMetaTarget(meta);
+      if (!target || currentMode === 'sports') return;
       heroPrefetchTimer = setTimeout(async () => {
-        const key = type + '|' + meta.id;
-        if (vodMetaCache.has(key)) {
-          if (lastActiveCard?.dataset?.contentId === String(meta.id)) {
-            const merged = { ...meta, ...vodMetaCache.get(key) };
-            updateHero(merged);
-            hydrateCardMetadata(lastActiveCard, merged);
-          }
-          return;
+        const full = await loadMetaFor(meta);
+        if (!full) return;
+        if (lastActiveCard?.dataset?.contentId === String(meta.id || '')) {
+          const merged = { ...meta, ...full };
+          updateHero(merged);
+          hydrateCardMetadata(lastActiveCard, merged);
         }
-        try {
-          const res = await fetch(
-            '/api/v1/vod/meta/' + encodeURIComponent(type) + '/' + encodeURIComponent(meta.id)
-          );
-          const body = await res.json();
-          if (!res.ok || !body.meta) return;
-          vodMetaCache.set(key, body.meta);
-          if (lastActiveCard?.dataset?.contentId === String(meta.id)) {
-            const merged = { ...meta, ...body.meta };
-            updateHero(merged);
-            hydrateCardMetadata(lastActiveCard, merged);
-          }
-        } catch (_) {}
       }, 360);
     }
 
@@ -2124,13 +2123,13 @@
     }
 
     async function loadMetaFor(meta) {
-      const type = normalizedVodType(meta);
-      if (!type || !meta?.id) return null;
-      const key = type + '|' + meta.id;
+      const target = vodMetaTarget(meta);
+      if (!target) return null;
+      const key = target.type + '|' + target.id;
       if (vodMetaCache.has(key)) return vodMetaCache.get(key);
       try {
         const res = await fetch(
-          '/api/v1/vod/meta/' + encodeURIComponent(type) + '/' + encodeURIComponent(meta.id)
+          '/api/v1/vod/meta/' + encodeURIComponent(target.type) + '/' + encodeURIComponent(target.id)
         );
         const body = await res.json();
         if (!res.ok || !body.meta) return null;
