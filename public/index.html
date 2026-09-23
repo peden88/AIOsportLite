@@ -46,8 +46,35 @@
     html.light-theme .mobile-bottom-nav { background:rgba(247,250,252,.94); border-color:rgba(30,50,70,.13); box-shadow:0 18px 50px rgba(40,55,70,.20); }
     html.light-theme .mobile-bottom-nav button { color:rgba(38,55,70,.62); }
     html.light-theme .mobile-bottom-nav button.active { color:#15202b; background:#dfe8ef; border-color:rgba(30,50,70,.15); }
-    html.light-theme .details-shell { background:rgba(245,249,252,.985); border-color:rgba(30,50,70,.13); box-shadow:0 24px 80px rgba(38,55,70,.22); }
-    html.light-theme .details-backdrop::after { background:linear-gradient(90deg,rgba(245,249,252,.94) 0%,rgba(245,249,252,.78) 42%,rgba(245,249,252,.64) 100%),linear-gradient(180deg,rgba(245,249,252,.20) 0%,rgba(245,249,252,.70) 58%,rgba(245,249,252,.98) 100%); }
+    /* Keep Details cinematic in light appearance: the surrounding app can be
+       light, but artwork, logos and metadata need a dark contrast surface. */
+    html.light-theme .details-shell {
+      background:rgba(25,31,38,.94);
+      border-color:rgba(255,255,255,.14);
+      color:#f8fafc;
+      box-shadow:0 24px 80px rgba(15,25,35,.34);
+    }
+    html.light-theme .details-backdrop { opacity:.72; filter:saturate(.88) contrast(1.06) brightness(.82); }
+    html.light-theme .details-backdrop.is-visible { opacity:.72; }
+    html.light-theme .details-backdrop::after {
+      background:
+        linear-gradient(90deg,rgba(13,18,24,.88) 0%,rgba(13,18,24,.67) 43%,rgba(13,18,24,.52) 100%),
+        linear-gradient(180deg,rgba(13,18,24,.12) 0%,rgba(13,18,24,.48) 55%,rgba(13,18,24,.91) 100%);
+    }
+    html.light-theme .details-copy,
+    html.light-theme .details-copy h2,
+    html.light-theme .details-title,
+    html.light-theme .details-play-label { color:#f8fafc; }
+    html.light-theme .details-meta { color:#d5dee6; }
+    html.light-theme .details-copy p { color:#e0e7ed; text-shadow:0 1px 3px rgba(0,0,0,.58); }
+    html.light-theme .details-title-art { filter:drop-shadow(0 2px 7px rgba(0,0,0,.65)); }
+    html.light-theme .details-play-label { text-shadow:0 1px 4px rgba(0,0,0,.85); }
+    html.light-theme .details-actions button,
+    html.light-theme .details-close {
+      background:rgba(12,18,24,.90);
+      border-color:rgba(255,255,255,.14);
+      color:#f8fafc;
+    }
     html.light-theme body.live-mode { background:linear-gradient(180deg,#eef4f8 0%,#e5edf3 52%,#eef4f8 100%); }
     html.light-theme body.live-mode .top-header { background:#edf3f7; }
     html.light-theme body.live-mode header { background:rgba(237,243,247,.985); }
