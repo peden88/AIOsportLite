@@ -2568,9 +2568,52 @@
       return img;
     }
 
+    function focusCardInDirection(card, key) {
+      const cards = [...grid().querySelectorAll('.card')].filter(node => node.offsetParent !== null);
+      if (!cards.length) return false;
+      const from = card.getBoundingClientRect();
+      const fx = from.left + from.width / 2;
+      const fy = from.top + from.height / 2;
+      const direction = {
+        ArrowLeft:[-1,0],
+        ArrowRight:[1,0],
+        ArrowUp:[0,-1],
+        ArrowDown:[0,1]
+      }[key];
+      if (!direction) return false;
+
+      let best = null;
+      let bestScore = Infinity;
+      for (const candidate of cards) {
+        if (candidate === card) continue;
+        const rect = candidate.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = cx - fx;
+        const dy = cy - fy;
+        if (direction[0] < 0 && dx >= -4) continue;
+        if (direction[0] > 0 && dx <= 4) continue;
+        if (direction[1] < 0 && dy >= -4) continue;
+        if (direction[1] > 0 && dy <= 4) continue;
+
+        const primary = direction[0] !== 0 ? Math.abs(dx) : Math.abs(dy);
+        const secondary = direction[0] !== 0 ? Math.abs(dy) : Math.abs(dx);
+        const score = primary + secondary * 2.4;
+        if (score < bestScore) {
+          bestScore = score;
+          best = candidate;
+        }
+      }
+      if (!best) return false;
+      best.focus({ preventScroll:true });
+      best.scrollIntoView({ block:'nearest', inline:'nearest', behavior:'smooth' });
+      return true;
+    }
+
     function renderGrid(metas) {
       const host = grid();
       host.innerHTML = '';
+      host.className = 'grid ' + (currentMode === 'sports' ? 'live-grid' : 'vod-grid');
       if (!Array.isArray(metas) || metas.length === 0) {
         setGridState('Nothing to show here right now.');
         return;
@@ -2609,9 +2652,14 @@
           showQuickActions(card, meta);
         });
         card.onkeydown = event => {
+          if (event.target !== card) return;
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             card.click();
+            return;
+          }
+          if (focusCardInDirection(card, event.key)) {
+            event.preventDefault();
           }
         };
         card.addEventListener('click', event => {
@@ -2673,6 +2721,20 @@
             posterBox.appendChild(upNext);
           }
 
+          const watchRow = meta._progress || (
+            normalizedVodType(meta) === 'movie'
+              ? cachedMovieProgress(meta.id)
+              : cachedSeriesProgress(meta.id)
+          );
+          const watchPct = Number(watchRow?.progressPercent || 0);
+          if (normalizedVodType(meta) === 'movie' && watchPct >= 90) {
+            const watched = document.createElement('div');
+            watched.className = 'watched-badge';
+            watched.title = 'Watched';
+            watched.textContent = '✓';
+            posterBox.appendChild(watched);
+          }
+
           const quick = document.createElement('button');
           quick.type = 'button';
           quick.className = 'card-quick-trigger';
@@ -2708,25 +2770,35 @@
         }
         info.appendChild(desc);
 
-        if (meta._progress) {
-          const continuity = continuityLabel(meta._progress);
-          if (continuity) {
-            const badge = document.createElement('div');
-            badge.className = 'continuity-badge';
-            badge.textContent = continuity;
-            info.appendChild(badge);
+        const progressRow = meta._progress || (
+          currentMode !== 'sports' && normalizedVodType(meta) === 'movie'
+            ? cachedMovieProgress(meta.id)
+            : null
+        );
+        if (progressRow) {
+          if (meta._progress) {
+            const continuity = continuityLabel(meta._progress);
+            if (continuity) {
+              const badge = document.createElement('div');
+              badge.className = 'continuity-badge';
+              badge.textContent = continuity;
+              info.appendChild(badge);
+            }
           }
-          const track = document.createElement('div');
-          track.className = 'progress-track';
-          const fill = document.createElement('div');
-          fill.className = 'progress-fill';
-          const pct = Number(meta._progress.progressPercent);
-          const fallbackPct = Number(meta._progress.duration) > 0
-            ? (Number(meta._progress.position || 0) / Number(meta._progress.duration)) * 100
+          const pct = Number(progressRow.progressPercent);
+          const fallbackPct = Number(progressRow.duration) > 0
+            ? (Number(progressRow.position || 0) / Number(progressRow.duration)) * 100
             : 0;
-          fill.style.width = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : fallbackPct)) + '%';
-          track.appendChild(fill);
-          info.appendChild(track);
+          const resolvedPct = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : fallbackPct));
+          if (resolvedPct > 0 && resolvedPct < 90) {
+            const track = document.createElement('div');
+            track.className = 'progress-track';
+            const fill = document.createElement('div');
+            fill.className = 'progress-fill';
+            fill.style.width = resolvedPct + '%';
+            track.appendChild(fill);
+            info.appendChild(track);
+          }
         }
 
         card.append(posterBox, info);
@@ -2742,6 +2814,7 @@
           lastActiveCard = card;
         }
       }
+      finishGridTransition();
     }
 
     function progressIdentityKey(row) {
