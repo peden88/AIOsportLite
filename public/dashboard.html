@@ -77,11 +77,66 @@
     .stream-entry > div:nth-child(4) { grid-column:1 / -1; }
     .stream-entry > button { grid-column:2; grid-row:1; }
   }
+
+  /* Match the mature AIOPlay slate/smoke visual system used by TV and web. */
+  :root {
+    --bg:#0a0e13;
+    --panel:#11161d;
+    --line:rgba(255,255,255,.075);
+    --text:#f3f5f7;
+    --dim:#9ca6af;
+    --accent:#9aadb5;
+    --ok:#7fa58b;
+    --warn:#b4a27d;
+  }
+  body {
+    background:
+      radial-gradient(circle at 82% 10%,rgba(113,133,155,.12),transparent 34%),
+      linear-gradient(135deg,#0a0e13 0%,#11161d 52%,#171920 100%);
+    min-height:100vh;
+  }
+  header {
+    position:sticky;
+    top:0;
+    z-index:20;
+    padding:14px 24px;
+    background:rgba(10,14,19,.78);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    border-color:var(--line);
+  }
+  .dashboard-brand { width:34px; height:34px; border-radius:8px; object-fit:cover; border:1px solid rgba(255,255,255,.10); }
+  header h1 { font-size:16px; letter-spacing:-.01em; }
+  main { max-width:1100px; }
+  .card {
+    background:rgba(17,22,29,.84);
+    border-color:var(--line);
+    border-radius:16px;
+    box-shadow:0 14px 42px rgba(0,0,0,.18);
+    backdrop-filter:blur(10px);
+  }
+  .bar { background:rgba(255,255,255,.07); }
+  .bar > i { background:#9aadb5; }
+  button {
+    background:#1a2129;
+    border-color:rgba(255,255,255,.08);
+    border-radius:10px;
+  }
+  button:hover:not(:disabled) { background:#273039; border-color:rgba(255,255,255,.18); }
+  .note {
+    background:rgba(154,141,125,.09);
+    border-color:rgba(154,141,125,.22);
+    color:#c8baa8;
+  }
+  .note code { background:rgba(154,141,125,.10); }
+  .stream-entry { transition:background .14s ease; border-color:var(--line); }
+  .stream-entry:hover { background:rgba(255,255,255,.025); }
 </style>
 </head>
 <body>
 <header>
-  <h1>⚙️ Live Sports — Dashboard</h1>
+  <img src="/aioplay-brand.webp" class="dashboard-brand" alt="AIOPlay">
+  <h1>AIOPlay Dashboard</h1>
   <div class="spacer"></div>
   <button id="lockBtn" hidden style="padding:7px 13px">Sign out</button>
   <a href="/">← Back to catalog</a>
