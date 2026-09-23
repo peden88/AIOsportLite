@@ -30,6 +30,8 @@ t(html.includes('/api/v1/vod/meta/series/'), 'series details load episodes from 
 t(/fetchAndPlay\(\s*video\.id,\s*'episode',\s*'series',/.test(html), 'episodes play through AIOStreams as series resources');
 t(html.includes(": () => openMovie(meta, card);"), 'movie poster selection opens Details instead of starting playback');
 t(html.includes('id="detailsMoviePlay"') && html.includes('class="details-play-orb"'), 'movie Details exposes the round hero Play control');
+t(/\.details-play-orb\s*\{[\s\S]*?radial-gradient/.test(html), 'movie hero Play control uses layered AIOPlay rings');
+t(/\.details-play-orb svg\s*\{[\s\S]*?fill\s*:\s*#61e58f/.test(html), 'movie hero Play symbol uses the green AIOPlay accent');
 t(html.includes('configureMovieHeroAction(currentDetailsMeta)'), 'movie Details wires Play or Resume through the hero action');
 t(html.includes("Keep the underlying catalog dimmed while Details fades away"), 'Details dismissal uses the staged mobile fade path');
 t(!html.includes('AIOMETADATA_MANIFEST_URL'), 'web page never receives the AIOMetadata manifest URL');
