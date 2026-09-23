@@ -1604,6 +1604,64 @@
       });
     }
 
+    function applyMotionPreference() {
+      const stored = localStorage.getItem(MOTION_KEY);
+      const systemReduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+      const reduced = stored === 'reduce' || (stored == null && systemReduce);
+      const forcedFull = stored === 'full';
+
+      document.documentElement.classList.toggle('reduce-motion', reduced);
+      document.documentElement.classList.toggle('force-motion', forcedFull);
+
+      const button = document.getElementById('motionToggle');
+      if (button) {
+        button.setAttribute('aria-pressed', reduced ? 'true' : 'false');
+        button.title = reduced ? 'Reduced motion on' : 'Reduced motion off';
+      }
+      if (reduced) stopHeroPreview();
+    }
+
+    function toggleMotionPreference() {
+      const currentlyReduced = document.documentElement.classList.contains('reduce-motion');
+      localStorage.setItem(MOTION_KEY, currentlyReduced ? 'full' : 'reduce');
+      applyMotionPreference();
+    }
+
+    function initCatalogRailGestures() {
+      const rail = tabs();
+      if (!rail || rail.dataset.gesturesReady === '1') return;
+      rail.dataset.gesturesReady = '1';
+
+      let dragging = false;
+      let startX = 0;
+      let startScroll = 0;
+      rail.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'touch') return;
+        dragging = true;
+        startX = event.clientX;
+        startScroll = rail.scrollLeft;
+        rail.classList.add('is-dragging');
+        rail.setPointerCapture?.(event.pointerId);
+      });
+      rail.addEventListener('pointermove', event => {
+        if (!dragging) return;
+        rail.scrollLeft = startScroll - (event.clientX - startX);
+      });
+      const stop = event => {
+        dragging = false;
+        rail.classList.remove('is-dragging');
+        try { rail.releasePointerCapture?.(event.pointerId); } catch (_) {}
+      };
+      rail.addEventListener('pointerup', stop);
+      rail.addEventListener('pointercancel', stop);
+      rail.addEventListener('wheel', event => {
+        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+        if (rail.scrollWidth <= rail.clientWidth) return;
+        event.preventDefault();
+        rail.scrollLeft += event.deltaY;
+      }, { passive:false });
+    }
+
     function safeImageUrl(value) {
       const raw = String(value || '').trim();
       if (!raw) return '';
@@ -2389,6 +2447,22 @@
         name:progressContext.name
       };
       const meta = await loadMetaFor(preview);
+      if (meta) {
+        const currentVideo = Array.isArray(meta.videos)
+          ? meta.videos.find(video =>
+              String(video?.id || '') === String(progressContext.videoId || '') ||
+              (
+                progressContext.season != null && progressContext.episode != null &&
+                Number(video?.season) === Number(progressContext.season) &&
+                Number(video?.episode) === Number(progressContext.episode)
+              )
+            )
+          : null;
+        if (currentVideo) {
+          currentPlaybackMeta = { ...(currentPlaybackMeta || {}), ...currentVideo };
+          renderPlayerTimelineMarkers(document.getElementById('video'));
+        }
+      }
       const next = findNextVideo(meta, progressContext);
       if (!meta || !next) return;
 
@@ -2504,7 +2578,7 @@
         }
       } catch (err) {
         console.error('Failed to bootstrap app', err);
-        setGridState('Could not load the application.', true);
+        setGridState('Could not load the application.', true, () => location.reload());
       }
     }
 
@@ -2645,7 +2719,7 @@
       } catch (err) {
         console.error(err);
         currentItems = [];
-        setGridState('Could not load Continue Watching.', true);
+        setGridState('Could not load Continue Watching.', true, () => loadContinueWatching({ push:false }));
       }
     }
 
@@ -2662,7 +2736,9 @@
         if (push && !restoringUiState) persistUiState({ push:true });
       } catch (err) {
         console.error(err);
-        setGridState('Failed to load this sports catalog.', true);
+        setGridState('Failed to load this sports catalog.', true, () =>
+          loadSportsCatalog(catalogId, tab, { push:false })
+        );
       }
     }
 
@@ -2686,7 +2762,9 @@
         if (push && !restoringUiState) persistUiState({ push:true });
       } catch (err) {
         console.error(err);
-        setGridState('Failed to load this VOD catalog.', true);
+        setGridState('Failed to load this VOD catalog.', true, () =>
+          loadVodCatalog(catalog, tab, { push:false })
+        );
       }
     }
 
@@ -2746,7 +2824,9 @@
         renderGrid(results);
       } catch (err) {
         console.error(err);
-        setGridState('Search is temporarily unavailable.', true);
+        setGridState('Search is temporarily unavailable.', true, () =>
+          applySearch(clean, { persist:false })
+        );
       }
       if (persist) persistUiState();
     }
@@ -3845,6 +3925,14 @@
           closePlayerFromUi();
         } else if (document.getElementById('details-overlay').style.display === 'block') {
           closeDetailsFromUi();
+        } else if (document.getElementById('searchInput').value) {
+          event.preventDefault();
+          document.getElementById('searchInput').value = '';
+          setSearchType('', { rerun:false });
+          applySearch('');
+        } else if (document.getElementById('searchContext') && !document.getElementById('searchContext').hidden) {
+          setSearchContextVisible(false);
+          document.getElementById('searchInput').blur();
         }
       } else if (
         event.key === '/' &&
@@ -3896,6 +3984,20 @@
         document.getElementById('details-overlay').style.display = 'block';
       }
       restoringUiState = false;
+    });
+
+    document.getElementById('motionToggle').addEventListener('click', toggleMotionPreference);
+    applyMotionPreference();
+    initCatalogRailGestures();
+
+    const timelineTrack = document.querySelector('.player-timeline-track');
+    timelineTrack?.addEventListener('click', event => {
+      const video = document.getElementById('video');
+      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+      const rect = timelineTrack.getBoundingClientRect();
+      const fraction = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      video.currentTime = fraction * video.duration;
+      updatePlayerTimeline(video);
     });
 
     initVodPlayerControl();
