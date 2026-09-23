@@ -1444,6 +1444,7 @@
     let requestingFallback = false;
     let pendingVodPlayback = null;
     let searchTimer = null;
+    let gridTransitionTimer = null;
     let currentProgressContext = null;
     let lastProgressSyncAt = 0;
     let sharedProgressItems = [];
@@ -1553,15 +1554,23 @@
 
     function beginGridTransition({ posterMode = true } = {}) {
       const host = grid();
+      clearTimeout(gridTransitionTimer);
+      if (host.querySelector('.skeleton-card')) return;
+
       if (host.children.length && !host.querySelector('.content-state')) {
         host.classList.add('is-transitioning');
-        setTimeout(() => showGridSkeleton({ posterMode }), 90);
+        gridTransitionTimer = setTimeout(() => {
+          gridTransitionTimer = null;
+          showGridSkeleton({ posterMode });
+        }, 90);
       } else {
         showGridSkeleton({ posterMode });
       }
     }
 
     function finishGridTransition() {
+      clearTimeout(gridTransitionTimer);
+      gridTransitionTimer = null;
       const host = grid();
       host.classList.remove('is-transitioning');
       host.classList.add('is-entering');
@@ -2708,6 +2717,7 @@
       } catch (err) {
         console.error(err);
         tabs().innerHTML = '<div style="color:var(--accent);">Failed to load sports catalogs.</div>';
+        setGridState('Could not load the Live catalog list.', true, () => loadSportsTabs());
       }
     }
 
@@ -2741,6 +2751,7 @@
       } catch (err) {
         console.error(err);
         tabs().innerHTML = '<div style="color:var(--accent);">Failed to load VOD catalogs.</div>';
+        setGridState('Could not load the VOD catalog list.', true, () => loadVodTabs());
       }
     }
 
@@ -3955,6 +3966,11 @@
     }
 
     function closePlayerFromUi() {
+      const overlay = document.getElementById('player-overlay');
+      if (overlay?.classList.contains('mini')) {
+        closePlayer();
+        return;
+      }
       if (history.state?.aioplay?.overlay === 'player') {
         history.back();
       } else {
