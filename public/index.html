@@ -2203,18 +2203,18 @@
           return;
         }
 
-        shell.classList.add('details-dismissing');
-        shell.style.transform = '';
-        setTimeout(() => {
-          shell.classList.remove('details-dismissing');
-          shell.style.transform = '';
-          shell.style.opacity = '';
-          closeDetailsFromUi();
-        }, 135);
+        shell.style.transform = 'translate3d(0,' + Math.min(180, dy * .72) + 'px,0)';
+        closeDetailsFromUi();
       };
 
       shell.addEventListener('touchend', () => finish(false), { passive:true });
       shell.addEventListener('touchcancel', () => finish(true), { passive:true });
+
+      overlay.addEventListener('click', event => {
+        if (event.target === overlay) {
+          closeDetailsFromUi();
+        }
+      });
     }
 
     function initCatalogRailGestures() {
@@ -2260,6 +2260,134 @@
         event.preventDefault();
         rail.scrollLeft += event.deltaY;
       }, { passive:false });
+    }
+
+    function updateMobileBottomNavState() {
+      const nav = document.getElementById('mobileBottomNav');
+      if (!nav) return;
+
+      const search = document.getElementById('searchInput');
+      const searchActive = !!(
+        search &&
+        (document.activeElement === search || search.value.trim())
+      );
+
+      nav.querySelectorAll('[data-mobile-mode]').forEach(button => {
+        button.classList.toggle(
+          'active',
+          !searchActive && button.dataset.mobileMode === currentMode
+        );
+      });
+
+      const searchButton = document.getElementById('mobileSearchNav');
+      if (searchButton) searchButton.classList.toggle('active', searchActive);
+    }
+
+    function configureMobileBottomNav() {
+      const nav = document.getElementById('mobileBottomNav');
+      if (!nav || nav.dataset.ready === '1') {
+        updateMobileBottomNavState();
+        return;
+      }
+      nav.dataset.ready = '1';
+
+      const sportsEnabled = !!bootstrap?.services?.sports?.enabled;
+      const vodEnabled = !!bootstrap?.services?.vod?.enabled;
+      const continueEnabled = !!(vodEnabled && bootstrap?.accountUser);
+
+      const visibility = {
+        sports:sportsEnabled,
+        vod:vodEnabled,
+        continue:continueEnabled
+      };
+      nav.querySelectorAll('[data-mobile-mode]').forEach(button => {
+        button.hidden = !visibility[button.dataset.mobileMode];
+        button.addEventListener('click', async () => {
+          const mode = button.dataset.mobileMode;
+          document.body.classList.remove('mobile-header-collapsed');
+
+          if (currentMode === mode) {
+            window.scrollTo({
+              top:0,
+              behavior:reducedMotionActive() ? 'auto' : 'smooth'
+            });
+            updateMobileBottomNavState();
+            return;
+          }
+          await loadMode(mode, { push:true });
+          window.scrollTo({ top:0, behavior:'auto' });
+          updateMobileBottomNavState();
+        });
+      });
+
+      const searchButton = document.getElementById('mobileSearchNav');
+      if (searchButton) {
+        searchButton.hidden = !vodEnabled;
+        searchButton.addEventListener('click', async () => {
+          document.body.classList.remove('mobile-header-collapsed');
+          if (currentMode !== 'vod' && vodEnabled) {
+            await loadMode('vod', { push:true });
+          }
+          window.scrollTo({
+            top:0,
+            behavior:reducedMotionActive() ? 'auto' : 'smooth'
+          });
+          setTimeout(() => {
+            document.getElementById('searchInput')?.focus();
+            updateMobileBottomNavState();
+          }, reducedMotionActive() ? 0 : 180);
+        });
+      }
+
+      const search = document.getElementById('searchInput');
+      search?.addEventListener('focus', updateMobileBottomNavState);
+      search?.addEventListener('blur', () =>
+        setTimeout(updateMobileBottomNavState, 0)
+      );
+      search?.addEventListener('input', updateMobileBottomNavState);
+      updateMobileBottomNavState();
+    }
+
+    function initMobileScrollNavigation() {
+      if (document.body.dataset.mobileScrollNavReady === '1') return;
+      document.body.dataset.mobileScrollNavReady = '1';
+
+      let lastY = Math.max(0, window.scrollY || 0);
+      let ticking = false;
+
+      const apply = () => {
+        ticking = false;
+        if (!window.matchMedia?.('(max-width:650px)')?.matches) {
+          document.body.classList.remove('mobile-header-collapsed');
+          lastY = Math.max(0, window.scrollY || 0);
+          return;
+        }
+
+        const y = Math.max(0, window.scrollY || 0);
+        const delta = y - lastY;
+        const searchFocused = document.activeElement === document.getElementById('searchInput');
+        const overlayOpen =
+          document.getElementById('details-overlay')?.style.display === 'block' ||
+          document.getElementById('player-overlay')?.style.display === 'flex';
+
+        if (y < 72 || searchFocused || overlayOpen) {
+          document.body.classList.remove('mobile-header-collapsed');
+        } else if (delta > 10 && y > 120) {
+          document.body.classList.add('mobile-header-collapsed');
+        } else if (delta < -8) {
+          document.body.classList.remove('mobile-header-collapsed');
+        }
+
+        lastY = y;
+      };
+
+      window.addEventListener('scroll', () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(apply);
+      }, { passive:true });
+
+      window.addEventListener('resize', apply, { passive:true });
     }
 
     function safeImageUrl(value) {
@@ -3168,6 +3296,7 @@
       const filters = document.getElementById('searchFilters');
       if (filters) filters.style.display = mode === 'vod' ? 'flex' : 'none';
       if (!search.value.trim()) setSearchContextVisible(false);
+      updateMobileBottomNavState();
     }
 
     async function initContent() {
@@ -3240,6 +3369,7 @@
       if (bootstrap.services?.sports?.enabled) add('sports', 'Live');
       if (bootstrap.services?.vod?.enabled) add('vod', 'VOD');
       if (bootstrap.services?.vod?.enabled && bootstrap.accountUser) add('continue', 'Continue Watching');
+      configureMobileBottomNav();
     }
 
     async function loadMode(mode, { snapshot = null, push = true } = {}) {
@@ -4324,10 +4454,48 @@
       }
     }
 
-    function closeDetails({ restoreFocus = true, persist = true } = {}) {
-      document.body.classList.add('catalog-return-instant');
+    let detailsDismissPromise = null;
+
+    function reducedMotionActive() {
+      if (document.documentElement.classList.contains('force-motion')) return false;
+      if (document.documentElement.classList.contains('reduce-motion')) return true;
+      return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    }
+
+    function animateDetailsDismiss() {
+      const overlay = document.getElementById('details-overlay');
+      if (!overlay || overlay.style.display !== 'block') return Promise.resolve();
+      if (detailsDismissPromise) return detailsDismissPromise;
+
       document.body.classList.remove('details-open');
-      document.getElementById('details-overlay').style.display = 'none';
+      overlay.classList.add('details-fading');
+
+      detailsDismissPromise = new Promise(resolve => {
+        setTimeout(resolve, reducedMotionActive() ? 0 : 180);
+      }).finally(() => {
+        detailsDismissPromise = null;
+      });
+      return detailsDismissPromise;
+    }
+
+    function closeDetails({ restoreFocus = true, persist = true } = {}) {
+      document.body.classList.remove('details-open');
+      const overlay = document.getElementById('details-overlay');
+      const shell = overlay?.querySelector('.details-shell');
+      if (overlay) {
+        overlay.classList.remove('details-fading');
+        overlay.style.display = 'none';
+      }
+      if (shell) {
+        shell.classList.remove(
+          'details-dragging',
+          'details-dismissing',
+          'details-snap-back'
+        );
+        shell.style.transform = '';
+        shell.style.opacity = '';
+      }
+
       document.getElementById('episodeList').innerHTML = '';
       document.getElementById('detailsActions').innerHTML = '';
       document.getElementById('detailsMeta').innerHTML = '';
@@ -4340,14 +4508,13 @@
       }
       if (persist) persistUiState();
       if (restoreFocus) restoreLastCardFocus();
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          document.body.classList.remove('catalog-return-instant');
-        });
-      });
     }
 
-    function closeDetailsFromUi() {
+    async function closeDetailsFromUi() {
+      const overlay = document.getElementById('details-overlay');
+      if (!overlay || overlay.style.display !== 'block') return;
+      await animateDetailsDismiss();
+
       if (history.state?.aioplay?.overlay === 'details') {
         history.back();
       } else {
@@ -4443,6 +4610,7 @@
             document.getElementById('details-overlay').style.display = 'none';
           }
           document.getElementById('player-overlay').style.display = 'flex';
+          document.body.classList.add('player-open');
         },
         () => document.getElementById('playerBackdrop')
       );
@@ -4566,6 +4734,7 @@
         lastProgressSyncAt = 0;
         playbackGeneration++;
         document.getElementById('player-overlay').style.display = 'none';
+        document.body.classList.remove('player-open');
         document.getElementById('playback-message').style.display = 'none';
         stopVideoEngine();
         // The external-player bridge now owns the lease and keeps it alive from
@@ -4717,6 +4886,7 @@
       overlay.classList.remove('mini');
       document.getElementById('miniPlayerBar').hidden = true;
       overlay.style.display = 'none';
+      document.body.classList.remove('player-open');
       document.getElementById('playback-message').style.display = 'none';
       document.getElementById('playerBackdrop').style.backgroundImage = '';
       stopVideoEngine();
@@ -4864,6 +5034,7 @@
       // the same poster elements, decoded images, scroll position and focus
       // remain resident and can be revealed immediately.
       if (detailsWasOpen && snapshot?.overlay !== 'details') {
+        await animateDetailsDismiss();
         closeDetails({ restoreFocus:false, persist:false });
       }
 
@@ -4893,6 +5064,7 @@
     applyMotionPreference();
     initCatalogRailGestures();
     initDetailsSwipeDismiss();
+    initMobileScrollNavigation();
 
     const timelineTrack = document.querySelector('.player-timeline-track');
     timelineTrack?.addEventListener('click', event => {
