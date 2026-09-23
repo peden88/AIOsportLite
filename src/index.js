@@ -44,6 +44,7 @@ const playbackLeases = require('./services/PlaybackLeases');
 const userAuth = require('./services/UserAuth');
 const aioPlayProgress = require('./services/AioPlayProgress');
 const aioPlayLibrary = require('./services/AioPlayLibrary');
+const aioPlayWatchState = require('./services/AioPlayWatchState');
 const vodGateway = require('./services/VodGateway');
 
 
@@ -577,6 +578,21 @@ app.delete('/api/v1/library/:type/:id', requirePage, (req, res) => {
   if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
   const removed = aioPlayLibrary.remove(account.user.id, req.params.type, req.params.id);
   res.json({ ok: true, removed });
+});
+
+app.get('/api/v1/watch-state', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ items: aioPlayWatchState.list(account.user.id) });
+});
+
+app.put('/api/v1/watch-state', requirePage, express.json({ limit: '64kb' }), (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
+  const item = aioPlayWatchState.setWatched(account.user.id, req.body || {});
+  if (!item) return res.status(400).json({ error: 'A valid watched item is required.' });
+  res.json({ ok: true, item });
 });
 
 app.get('/api/v1/progress', requirePage, async (req, res) => {
