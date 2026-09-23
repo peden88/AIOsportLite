@@ -30,11 +30,10 @@ t(html.includes('/api/v1/vod/meta/series/'), 'series details load episodes from 
 t(/fetchAndPlay\(\s*video\.id,\s*'episode',\s*'series',/.test(html), 'episodes play through AIOStreams as series resources');
 t(html.includes(": () => openMovie(meta, card);"), 'movie poster selection opens Details instead of starting playback');
 t(html.includes('id="detailsMoviePlay"') && html.includes('class="details-play-orb"'), 'movie Details exposes the round hero Play control');
-t(/\.details-play-orb\s*\{[\s\S]*?radial-gradient/.test(html), 'movie hero Play control uses layered AIOPlay rings');
-t(/\.details-play-orb\s*\{[\s\S]*?width\s*:\s*70px[\s\S]*?linear-gradient\(145deg[\s\S]*?rgba\(5,87,93,.98\)/.test(html), 'movie hero Play control keeps the compact dark-teal outer reference treatment');
-t(/\.details-play-orb::before[\s\S]*?conic-gradient[\s\S]*?#08dc7c[\s\S]*?#1bc9d3/.test(html), 'movie hero Play control renders the green-to-cyan outer ring');
-t(/\.details-play-orb::after[\s\S]*?#0be873[\s\S]*?#1bcbd0/.test(html), 'movie hero Play control renders the luminous green-cyan inner disc');
-t(/\.details-play-orb svg\s*\{[\s\S]*?fill\s*:\s*#1b2a36/.test(html), 'movie hero Play symbol uses the dark reference-style centre');
+t(html.includes("url('/assets/aioplay-movie-play-orb.png')"), 'movie hero Play control uses the rendered AIOPlay orb asset');
+t(/\.details-play-orb\s*\{[\s\S]*?width\s*:\s*70px[\s\S]*?background\s*:\s*transparent\s+url\('\/assets\/aioplay-movie-play-orb\.png'\)/.test(html), 'movie hero Play control keeps the compact rendered treatment');
+t(html.includes("aioplay-movie-play-orb.png"), 'movie hero Play control uses the exact green-cyan rendered artwork');
+t(/\.details-play-orb svg\s*\{\s*display\s*:\s*none/.test(html), 'movie hero Play hides the CSS symbol in favour of rendered artwork');
 t(html.includes('configureMovieHeroAction(currentDetailsMeta)'), 'movie Details wires Play or Resume through the hero action');
 t(html.includes("Keep the underlying catalog dimmed while Details fades away"), 'Details dismissal uses the staged mobile fade path');
 t(!html.includes('AIOMETADATA_MANIFEST_URL'), 'web page never receives the AIOMetadata manifest URL');
