@@ -1439,6 +1439,7 @@
     let heroRenderToken = 0;
     let searchType = '';
     let currentDetailsEpisodeId = '';
+    let currentDetailsSeason = null;
     const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
     const UI_STATE_KEY = 'aioplay.webUiState.v2';
@@ -2257,6 +2258,125 @@
       }
     }
 
+    function formatPlaybackTime(seconds) {
+      const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+      const hours = Math.floor(safe / 3600);
+      const mins = Math.floor((safe % 3600) / 60);
+      const secs = safe % 60;
+      return hours > 0
+        ? hours + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0')
+        : mins + ':' + String(secs).padStart(2, '0');
+    }
+
+    function markerTime(value) {
+      if (value == null) return null;
+      const number = Number(value);
+      if (!Number.isFinite(number) || number < 0) return null;
+      return number > 100000 ? number / 1000 : number;
+    }
+
+    function playbackMarkers(meta) {
+      if (!meta || typeof meta !== 'object') return [];
+      const markers = [];
+      const push = (kind, start, label = '') => {
+        const seconds = markerTime(start);
+        if (seconds == null) return;
+        markers.push({ kind, start:seconds, label:label || kind });
+      };
+
+      const inspect = row => {
+        if (!row || typeof row !== 'object') return;
+        const rawKind = String(row.kind || row.type || row.name || row.title || '').toLowerCase();
+        const kind = rawKind.includes('intro') || rawKind.includes('opening')
+          ? 'intro'
+          : rawKind.includes('recap')
+            ? 'recap'
+            : rawKind.includes('outro') || rawKind.includes('ending') || rawKind.includes('credits')
+              ? 'outro'
+              : '';
+        if (!kind) return;
+        push(kind, row.start ?? row.startTime ?? row.startMs ?? row.time, row.title || row.name);
+      };
+
+      ['chapters','markers','segments','skipSegments'].forEach(key => {
+        if (Array.isArray(meta[key])) meta[key].forEach(inspect);
+      });
+      ['intro','recap','outro','opening','ending'].forEach(key => {
+        const value = meta[key];
+        if (value && typeof value === 'object') {
+          push(
+            key === 'opening' ? 'intro' : key === 'ending' ? 'outro' : key,
+            value.start ?? value.startTime ?? value.startMs,
+            value.label || key
+          );
+        }
+      });
+      return markers;
+    }
+
+    function updatePlayerTimeline(video = document.getElementById('video')) {
+      if (!video) return;
+      const duration = Number(video.duration);
+      const current = Number(video.currentTime || 0);
+      const fill = document.getElementById('playerTimelineFill');
+      const currentLabel = document.getElementById('playerTimelineCurrent');
+      const remainingLabel = document.getElementById('playerTimelineRemaining');
+      if (fill) {
+        fill.style.width = Number.isFinite(duration) && duration > 0
+          ? Math.max(0, Math.min(100, current / duration * 100)) + '%'
+          : '0%';
+      }
+      if (currentLabel) currentLabel.textContent = formatPlaybackTime(current);
+      if (remainingLabel) remainingLabel.textContent =
+        '−' + formatPlaybackTime(Number.isFinite(duration) ? Math.max(0, duration - current) : 0);
+    }
+
+    function renderPlayerTimelineMarkers(video = document.getElementById('video')) {
+      const host = document.getElementById('playerTimelineMarkers');
+      if (!host) return;
+      host.innerHTML = '';
+      const duration = Number(video?.duration);
+      if (!Number.isFinite(duration) || duration <= 0) return;
+      playbackMarkers(currentPlaybackMeta).forEach(marker => {
+        if (marker.start < 0 || marker.start > duration) return;
+        const node = document.createElement('span');
+        node.className = 'player-timeline-marker';
+        node.dataset.kind = marker.kind;
+        node.title = marker.label;
+        node.style.left = (marker.start / duration * 100) + '%';
+        host.appendChild(node);
+      });
+    }
+
+    function minimizePlayer() {
+      const overlay = document.getElementById('player-overlay');
+      if (!overlay || overlay.style.display !== 'flex') return;
+      overlay.classList.add('mini');
+      document.getElementById('miniPlayerBar').hidden = false;
+      showPlayerHud(false);
+    }
+
+    function expandPlayer() {
+      const overlay = document.getElementById('player-overlay');
+      if (!overlay) return;
+      overlay.classList.remove('mini');
+      document.getElementById('miniPlayerBar').hidden = true;
+      showPlayerHud(true);
+    }
+
+    function restoreDetailsEpisodeFocus() {
+      if (!currentDetailsEpisodeId) return;
+      requestAnimationFrame(() => {
+        const target = [...document.querySelectorAll('.episode-btn')].find(button =>
+          button.dataset.videoId === String(currentDetailsEpisodeId)
+        );
+        if (target) {
+          target.focus({ preventScroll:true });
+          target.scrollIntoView({ block:'nearest', behavior:'smooth' });
+        }
+      });
+    }
+
     async function prepareNextEpisode(progressContext) {
       currentNextEpisode = null;
       const button = document.getElementById('playerNextUp');
@@ -2329,6 +2449,9 @@
         ? 'Search live…'
         : 'Search all movies and series…';
       setVodPlayerControlsVisible(mode === 'vod' || mode === 'continue');
+      const filters = document.getElementById('searchFilters');
+      if (filters) filters.style.display = mode === 'vod' ? 'flex' : 'none';
+      if (!search.value.trim()) setSearchContextVisible(false);
     }
 
     async function initContent() {
@@ -3210,10 +3333,17 @@
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'episode-btn';
+            button.dataset.videoId = String(video.id);
+            const watchedProgress = cachedEpisodeProgress(meta, video);
+            if (Number(watchedProgress?.progressPercent || 0) >= 90) {
+              button.classList.add('is-watched');
+            }
             const ep = Number(video.episode) || 0;
             const prefix = ep ? ('E' + ep + ' · ') : '';
             button.textContent = prefix + (video.title || video.name || ('Episode ' + (ep || '')));
             button.onclick = async () => {
+              currentDetailsEpisodeId = String(video.id);
+              currentDetailsSeason = Number(video.season) || 0;
               await fetchAndPlay(
                 video.id,
                 'episode',
@@ -3226,10 +3356,18 @@
           }
         };
 
-        seasonSelect.value = String(defaultSeason);
-        seasonSelect.onchange = () => renderSeason(Number(seasonSelect.value) || 0);
+        const selectedSeason = currentDetailsSeason != null && seasons.includes(Number(currentDetailsSeason))
+          ? Number(currentDetailsSeason)
+          : defaultSeason;
+        seasonSelect.value = String(selectedSeason);
+        seasonSelect.onchange = () => {
+          currentDetailsSeason = Number(seasonSelect.value) || 0;
+          renderSeason(currentDetailsSeason);
+          persistUiState({ overlay:'details' });
+        };
         seasonControl.style.display = 'flex';
-        renderSeason(defaultSeason);
+        renderSeason(selectedSeason);
+        restoreDetailsEpisodeFocus();
       } catch (err) {
         console.error(err);
         seasonControl.style.display = 'none';
@@ -3617,7 +3755,10 @@
       if (chooser) chooser.style.display = 'none';
       if (invalidate) playbackGeneration++;
 
-      document.getElementById('player-overlay').style.display = 'none';
+      const overlay = document.getElementById('player-overlay');
+      overlay.classList.remove('mini');
+      document.getElementById('miniPlayerBar').hidden = true;
+      overlay.style.display = 'none';
       document.getElementById('playback-message').style.display = 'none';
       document.getElementById('playerBackdrop').style.backgroundImage = '';
       stopVideoEngine();
@@ -3626,6 +3767,7 @@
         document.body.classList.add('details-open');
         document.getElementById('details-overlay').style.display = 'block';
         persistUiState({ overlay:'details' });
+        restoreDetailsEpisodeFocus();
       } else if (returnToOrigin) {
         persistUiState();
         restoreLastCardFocus();
@@ -3649,8 +3791,13 @@
 
     const progressVideo = document.getElementById('video');
     progressVideo.addEventListener('timeupdate', () => {
+      updatePlayerTimeline(progressVideo);
       updateNextUpVisibility(progressVideo);
       if (currentProgressContext && !progressVideo.paused) syncCurrentProgress(false, false);
+    });
+    progressVideo.addEventListener('loadedmetadata', () => {
+      updatePlayerTimeline(progressVideo);
+      renderPlayerTimelineMarkers(progressVideo);
     });
     progressVideo.addEventListener('pause', () => {
       showPlayerHud(true);
@@ -3671,6 +3818,9 @@
     ['mousemove', 'pointerdown', 'touchstart'].forEach(eventName => {
       playerOverlay.addEventListener(eventName, () => showPlayerHud(false), { passive: true });
     });
+    document.getElementById('playerMinimize').addEventListener('click', minimizePlayer);
+    document.getElementById('miniExpand').addEventListener('click', expandPlayer);
+    document.getElementById('miniClose').addEventListener('click', () => closePlayerFromUi());
     document.getElementById('playerSwitchSource').addEventListener('click', () => {
       if (currentPlaybackSession && !requestingFallback) {
         requestNextPlayback(playbackGeneration);
