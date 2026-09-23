@@ -339,6 +339,11 @@
       opacity:.15;
       transition:opacity .16s ease;
     }
+    body.catalog-return-instant > .top-header,
+    body.catalog-return-instant > header,
+    body.catalog-return-instant > main {
+      transition:none !important;
+    }
     #details-overlay {
       display:none;
       position:fixed;
@@ -363,8 +368,34 @@
       box-shadow:0 24px 80px rgba(0,0,0,.42);
     }
     .details-head { display:grid; grid-template-columns:180px 1fr; gap:24px; }
-    .details-head img { width:180px; aspect-ratio:2/3; object-fit:cover; border-radius:12px; background:#202027; }
+    .details-poster {
+      width:180px;
+      aspect-ratio:2/3;
+      object-fit:cover;
+      border-radius:12px;
+      background:#202027;
+    }
+    .details-title-art {
+      display:block;
+      width:min(360px,72%);
+      max-width:100%;
+      height:auto;
+      max-height:82px;
+      object-fit:contain;
+      object-position:left center;
+      margin:0 0 12px;
+      background:transparent;
+      border-radius:0;
+      filter:drop-shadow(0 8px 22px rgba(0,0,0,.34));
+    }
+    .details-title-art[hidden] { display:none !important; }
     .details-head h2 { margin:0 0 10px; font:800 28px/1.15 'Outfit',sans-serif; }
+    .details-copy.has-title-art h2 {
+      font-size:20px;
+      line-height:1.2;
+      color:rgba(245,247,248,.84);
+      margin-bottom:10px;
+    }
     .details-head p { color:var(--text-muted); margin:0; white-space:pre-line; }
     .details-close { float:right; background:#292930; color:#fff; border:0; border-radius:10px; padding:9px 13px; cursor:pointer; }
     .season-control { display:none; margin-top:22px; align-items:center; gap:10px; }
@@ -423,7 +454,11 @@
       .card:hover .info { padding-bottom:9px; }
       .title { font-size:.93rem; margin-bottom:0; }
       .desc { display:none; }
-      .details-head{grid-template-columns:1fr}.details-head img{width:130px}.details-shell{padding:18px}
+      .details-head{grid-template-columns:1fr}
+      .details-poster{width:130px}
+      .details-title-art{width:min(290px,70vw);max-height:64px;margin-top:2px;margin-bottom:10px}
+      .details-copy.has-title-art h2{font-size:18px}
+      .details-shell{padding:18px}
     }
     .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -1353,8 +1388,9 @@
     <div class="details-shell">
       <button type="button" class="details-close" onclick="closeDetailsFromUi()">Close</button>
       <div class="details-head">
-        <img id="detailsPoster" alt="">
-        <div>
+        <img id="detailsPoster" class="details-poster" alt="">
+        <div id="detailsCopy" class="details-copy">
+          <img id="detailsLogo" class="details-title-art" alt="" hidden>
           <h2 id="detailsTitle"></h2>
           <div id="detailsMeta" class="details-meta"></div>
           <p id="detailsDescription"></p>
