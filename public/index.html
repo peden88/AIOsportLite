@@ -1210,8 +1210,8 @@
       const search = document.getElementById('searchInput');
       search.value = '';
       search.placeholder = mode === 'sports'
-        ? 'Search matches…'
-        : (mode === 'continue' ? 'Search Continue Watching…' : 'Search VOD…');
+        ? 'Search live…'
+        : 'Search all movies and series…';
       setVodPlayerControlsVisible(mode === 'vod' || mode === 'continue');
     }
 
@@ -1674,6 +1674,8 @@
 
     async function openSeries(preview) {
       const overlay = document.getElementById('details-overlay');
+      const type = 'series';
+      const cacheKey = type + '|' + preview.id;
       const list = document.getElementById('episodeList');
       const seasonControl = document.getElementById('seasonControl');
       const seasonSelect = document.getElementById('seasonSelect');
@@ -1691,11 +1693,14 @@
       list.innerHTML = '<div style="color:var(--text-muted);">Loading episodes...</div>';
 
       try {
-        const res = await fetch('/api/v1/vod/meta/series/' + encodeURIComponent(preview.id));
-        const body = await res.json();
-        if (!res.ok || !body.meta) throw new Error(body.error || 'Metadata failed');
-
-        const meta = body.meta;
+        let meta = vodMetaCache.get(cacheKey) || null;
+        if (!meta) {
+          const res = await fetch('/api/v1/vod/meta/series/' + encodeURIComponent(preview.id));
+          const body = await res.json();
+          if (!res.ok || !body.meta) throw new Error(body.error || 'Metadata failed');
+          meta = body.meta;
+          vodMetaCache.set(cacheKey, meta);
+        }
         document.getElementById('detailsTitle').textContent = meta.name || preview.name || 'Series';
         document.getElementById('detailsDescription').textContent = meta.description || preview.description || '';
         const metaPoster = safeImageUrl(meta.poster || preview.poster);
@@ -1774,6 +1779,7 @@
         seasonSelect.innerHTML = '';
         seasonSelect.onchange = null;
       }
+      restoreLastCardFocus();
     }
 
     function showPlaybackLoading(text = 'Loading stream...') {
@@ -1834,11 +1840,21 @@
       lastProgressSyncAt = 0;
       const generation = ++playbackGeneration;
       currentPlaybackKind = contentType;
+      const matchingItem = currentItems.find(item => String(item.id) === String(id));
+      const playbackMeta = progressContext
+        ? {
+            ...(matchingItem || {}),
+            ...progressContext,
+            background: progressContext.backdrop || matchingItem?.background,
+            parentName: progressContext.name || matchingItem?.name
+          }
+        : (matchingItem || { id, name: String(id) });
+      setPlayerPresentation(playbackMeta, contentType);
       document.getElementById('player-overlay').style.display = 'flex';
+      showPlayerHud(true);
       showPlaybackLoading('Finding a working stream...');
 
       try {
-        const matchingItem = currentItems.find(item => String(item.id) === String(id));
         const payload = {
           contentType,
           id,
@@ -1874,6 +1890,7 @@
         }
 
         currentPlaybackSession = data.sessionId || null;
+        setPlayerPresentation(currentPlaybackMeta, contentType);
         startPlaybackHeartbeat(currentPlaybackSession, generation);
         const isVod = contentType !== 'sport_event' && contentType !== 'live_channel' && contentType !== 'sport';
         const preference = isVod ? vodPlayerPreference() : 'internal';
@@ -1971,7 +1988,8 @@
       }
 
       requestingFallback = true;
-      showPlaybackLoading('Trying another stream...');
+      showPlayerHud(true);
+      showPlaybackLoading('Switching source…');
       stopVideoEngine();
 
       try {
@@ -2036,6 +2054,7 @@
           started = true;
           document.getElementById('loader').style.display = 'none';
           video.style.opacity = '1';
+          showPlayerHud(false);
           video.play().catch(() => {});
         });
 
@@ -2056,6 +2075,7 @@
         if (generation !== playbackGeneration) return;
         document.getElementById('loader').style.display = 'none';
         video.style.opacity = '1';
+        showPlayerHud(false);
         video.play().catch(() => {});
       };
       const failed = () => requestNextPlayback(generation);
@@ -2086,14 +2106,18 @@
       requestingFallback = false;
       pendingVodPlayback = null;
       currentProgressContext = null;
+      currentPlaybackMeta = null;
       lastProgressSyncAt = 0;
+      clearTimeout(playerHudTimer);
       const chooser = document.getElementById('player-choice-overlay');
       if (chooser) chooser.style.display = 'none';
       if (invalidate) playbackGeneration++;
 
       document.getElementById('player-overlay').style.display = 'none';
       document.getElementById('playback-message').style.display = 'none';
+      document.getElementById('playerBackdrop').style.backgroundImage = '';
       stopVideoEngine();
+      restoreLastCardFocus();
 
       if (session) {
         try {
@@ -2107,10 +2131,41 @@
       if (currentProgressContext && !progressVideo.paused) syncCurrentProgress(false, false);
     });
     progressVideo.addEventListener('pause', () => {
+      showPlayerHud(true);
       if (currentProgressContext && !progressVideo.ended) syncCurrentProgress(true, false);
     });
+    progressVideo.addEventListener('play', () => showPlayerHud(false));
     progressVideo.addEventListener('ended', () => {
+      showPlayerHud(true);
       if (currentProgressContext) syncCurrentProgress(true, true);
+    });
+
+    const playerOverlay = document.getElementById('player-overlay');
+    ['mousemove', 'pointerdown', 'touchstart'].forEach(eventName => {
+      playerOverlay.addEventListener(eventName, () => showPlayerHud(false), { passive: true });
+    });
+    document.getElementById('playerSwitchSource').addEventListener('click', () => {
+      if (currentPlaybackSession && !requestingFallback) {
+        requestNextPlayback(playbackGeneration);
+      }
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        if (document.getElementById('player-choice-overlay').style.display === 'flex') {
+          closeVodPlayerChoice();
+        } else if (document.getElementById('player-overlay').style.display === 'flex') {
+          closePlayer();
+        } else if (document.getElementById('details-overlay').style.display === 'block') {
+          closeDetails();
+        }
+      } else if (
+        event.key === '/' &&
+        document.getElementById('player-overlay').style.display !== 'flex' &&
+        document.getElementById('details-overlay').style.display !== 'block'
+      ) {
+        event.preventDefault();
+        document.getElementById('searchInput')?.focus();
+      }
     });
 
     initVodPlayerControl();
