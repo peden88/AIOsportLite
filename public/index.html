@@ -3541,7 +3541,8 @@
       setActiveMode(mode, { preserveSearch:!!snapshot?.search });
       currentItems = [];
       currentCatalogState = null;
-      setCatalogRailVisible(mode !== 'continue' && mode !== 'library');
+      setCatalogRailVisible(mode !== 'continue');
+      if (mode === 'library') setCatalogRailVisible(false);
       tabs().innerHTML = (mode === 'continue' || mode === 'library')
         ? ''
         : '<div style="color:var(--text-muted);">Loading catalogs...</div>';
