@@ -448,67 +448,80 @@
       border:0;
       border-radius:50%;
       cursor:pointer;
-      overflow:visible;
+      overflow:hidden;
       isolation:isolate;
       background:
-        radial-gradient(circle at 50% 50%,
-          #18f08a 0 52%,
-          #11d99a 53% 64%,
-          #0bb7ad 65% 77%,
-          #087f87 78% 100%);
+        linear-gradient(145deg,rgba(16,122,129,.96),rgba(5,87,93,.98));
       box-shadow:
-        0 12px 28px rgba(0,0,0,.34),
-        0 0 22px rgba(15,216,157,.16);
+        0 10px 24px rgba(0,0,0,.30),
+        0 0 0 1px rgba(25,224,190,.08);
       transition:transform .15s ease,filter .15s ease,box-shadow .15s ease;
       -webkit-tap-highlight-color:transparent;
     }
-    .details-play-orb::before,
+    /* Reference-style outer teal ring. */
+    .details-play-orb::before {
+      content:'';
+      position:absolute;
+      inset:5px;
+      z-index:0;
+      border-radius:50%;
+      background:
+        conic-gradient(from 225deg,
+          #09a765 0deg,
+          #08dc7c 82deg,
+          #11e9b1 150deg,
+          #1bc9d3 225deg,
+          #119ca7 302deg,
+          #09a765 360deg);
+      box-shadow:
+        inset 0 1px 1px rgba(255,255,255,.14),
+        inset 0 -3px 7px rgba(0,77,78,.16);
+      pointer-events:none;
+    }
+    /* Large luminous inner disc, leaving only a slim second ring visible. */
     .details-play-orb::after {
       content:'';
       position:absolute;
+      inset:11px;
+      z-index:1;
       border-radius:50%;
-      pointer-events:none;
-    }
-    .details-play-orb::before {
-      inset:7px;
-      background:linear-gradient(135deg,#0fe889 0%,#14e6ad 48%,#12c9d1 100%);
+      background:
+        linear-gradient(135deg,#0be873 3%,#12f39a 38%,#17e9bd 67%,#1bcbd0 100%);
       box-shadow:
-        inset 0 1px 1px rgba(255,255,255,.18),
-        0 0 0 1px rgba(4,77,84,.10);
-    }
-    .details-play-orb::after {
-      display:none;
+        inset 0 1px 2px rgba(255,255,255,.18),
+        0 0 0 1px rgba(7,122,119,.08);
+      pointer-events:none;
     }
     .details-play-orb svg {
       position:relative;
       z-index:2;
-      width:32px;
-      height:32px;
+      width:31px;
+      height:31px;
       display:block;
-      fill:#17242f;
+      fill:#1b2a36;
       stroke:none;
       transform:translateX(2px);
-      filter:drop-shadow(0 2px 3px rgba(0,0,0,.14));
+      filter:drop-shadow(0 2px 2px rgba(0,0,0,.10));
     }
     .details-play-orb:hover,
     .details-play-orb:focus-visible {
       outline:none;
-      transform:scale(1.055);
-      filter:brightness(1.06);
+      transform:scale(1.045);
+      filter:brightness(1.06) saturate(1.04);
       box-shadow:
-        0 14px 32px rgba(0,0,0,.36),
-        0 0 0 3px rgba(17,217,154,.14),
-        0 0 26px rgba(15,216,157,.24);
+        0 12px 28px rgba(0,0,0,.34),
+        0 0 0 3px rgba(17,226,172,.14),
+        0 0 22px rgba(17,226,172,.15);
     }
     .details-play-orb:focus-visible {
       box-shadow:
-        0 14px 32px rgba(0,0,0,.36),
+        0 12px 28px rgba(0,0,0,.34),
         0 0 0 3px rgba(240,247,246,.34),
-        0 0 28px rgba(15,216,157,.26);
+        0 0 24px rgba(17,226,172,.18);
     }
     .details-play-orb:active {
-      transform:scale(.96);
-      filter:brightness(.96);
+      transform:scale(.965);
+      filter:brightness(.97);
     }
     .details-play-label {
       color:rgba(245,248,246,.86);
