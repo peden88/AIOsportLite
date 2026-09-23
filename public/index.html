@@ -2801,6 +2801,23 @@
       showPlayerHud(true);
     }
 
+    function setupEpisodeRail(rail) {
+      if (!rail || rail.dataset.railReady === '1') return;
+      rail.dataset.railReady = '1';
+
+      // Touch uses native momentum scrolling. Mouse wheels/trackpads are mapped
+      // horizontally so the rail feels natural on desktop too.
+      rail.addEventListener('wheel', event => {
+        if (rail.scrollWidth <= rail.clientWidth) return;
+        const dominant = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+          ? event.deltaX
+          : event.deltaY;
+        if (!dominant) return;
+        event.preventDefault();
+        rail.scrollLeft += dominant;
+      }, { passive:false });
+    }
+
     function restoreDetailsEpisodeFocus() {
       if (!currentDetailsEpisodeId) return;
       requestAnimationFrame(() => {
@@ -2809,7 +2826,11 @@
         );
         if (target) {
           target.focus({ preventScroll:true });
-          target.scrollIntoView({ block:'nearest', behavior:'smooth' });
+          target.scrollIntoView({
+            block:'nearest',
+            inline:'center',
+            behavior:'auto'
+          });
         }
       });
     }
@@ -3922,6 +3943,7 @@
 
         const renderSeason = season => {
           list.innerHTML = '';
+          setupEpisodeRail(list);
           const selected = videos.filter(video => (Number(video.season) || 0) === season);
 
           if (!selected.length) {
@@ -3929,18 +3951,102 @@
             return;
           }
 
-          for (const video of selected) {
+          selected.forEach((video, index) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'episode-btn';
             button.dataset.videoId = String(video.id);
+
             const watchedProgress = cachedEpisodeProgress(meta, video);
-            if (Number(watchedProgress?.progressPercent || 0) >= 90) {
+            const progressPercent = Number(watchedProgress?.progressPercent || 0);
+            if (progressPercent >= 90) {
               button.classList.add('is-watched');
             }
+
             const ep = Number(video.episode) || 0;
-            const prefix = ep ? ('E' + ep + ' · ') : '';
-            button.textContent = prefix + (video.title || video.name || ('Episode ' + (ep || '')));
+            const seasonNumber = Number(video.season) || season;
+            const episodeTitle = video.title || video.name || ('Episode ' + (ep || index + 1));
+            const code = ep ? ('E' + ep) : ('EP ' + (index + 1));
+            button.setAttribute(
+              'aria-label',
+              (seasonNumber > 0 ? ('Season ' + seasonNumber + ', ') : '') +
+              code + ', ' + episodeTitle
+            );
+
+            const thumb = document.createElement('div');
+            thumb.className = 'episode-thumb';
+            const thumbnailUrl =
+              video.thumbnail ||
+              video.background ||
+              video.poster ||
+              video.image ||
+              meta.background ||
+              meta.backdrop ||
+              meta.poster;
+            thumb.appendChild(makeImage(
+              thumbnailUrl,
+              'episode-image',
+              episodeTitle,
+              {
+                loading:index < 4 ? 'eager' : 'lazy',
+                fetchPriority:index < 2 ? 'high' : undefined
+              }
+            ));
+
+            const number = document.createElement('span');
+            number.className = 'episode-number';
+            number.textContent = code;
+            thumb.appendChild(number);
+
+            if (progressPercent >= 90) {
+              const watched = document.createElement('span');
+              watched.className = 'episode-watched';
+              watched.title = 'Watched';
+              watched.textContent = '✓';
+              thumb.appendChild(watched);
+            } else if (progressPercent > 0) {
+              const track = document.createElement('div');
+              track.className = 'episode-progress-track';
+              const fill = document.createElement('div');
+              fill.className = 'episode-progress-fill';
+              fill.style.width = Math.max(0, Math.min(100, progressPercent)) + '%';
+              track.appendChild(fill);
+              thumb.appendChild(track);
+            }
+
+            const copy = document.createElement('div');
+            copy.className = 'episode-copy';
+
+            const title = document.createElement('div');
+            title.className = 'episode-title';
+            title.textContent = code + ' · ' + episodeTitle;
+            copy.appendChild(title);
+
+            const overviewText = String(video.overview || video.description || '').trim();
+            if (overviewText) {
+              const overview = document.createElement('div');
+              overview.className = 'episode-overview';
+              overview.textContent = overviewText;
+              copy.appendChild(overview);
+            }
+
+            button.append(thumb, copy);
+
+            button.addEventListener('keydown', event => {
+              if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+              const sibling = event.key === 'ArrowLeft'
+                ? button.previousElementSibling
+                : button.nextElementSibling;
+              if (!(sibling instanceof HTMLElement)) return;
+              event.preventDefault();
+              sibling.focus({ preventScroll:true });
+              sibling.scrollIntoView({
+                block:'nearest',
+                inline:'center',
+                behavior:'smooth'
+              });
+            });
+
             button.onclick = async () => {
               currentDetailsEpisodeId = String(video.id);
               currentDetailsSeason = Number(video.season) || 0;
@@ -3949,11 +4055,14 @@
                 'episode',
                 'series',
                 progressContextForEpisode(meta, video),
-                document.getElementById('detailsPoster')
+                thumb
               );
             };
+
             list.appendChild(button);
-          }
+          });
+
+          restoreDetailsEpisodeFocus();
         };
 
         const selectedSeason = currentDetailsSeason != null && seasons.includes(Number(currentDetailsSeason))
