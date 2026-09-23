@@ -1339,6 +1339,99 @@
       #player-overlay.mini { right:12px; bottom:12px; width:calc(100vw - 24px); }
     }
 
+    /* LIVE is deliberately cheaper to composite than VOD. Mobile Safari
+       otherwise has to repaint a blurred background + foreground image +
+       sticky glass header for every card while momentum scrolling. */
+    body.live-mode .live-card {
+      contain:paint;
+      transition:border-color .12s ease,background-color .12s ease !important;
+      box-shadow:none;
+      transform:none !important;
+    }
+    body.live-mode .live-card:hover,
+    body.live-mode .live-card:focus-visible {
+      transform:none !important;
+      box-shadow:0 8px 24px rgba(0,0,0,.20);
+    }
+    body.live-mode .live-card .poster-container {
+      isolation:isolate;
+      background:#10151b;
+    }
+    body.live-mode .live-card .poster-container::after {
+      content:'';
+      position:absolute;
+      inset:0;
+      z-index:2;
+      pointer-events:none;
+      background:
+        linear-gradient(180deg,rgba(6,9,12,.04),rgba(6,9,12,.10) 48%,rgba(6,9,12,.42) 100%);
+    }
+    body.live-mode .live-card .background,
+    body.live-mode .live-card:hover .background,
+    body.live-mode .live-card .background.progressive-image,
+    body.live-mode .live-card .background.progressive-image.is-loaded {
+      filter:none !important;
+      transform:none !important;
+      transition:opacity .12s linear !important;
+      opacity:.78;
+    }
+    body.live-mode .live-card .poster,
+    body.live-mode .live-card:hover .poster,
+    body.live-mode .live-card .poster.progressive-image,
+    body.live-mode .live-card .poster.progressive-image.is-loaded {
+      filter:none !important;
+      transform:none !important;
+      transition:opacity .12s linear !important;
+    }
+    body.live-mode .live-card .logo {
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      background:rgba(8,11,15,.88);
+    }
+    body.live-mode .live-card .live-badge { animation:none !important; }
+    body.live-mode .app-hero.is-visible { animation:none; }
+    body.live-mode .app-hero-preview { display:none !important; }
+    body.live-mode .live-grid { align-items:start; }
+    body.live-mode .live-grid .card { touch-action:pan-y; }
+
+    @media (hover:none), (pointer:coarse) {
+      body.live-mode {
+        background:linear-gradient(180deg,#0a0e13 0%,#10151b 52%,#0a0e13 100%);
+      }
+      body.live-mode .app-hero,
+      body.live-mode .app-hero-scrim,
+      body.live-mode .app-hero-preview {
+        display:none !important;
+      }
+      body.live-mode .top-header {
+        background:#0d1218;
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+      }
+      body.live-mode header {
+        background:rgba(13,18,24,.985);
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+      }
+      body.live-mode .live-card,
+      body.live-mode .live-card:hover,
+      body.live-mode .live-card:focus-visible {
+        transition:none !important;
+        transform:none !important;
+        box-shadow:none !important;
+      }
+      body.live-mode .live-card .info,
+      body.live-mode .live-card:hover .info {
+        transition:none !important;
+        padding-bottom:9px;
+      }
+      body.live-mode .live-card .background,
+      body.live-mode .live-card .poster,
+      body.live-mode .live-card .logo {
+        will-change:auto !important;
+      }
+    }
+
     @media(prefers-reduced-motion:reduce) {
       html:not(.force-motion) *, html:not(.force-motion) *::before, html:not(.force-motion) *::after {
         scroll-behavior:auto !important;
@@ -1912,6 +2005,11 @@
     function scheduleHero(meta) {
       clearTimeout(heroTimer);
       clearTimeout(heroPrefetchTimer);
+
+      const coarseLive = currentMode === 'sports' &&
+        window.matchMedia?.('(hover:none), (pointer:coarse)')?.matches === true;
+      if (coarseLive) return;
+
       heroTimer = setTimeout(() => updateHero(meta), 150);
 
       const target = vodMetaTarget(meta);
@@ -2658,6 +2756,8 @@
 
     function setActiveMode(mode, { preserveSearch = false } = {}) {
       currentMode = mode;
+      document.body.classList.toggle('live-mode', mode === 'sports');
+      if (mode === 'sports') stopHeroPreview();
       document.querySelectorAll('.mode-tab').forEach(el => {
         const active = el.dataset.mode === mode;
         el.classList.toggle('active', active);
@@ -3011,12 +3111,13 @@
       button.addEventListener('click', () => setSearchType(button.dataset.searchType));
     });
 
-    function makeImage(src, className, alt = '') {
+    function makeImage(src, className, alt = '', options = {}) {
       const img = document.createElement('img');
       img.className = className + ' progressive-image';
       img.alt = alt;
-      img.loading = 'lazy';
+      img.loading = options.loading || 'lazy';
       img.decoding = 'async';
+      if (options.fetchPriority) img.fetchPriority = options.fetchPriority;
       const safe = safeImageUrl(src);
       if (safe) {
         const reveal = () => img.classList.add('is-loaded');
@@ -3101,17 +3202,23 @@
 
       updateHero(metas[0]);
 
-      for (const meta of metas) {
+      for (const [metaIndex, meta] of metas.entries()) {
         const card = document.createElement('div');
-        card.className = 'card';
+        card.className = 'card' + (currentMode === 'sports' ? ' live-card' : '');
         card.dataset.contentId = String(meta.id || '');
         card.dataset.contentKey = cardIdentity(meta);
 
         card.tabIndex = 0;
         card.addEventListener('mouseenter', () => rememberCard(card, meta));
         card.addEventListener('focus', () => {
-          rememberCard(card, meta);
-          persistUiState();
+          const coarseLive = currentMode === 'sports' &&
+            window.matchMedia?.('(hover:none), (pointer:coarse)')?.matches === true;
+          if (coarseLive) {
+            lastActiveCard = card;
+          } else {
+            rememberCard(card, meta);
+            persistUiState();
+          }
         });
         card.addEventListener('pointerdown', event => {
           lastActiveCard = card;
@@ -3175,14 +3282,31 @@
         const posterBox = document.createElement('div');
         posterBox.className = 'poster-container';
         if (currentMode === 'sports') {
-          posterBox.appendChild(makeImage(meta.background || meta.poster, 'background', ''));
-          posterBox.appendChild(makeImage(meta.poster, 'poster', meta.name || ''));
+          const eager = metaIndex < 10;
+          const priority = metaIndex < 4 ? 'high' : undefined;
+          posterBox.appendChild(makeImage(
+            meta.background || meta.poster,
+            'background',
+            '',
+            { loading:eager ? 'eager' : 'lazy', fetchPriority:priority }
+          ));
+          posterBox.appendChild(makeImage(
+            meta.poster,
+            'poster',
+            meta.name || '',
+            { loading:eager ? 'eager' : 'lazy', fetchPriority:priority }
+          ));
         } else {
           posterBox.appendChild(makeImage(meta.poster || meta.background, 'poster', meta.name || ''));
         }
 
         if (currentMode === 'sports' && meta.logo && meta.logo !== meta.poster) {
-          posterBox.appendChild(makeImage(meta.logo, 'logo', ''));
+          posterBox.appendChild(makeImage(
+            meta.logo,
+            'logo',
+            '',
+            { loading:metaIndex < 10 ? 'eager' : 'lazy' }
+          ));
         }
 
         const name = String(meta.name || '');
