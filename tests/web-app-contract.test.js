@@ -28,6 +28,9 @@ t(html.includes('/api/v1/vod/catalogs'), 'web app discovers global AIOMetadata c
 t(html.includes('/api/v1/vod/search'), 'web app searches through the global AIOMetadata service');
 t(html.includes('/api/v1/vod/meta/series/'), 'series details load episodes from AIOMetadata');
 t(/fetchAndPlay\(\s*video\.id,\s*'episode',\s*'series',/.test(html), 'episodes play through AIOStreams as series resources');
+t(html.includes(": () => openMovie(meta, card);"), 'movie poster selection opens Details instead of starting playback');
+t(html.includes("play.className = 'details-primary-action'"), 'movie Details exposes an explicit primary Play or Resume action');
+t(html.includes("Keep the underlying catalog dimmed while Details fades away"), 'Details dismissal uses the staged mobile fade path');
 t(!html.includes('AIOMETADATA_MANIFEST_URL'), 'web page never receives the AIOMetadata manifest URL');
 t(!html.includes('AIOSTREAMS_MANIFEST_URL'), 'web page never receives the AIOStreams manifest URL');
 
@@ -49,7 +52,7 @@ t(html.includes("method: 'PUT'") && html.includes('/api/v1/progress'), 'internal
 t(!html.includes("add('movie', 'Movies')") && !html.includes("add('series', 'Series')"), 'separate Movies and Series top-level modes are absent');
 t(/\.vod-card \.poster-container\s*\{[\s\S]*?aspect-ratio\s*:\s*2\s*\/\s*3/.test(html), 'web VOD cards use portrait poster proportions');
 t(/\.vod-card \.info\s*\{[\s\S]*?position\s*:\s*static/.test(html), 'VOD title labels sit below poster artwork');
-t(/body\.details-open > \.top-header[\s\S]*?body\.details-open > header[\s\S]*?body\.details-open > main[\s\S]*?opacity\s*:\s*\.15/.test(html), 'title details dim the live catalog layer to 15 percent opacity');
+t(/body\.details-open > \.top-header[\s\S]*?body\.details-open > header[\s\S]*?body\.details-open > main[\s\S]*?opacity\s*:\s*\.28/.test(html), 'title details keep the mounted catalog softly dimmed during overlay transitions');
 t(/#details-overlay\s*\{[\s\S]*?background\s*:\s*transparent[\s\S]*?backdrop-filter\s*:\s*none/.test(html), 'title details overlay stays transparent over the active catalog');
 t(/\.details-shell\s*\{[\s\S]*?background\s*:\s*rgba\(18\s*,\s*18\s*,\s*22\s*,\s*\.985\)/.test(html), 'title details card remains dark and opaque');
 t(html.includes("document.body.classList.add('details-open')"), 'opening details dims the current catalog rather than replacing it');
