@@ -660,7 +660,7 @@
       position:absolute;
       left:28px;
       right:28px;
-      bottom:34px;
+      bottom:88px;
       z-index:103;
       display:flex;
       align-items:flex-end;
@@ -724,6 +724,10 @@
       background:#273039;
       outline:none;
     }
+    .player-hud-btn:disabled {
+      opacity:.42;
+      cursor:default;
+    }
     .loader {
       z-index:104;
       padding:22px 26px;
@@ -745,7 +749,7 @@
       .hero-logo-wrap { min-width:92px; width:30vw; height:42px; }
       .hero-description { display:none; }
       .hero-chip { font-size:.60rem; }
-      .player-hud { left:12px; right:12px; bottom:18px; }
+      .player-hud { left:12px; right:12px; bottom:68px; }
       .player-hud-main { max-width:100%; padding:11px 12px; }
       .player-hud-actions { position:absolute; right:0; bottom:calc(100% + 8px); }
       .player-hud-title { font-size:1.05rem; }
