@@ -1553,6 +1553,7 @@ app.get('/api/v1/playback/:sessionId/download-options', requirePage, async (req,
       size,
       resolution:String(row.meta?.resolution || ''),
       quality:String(row.meta?.quality || ''),
+      codec:String(row.meta?.codec || ''),
       visual:String(row.meta?.visual || ''),
       audio:String(row.meta?.audio || '')
     };
