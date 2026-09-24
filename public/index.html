@@ -2165,12 +2165,13 @@
     }
     .episode-watched::before {
       content:'';
-      width:10px;
-      height:6px;
+      box-sizing:border-box;
+      width:11px;
+      height:7px;
       border-left:2px solid #fff;
       border-bottom:2px solid #fff;
-      transform:translateY(-1px) rotate(-45deg);
-      transform-origin:center;
+      transform:translate(1px,-1px) rotate(-45deg);
+      transform-origin:50% 50%;
     }
     .search-context-title:empty { display:none; }
     @media(max-width:650px) and (orientation:landscape) {
