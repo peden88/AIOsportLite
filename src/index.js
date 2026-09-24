@@ -1516,7 +1516,7 @@ app.delete('/api/v1/playback', requirePage, (req, res) => {
   return res.json({ stopped: active.length });
 });
 
-app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ limit:'4kb' }), (req, res) => {
+app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ limit:'4kb' }), async (req, res) => {
   const account = currentAccount(req);
   const lease = playbackLeases.leaseForSession(req.params.sessionId);
   if (account && (!lease || lease.userId !== account.user.id || !playbackLeases.touchLease(lease.id))) {
@@ -1529,11 +1529,43 @@ app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ lim
   if (/\.(?:m3u8|mpd)(?:[?#]|$)/i.test(String(target.url))) {
     return res.status(409).json({ error:'Segmented HLS/DASH sources are playback-only and cannot be downloaded as one file.' });
   }
+
+  // Probe the resolved source before handing a URL to Safari. This catches
+  // expired/auth/login/error pages which iOS otherwise saves as ".mp4.html".
+  let sourceType = '';
+  try {
+    const probeHeaders = {
+      ...(target.requestHeaders && typeof target.requestHeaders === 'object' ? target.requestHeaders : {}),
+      range:'bytes=0-0'
+    };
+    const probe = await fetch(String(target.url), {
+      method:'GET',
+      headers:probeHeaders,
+      redirect:'follow',
+      signal:AbortSignal.timeout(12000)
+    });
+    sourceType = String(probe.headers.get('content-type') || '').toLowerCase();
+    if (!probe.ok || sourceType.includes('text/html') || sourceType.includes('application/json') || sourceType.includes('text/plain')) {
+      if (probe.body) await probe.body.cancel().catch(() => {});
+      return res.status(409).json({
+        error:'The selected stream is not exposing a downloadable media file. Try another source.'
+      });
+    }
+    if (probe.body) await probe.body.cancel().catch(() => {});
+  } catch (err) {
+    return res.status(409).json({ error:'The selected stream could not be verified for download. Try another source.' });
+  }
+
+  const extByType = sourceType.includes('matroska') ? '.mkv'
+    : sourceType.includes('webm') ? '.webm'
+    : sourceType.includes('quicktime') ? '.mov'
+    : sourceType.includes('mp4') ? '.mp4'
+    : '.mp4';
   const rawName = String(req.body?.filename || lease?.episodeTitle || lease?.title || 'AIOPlay video');
   const filename = rawName.replace(/[^a-z0-9 ._()\-]/gi, '').trim().slice(0,140) || 'AIOPlay video';
   const issued = externalPlayback.issue(target, {
     leaseId: lease ? lease.id : '',
-    downloadName: filename + (/[.][a-z0-9]{2,5}$/i.test(filename) ? '' : '.mp4')
+    downloadName: filename.replace(/\.(?:mp4|mkv|webm|mov)$/i, '') + extByType
   });
   if (!issued) return res.status(409).json({ error:'Download is unavailable for this source.' });
   const base = getRequestBaseUrl(req).replace(/\/$/, '');
