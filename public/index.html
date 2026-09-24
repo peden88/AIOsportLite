@@ -2023,6 +2023,50 @@
       .card,.episode-btn,.details-actions button,.details-play-orb,.mobile-bottom-nav button,
       .tabs button,.quick-actions button { transition:none; }
     }
+    /* iOS Safari: keep the browser-toolbar transition behind the floating nav
+       on the same opaque app surface instead of exposing catalog artwork. */
+    @media(max-width:650px) {
+      body::after {
+        content:'';
+        position:fixed;
+        z-index:79;
+        left:0; right:0; bottom:0;
+        height:calc(18px + env(safe-area-inset-bottom, 0px));
+        background:#0a0e13;
+        pointer-events:none;
+      }
+      html.light-theme body::after { background:#eef4f8; }
+      .season-control.is-sticky {
+        position:sticky;
+        top:8px;
+        z-index:8;
+        box-shadow:0 8px 24px rgba(0,0,0,.24);
+      }
+    }
+    .episode-btn.is-next {
+      border-color:rgba(154,173,181,.48);
+      box-shadow:0 10px 28px rgba(0,0,0,.20);
+    }
+    .episode-next {
+      position:absolute; right:8px; bottom:8px; z-index:3;
+      padding:4px 7px; border-radius:7px;
+      background:rgba(20,28,35,.88); border:1px solid rgba(154,173,181,.34);
+      color:#eef4f6; font-size:.60rem; font-weight:800; letter-spacing:.04em;
+    }
+    .episode-state-menu {
+      position:fixed; z-index:130; min-width:180px; padding:6px;
+      border:1px solid rgba(255,255,255,.10); border-radius:13px;
+      background:rgba(12,17,22,.97); box-shadow:0 18px 50px rgba(0,0,0,.45);
+      backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    }
+    .episode-state-menu[hidden] { display:none; }
+    .episode-state-menu button {
+      display:block; width:100%; border:0; border-radius:9px; padding:10px 12px;
+      text-align:left; background:transparent; color:var(--text); font:700 .76rem/1.2 'Inter',sans-serif;
+    }
+    .episode-state-menu button:hover,.episode-state-menu button:focus-visible {
+      background:rgba(255,255,255,.08); outline:none;
+    }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
@@ -2161,6 +2205,8 @@
       </div>
     </div>
   </div>
+
+  <div id="episodeStateMenu" class="episode-state-menu" role="menu" hidden></div>
 
   <div id="player-choice-overlay" class="player-choice-overlay">
     <div class="player-choice-sheet">
@@ -4591,6 +4637,73 @@
       }) || null;
     }
 
+    function episodeIsWatched(meta, video) {
+      const progress = cachedEpisodeProgress(meta, video);
+      if (Number(progress?.progressPercent || 0) >= 90) return true;
+      return sharedWatchState.some(row =>
+        String(row.id) === String(meta?.id || '') &&
+        ['series','tv','episode'].includes(String(row.type || '').toLowerCase()) &&
+        Number(row.season) === Number(video?.season) &&
+        Number(row.episode) === Number(video?.episode) &&
+        row.watched
+      );
+    }
+
+    async function setEpisodeWatched(meta, video, watched) {
+      const id = String(meta?.id || '');
+      const season = Number(video?.season);
+      const episode = Number(video?.episode);
+      if (!id || !Number.isFinite(season) || !Number.isFinite(episode)) return false;
+
+      const res = await fetch('/api/v1/watch-state', {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ id, type:'series', season, episode, watched })
+      });
+      if (!res.ok) return false;
+
+      sharedWatchState = sharedWatchState.filter(row => !(
+        String(row.id) === id &&
+        ['series','tv','episode'].includes(String(row.type || '').toLowerCase()) &&
+        Number(row.season) === season &&
+        Number(row.episode) === episode
+      ));
+      sharedWatchState.push({ id, type:'series', season, episode, watched, updatedAt:Date.now() });
+
+      const progress = progressContextForEpisode(meta, video);
+      await updateProgressRow(progress, watched ? 100 : 0);
+      return true;
+    }
+
+    function hideEpisodeStateMenu() {
+      const menu = document.getElementById('episodeStateMenu');
+      if (!menu) return;
+      menu.hidden = true;
+      menu.innerHTML = '';
+    }
+
+    function showEpisodeStateMenu(anchor, meta, video, rerender) {
+      const menu = document.getElementById('episodeStateMenu');
+      if (!menu) return;
+      hideEpisodeStateMenu();
+      const watched = episodeIsWatched(meta, video);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.role = 'menuitem';
+      button.textContent = watched ? 'Mark episode unwatched' : 'Mark episode watched';
+      button.onclick = async event => {
+        event.stopPropagation();
+        hideEpisodeStateMenu();
+        if (await setEpisodeWatched(meta, video, !watched)) rerender();
+      };
+      menu.appendChild(button);
+      const rect = anchor.getBoundingClientRect();
+      menu.style.left = Math.max(10, Math.min(innerWidth - 190, rect.left)) + 'px';
+      menu.style.top = Math.max(10, Math.min(innerHeight - 70, rect.bottom + 6)) + 'px';
+      menu.hidden = false;
+      requestAnimationFrame(() => button.focus());
+    }
+
     function progressContextForMovie(meta) {
       const existing = cachedMovieProgress(meta.id);
       return {
@@ -4935,6 +5048,7 @@
         setTimeout(() => overlay.classList.remove('details-entering'), 280);
       }
       seasonControl.style.display = 'none';
+      seasonControl.classList.remove('is-sticky');
       seasonSelect.innerHTML = '';
       seasonSelect.onchange = null;
       Array.from(actions.children).forEach(child => { if (child.id !== 'seasonControl') child.remove(); });
@@ -5097,6 +5211,8 @@
             return;
           }
 
+          const nextVideo = selected.find(video => !episodeIsWatched(meta, video)) || null;
+
           selected.forEach((video, index) => {
             const button = document.createElement('button');
             button.type = 'button';
@@ -5105,9 +5221,9 @@
 
             const watchedProgress = cachedEpisodeProgress(meta, video);
             const progressPercent = Number(watchedProgress?.progressPercent || 0);
-            if (progressPercent >= 90) {
-              button.classList.add('is-watched');
-            }
+            const manuallyOrAutomaticallyWatched = episodeIsWatched(meta, video);
+            if (manuallyOrAutomaticallyWatched) button.classList.add('is-watched');
+            if (nextVideo && String(nextVideo.id) === String(video.id)) button.classList.add('is-next');
 
             const ep = Number(video.episode) || 0;
             const seasonNumber = Number(video.season) || season;
@@ -5144,7 +5260,7 @@
             number.textContent = code;
             thumb.appendChild(number);
 
-            if (progressPercent >= 90) {
+            if (manuallyOrAutomaticallyWatched) {
               const watched = document.createElement('span');
               watched.className = 'episode-watched';
               watched.title = 'Watched';
@@ -5158,6 +5274,13 @@
               fill.style.width = Math.max(0, Math.min(100, progressPercent)) + '%';
               track.appendChild(fill);
               thumb.appendChild(track);
+            }
+
+            if (nextVideo && String(nextVideo.id) === String(video.id)) {
+              const nextBadge = document.createElement('span');
+              nextBadge.className = 'episode-next';
+              nextBadge.textContent = 'NEXT';
+              thumb.appendChild(nextBadge);
             }
 
             const copy = document.createElement('div');
@@ -5193,7 +5316,29 @@
               });
             });
 
-            button.onclick = async () => {
+            let episodeLongPress = null;
+            button.addEventListener('pointerdown', event => {
+              if (event.pointerType === 'mouse') return;
+              clearTimeout(episodeLongPress);
+              episodeLongPress = setTimeout(() => {
+                button.dataset.longPressed = '1';
+                showEpisodeStateMenu(button, meta, video, () => renderSeason(season));
+              }, 560);
+            });
+            ['pointerup','pointercancel','pointerleave'].forEach(name => {
+              button.addEventListener(name, () => clearTimeout(episodeLongPress));
+            });
+            button.addEventListener('contextmenu', event => {
+              event.preventDefault();
+              showEpisodeStateMenu(button, meta, video, () => renderSeason(season));
+            });
+
+            button.onclick = async event => {
+              if (button.dataset.longPressed === '1') {
+                delete button.dataset.longPressed;
+                event.preventDefault();
+                return;
+              }
               currentDetailsEpisodeId = String(video.id);
               currentDetailsSeason = Number(video.season) || 0;
               await fetchAndPlay(
@@ -5222,6 +5367,7 @@
           persistUiState({ overlay:'details' });
         };
         seasonControl.style.display = 'flex';
+        seasonControl.classList.add('is-sticky');
         renderSeason(selectedSeason);
         restoreDetailsEpisodeFocus();
       } catch (err) {
@@ -5808,6 +5954,10 @@
         window.addEventListener('pointerup', release, { once:true });
         window.addEventListener('pointercancel', release, { once:true });
         setTimeout(release, 650);
+      }
+      const episodeMenu = document.getElementById('episodeStateMenu');
+      if (episodeMenu && !episodeMenu.hidden && !episodeMenu.contains(event.target) && !event.target.closest?.('.episode-btn')) {
+        hideEpisodeStateMenu();
       }
       const menu = document.getElementById('quickActions');
       if (!menu || menu.hidden) return;
