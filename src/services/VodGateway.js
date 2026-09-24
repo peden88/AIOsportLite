@@ -335,6 +335,28 @@ async function playbackCandidates(type, id, clientKind = 'web') {
   // or rewrite the candidate pile.
   return rows.map(row => privatePlaybackRow(row, client)).filter(Boolean).slice(0, max);
 }
+async function rawPlaybackCandidates(type, id, clientKind = 'web') {
+  const safeType=validStremioType(type), safeId=cleanId(id);
+  const client=clientFor('streams', clientKind === 'app' ? 'app' : 'web');
+  const response=await client.streams(safeType,safeId);
+  const rows=response&&Array.isArray(response.streams)?response.streams:[];
+  return rows.slice(0,100).map((row,index)=>{
+    const playable=privatePlaybackRow(row,client);
+    return {
+      index,
+      name:String(row?.name||''),
+      title:String(row?.title||''),
+      description:String(row?.description||''),
+      filename:String(row?.behaviorHints?.filename||row?.streamData?.filename||''),
+      url:playable?.url||'',
+      externalUrl:String(row?.externalUrl||''),
+      behaviorHints:row?.behaviorHints||null,
+      streamData:row?.streamData||null,
+      playable:Boolean(playable),
+      playbackMeta:playable?.playbackMeta||null
+    };
+  });
+}
 async function refreshAioStreams() {
   const cfg = appServices._privateConfig();
   const targets = [
@@ -388,6 +410,7 @@ module.exports = {
   search,
   meta,
   playbackCandidates,
+  rawPlaybackCandidates,
   refreshAioStreams,
   diagnostics,
   probe,
