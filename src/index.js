@@ -1358,6 +1358,18 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
 
   try {
     if (account) {
+      // A browser/app auth session can only actively launch one stream at a time.
+      // Replacing its prior lease prevents rapid external-player open/back cycles
+      // from consuming the account's concurrency allowance while preserving
+      // concurrent playback on other signed-in devices.
+      if (account.session && account.session.id) {
+        const stale = playbackLeases.listActive()
+          .filter(row => row.authSessionId === account.session.id);
+        playbackLeases.releaseAuthSession(account.session.id);
+        for (const row of stale) {
+          if (row.playbackSessionId) opaquePlayback.finishPlayback(row.playbackSessionId);
+        }
+      }
       lease = playbackLeases.acquire({
         user: account.user,
         authSession: account.session,
@@ -1491,6 +1503,42 @@ app.all('/api/v1/external-play/:token', (req, res) => {
     return res.status(405).send('Method not allowed.');
   }
   return externalPlayback.handle(req, res);
+});
+
+app.delete('/api/v1/playback', requirePage, (req, res) => {
+  const account = currentAccount(req);
+  if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
+  const active = playbackLeases.listActive().filter(row => row.userId === account.user.id);
+  for (const row of active) {
+    playbackLeases.releaseLease(row.id);
+    if (row.playbackSessionId) opaquePlayback.finishPlayback(row.playbackSessionId);
+  }
+  return res.json({ stopped: active.length });
+});
+
+app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ limit:'4kb' }), (req, res) => {
+  const account = currentAccount(req);
+  const lease = playbackLeases.leaseForSession(req.params.sessionId);
+  if (account && (!lease || lease.userId !== account.user.id || !playbackLeases.touchLease(lease.id))) {
+    return res.status(410).json({ error:'Playback lease expired.', code:'PLAYBACK_LEASE_EXPIRED' });
+  }
+  const target = opaquePlayback.currentTarget(req.params.sessionId);
+  if (!target || target.kind !== 'direct' || !target.url) {
+    return res.status(409).json({ error:'This source cannot be downloaded directly.' });
+  }
+  const rawName = String(req.body?.filename || lease?.episodeTitle || lease?.title || 'AIOPlay video');
+  const filename = rawName.replace(/[^a-z0-9 ._()\-]/gi, '').trim().slice(0,140) || 'AIOPlay video';
+  const issued = externalPlayback.issue(target, {
+    leaseId: lease ? lease.id : '',
+    downloadName: filename + (/[.][a-z0-9]{2,5}$/i.test(filename) ? '' : '.mp4')
+  });
+  if (!issued) return res.status(409).json({ error:'Download is unavailable for this source.' });
+  const base = getRequestBaseUrl(req).replace(/\/$/, '');
+  return res.json({
+    ok:true,
+    url:base + '/api/v1/external-play/' + encodeURIComponent(issued.token),
+    expiresAt:new Date(issued.expiresAt).toISOString()
+  });
 });
 
 app.delete('/api/v1/playback/:sessionId', requirePage, (req, res) => {
