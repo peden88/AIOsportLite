@@ -44,6 +44,7 @@ function issue(target, options = {}) {
         : {}
     },
     leaseId: String(options.leaseId || ''),
+    downloadName: String(options.downloadName || '').replace(/[\\/"\r\n]/g, '').slice(0, 180),
     createdAt,
     expiresAt: createdAt + TOKEN_TTL_MS
   });
@@ -117,6 +118,10 @@ async function handle(req, res) {
 
     res.status(upstream.status);
     copyResponseHeaders(upstream, res);
+    if (record.downloadName) {
+      res.setHeader('Content-Disposition', 'attachment; filename="' + record.downloadName + '"');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    }
 
     if (req.method === 'HEAD' || !upstream.body) {
       return res.end();
