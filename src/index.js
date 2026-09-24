@@ -1331,6 +1331,10 @@ app.get('/api/v1/vod/search', requirePage, async (req, res) => {
 
 app.get('/api/v1/vod/streams/:type/:id/raw', requirePage, async (req,res)=>{
   try {
+    const account=currentAccount(req);
+    if (!account?.user?.streamPickerEnabled && account?.user?.role !== 'admin') {
+      return res.status(403).json({error:'Stream picker is not enabled for this account.'});
+    }
     const rows=await vodGateway.rawPlaybackCandidates(req.params.type,req.params.id,'web');
     res.setHeader('Cache-Control','no-store');
     res.json({ streams:rows });
