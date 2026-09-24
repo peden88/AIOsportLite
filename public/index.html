@@ -407,7 +407,7 @@
       overflow:auto;
       overscroll-behavior:contain;
       -webkit-overflow-scrolling:touch;
-      padding:48px 20px calc(48px + env(safe-area-inset-bottom, 0px));
+      padding:32px 20px calc(32px + env(safe-area-inset-bottom, 0px));
       opacity:1;
       transition:opacity .16s cubic-bezier(.22,.68,.24,1);
     }
@@ -422,7 +422,9 @@
       position:relative;
       isolation:isolate;
       overflow:hidden;
-      max-width:1050px;
+      width:min(1320px,calc(100vw - 72px));
+      max-width:1320px;
+      min-height:min(720px,calc(100dvh - 96px));
       margin:0 auto;
       background:rgba(18,18,22,.985);
       border:1px solid rgba(255,255,255,.08);
@@ -479,7 +481,7 @@
     }
     .details-head {
       display:grid;
-      grid-template-columns:180px minmax(0,1fr) auto;
+      grid-template-columns:clamp(190px,18vw,250px) minmax(0,1fr) auto;
       gap:24px;
       align-items:start;
     }
@@ -2482,6 +2484,7 @@
         </div>
         <div class="player-hud-actions">
           <button type="button" id="playerMinimize" class="player-hud-btn">Minimize</button>
+          <button type="button" id="playerTryAnother" class="player-hud-btn">Try another stream</button>
           <button type="button" id="playerSwitchSource" class="player-hud-btn">Switch source</button>
         </div>
       </div>
@@ -3910,6 +3913,16 @@
       overlay.classList.remove('mini', 'is-vod');
       document.getElementById('miniPlayerBar').hidden = true;
       showPlayerHud(true);
+    }
+
+    function setupTryAnotherStream() {
+      const button = document.getElementById('playerTryAnother');
+      if (!button || button.dataset.ready === '1') return;
+      button.dataset.ready = '1';
+      button.addEventListener('click', () => {
+        if (!currentPlaybackSession || requestingFallback) return;
+        requestNextPlayback(playbackGeneration);
+      });
     }
 
     function setupPlayerHudToggle() {
@@ -6201,6 +6214,9 @@
           started = true;
           document.getElementById('loader').style.display = 'none';
           video.style.opacity = '1';
+          video.muted = false;
+          video.defaultMuted = false;
+          if (!Number.isFinite(video.volume) || video.volume <= 0) video.volume = 1;
           showPlayerHud(false);
           video.play().catch(() => {});
         });
@@ -6222,6 +6238,9 @@
         if (generation !== playbackGeneration) return;
         document.getElementById('loader').style.display = 'none';
         video.style.opacity = '1';
+        video.muted = false;
+        video.defaultMuted = false;
+        if (!Number.isFinite(video.volume) || video.volume <= 0) video.volume = 1;
         showPlayerHud(false);
         video.play().catch(() => {});
       };
@@ -6478,6 +6497,7 @@
       updatePlayerTimeline(video);
     });
 
+    setupTryAnotherStream();
     initVodPlayerControl();
     initContent();
   </script>
