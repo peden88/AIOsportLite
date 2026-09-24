@@ -1309,17 +1309,17 @@
       position:absolute;
       left:28px;
       right:28px;
-      bottom:88px;
-      z-index:103;
+      bottom:28px;
+      z-index:110;
       display:flex;
       align-items:flex-end;
       justify-content:space-between;
       gap:22px;
-      pointer-events:none;
+      pointer-events:auto;
       opacity:1;
       transition:opacity .22s ease,transform .22s ease;
     }
-    .player-hud.is-idle { opacity:0; transform:translateY(8px); }
+    .player-hud.is-idle { opacity:1; transform:none; }
     .player-hud-main {
       max-width:min(720px,72vw);
       padding:16px 18px;
@@ -1359,6 +1359,15 @@
       display:flex;
       gap:8px;
       align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      padding:10px;
+      border:1px solid rgba(255,255,255,.09);
+      border-radius:16px;
+      background:rgba(8,11,15,.78);
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+      box-shadow:0 14px 40px rgba(0,0,0,.34);
     }
     .player-hud-btn {
       border:1px solid rgba(255,255,255,.10);
@@ -1370,6 +1379,7 @@
       cursor:pointer;
       backdrop-filter:blur(10px);
     }
+    .player-hud-btn.player-hud-primary{font-size:.86rem;padding:11px 15px;background:rgba(39,48,57,.96);border-color:rgba(255,255,255,.24);box-shadow:0 7px 22px rgba(0,0,0,.28)}
     .player-hud-btn:hover,.player-hud-btn:focus-visible {
       border-color:rgba(255,255,255,.35);
       background:#273039;
@@ -1400,9 +1410,11 @@
       .hero-logo-wrap { min-width:92px; width:30vw; height:42px; }
       .hero-description { display:none; }
       .hero-chip { font-size:.60rem; }
-      .player-hud { left:12px; right:12px; bottom:68px; }
-      .player-hud-main { max-width:100%; padding:11px 12px; }
-      .player-hud-actions { position:absolute; right:0; bottom:calc(100% + 8px); }
+      .player-hud { left:10px; right:10px; bottom:12px; align-items:flex-end; }
+      .player-hud-main { max-width:100%; padding:9px 10px; }
+      .player-hud-actions { position:absolute; right:0; bottom:calc(100% + 8px); max-width:calc(100vw - 20px); gap:5px; padding:7px; }
+      .player-hud-btn { padding:8px 9px; font-size:.70rem; }
+      .player-hud-btn.player-hud-primary { padding:9px 11px; font-size:.76rem; }
       .player-hud-title { font-size:1.05rem; }
       .player-hud-logo { width:min(230px,60vw); max-height:50px; }
       .card-meta-line { font-size:.62rem; gap:4px; }
@@ -2491,8 +2503,8 @@
           <button type="button" id="playerForward10" class="player-hud-btn">+10s</button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn">Fullscreen</button>
-          <button type="button" id="playerStreamPicker" class="player-hud-btn">Streams</button>
-          <button type="button" id="playerSettings" class="player-hud-btn">Settings</button>
+          <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
+          <button type="button" id="playerSettings" class="player-hud-btn player-hud-primary">⚙ Settings</button>
           <button type="button" id="playerSwitchSource" class="player-hud-btn">Switch source</button>
         </div>
       </div>
@@ -3846,14 +3858,9 @@
       if (!hud) return;
       hud.classList.remove('is-idle');
       clearTimeout(playerHudTimer);
-      if (!sticky) {
-        playerHudTimer = setTimeout(() => {
-          const video = document.getElementById('video');
-          if (video && !video.paused && document.getElementById('loader')?.style.display === 'none') {
-            hud.classList.add('is-idle');
-          }
-        }, 3200);
-      }
+      // Keep AIOPlay controls visible above the browser's native transport
+      // controls. They are intentionally persistent so Streams/Settings and
+      // playback helpers remain discoverable while native controls stay intact.
     }
 
     function formatPlaybackTime(seconds) {
