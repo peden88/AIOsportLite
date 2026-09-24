@@ -2540,6 +2540,7 @@
     let sharedLibraryItems = [];
     let sharedWatchState = [];
     let currentPlaybackMeta = null;
+    let currentSkipIntervals = [];
     let heroTimer = null;
     let heroPrefetchTimer = null;
     let playerHudTimer = null;
@@ -3959,7 +3960,8 @@
     }
     function updateSkipSegment(video){
       const button=document.getElementById('playerSkipSegment'), now=Number(video.currentTime||0), prefs=playerPrefs();
-      const marker=playbackMarkers(currentPlaybackMeta).find(m=>m.start<=now+2 && (m.end==null||now<m.end));
+      const normalized=currentSkipIntervals.map(row=>({kind:String(row.type||'intro').toLowerCase().replace('credits','outro'),start:Number(row.startTime),end:Number(row.endTime),action:row.action||'skip'}));
+      const marker=(normalized.length?normalized:playbackMarkers(currentPlaybackMeta)).find(m=>m.start<=now+2 && (m.end==null||now<m.end));
       if(!marker){button.hidden=true;return}
       const end=Number(marker.end||marker.start+90);
       const auto=(marker.kind==='intro'&&prefs.autoIntro)||(marker.kind==='recap'&&prefs.autoRecap)||(marker.kind==='outro'&&prefs.autoOutro);
@@ -6052,6 +6054,17 @@
       showPlayerHud(true);
       showPlaybackLoading('Finding the best stream');
       prepareNextEpisode(progressContext);
+      currentSkipIntervals = [];
+      if (progressContext && Number.isInteger(Number(progressContext.season)) && Number.isInteger(Number(progressContext.episode))) {
+        const imdbMatch = String(progressContext.contentId || progressContext.parentId || id || '').match(/tt\d+/);
+        if (imdbMatch) {
+          fetch('/api/v1/vod/skip/' + encodeURIComponent(imdbMatch[0]) + '/' +
+            encodeURIComponent(progressContext.season) + '/' + encodeURIComponent(progressContext.episode))
+            .then(r => r.ok ? r.json() : { intervals:[] })
+            .then(data => { if (generation === playbackGeneration) currentSkipIntervals = Array.isArray(data.intervals) ? data.intervals : []; })
+            .catch(() => {});
+        }
+      }
 
       try {
         const payload = {
