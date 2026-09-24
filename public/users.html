@@ -47,6 +47,7 @@ button{border:0;border-radius:9px;padding:10px 13px;background:var(--accent);col
           <option value="2">2 active streams</option>
           <option value="3">3 active streams</option>
         </select>
+        <label style="text-transform:none;letter-spacing:0;font-size:13px"><input id="newStreamPicker" type="checkbox" style="width:auto;margin-right:8px">Enable diagnostic AIOStreams picker</label>
         <button type="submit" style="margin-top:16px;width:100%">Create user</button>
         <div class="msg" id="createMsg"></div>
       </form>
@@ -92,6 +93,7 @@ async function load(){
             <option value="3" ${Number(u.maxConcurrentStreams||1)===3?'selected':''}>3 active streams</option>
           </select>
         </div>
+        <label style="text-transform:none;letter-spacing:0;font-size:13px"><input class="streamPicker" type="checkbox" style="width:auto;margin-right:8px" ${u.streamPickerEnabled?'checked':''}>Enable diagnostic AIOStreams picker</label>
         <div class="row">
           <input class="display" value="${esc(u.displayName)}" maxlength="60" aria-label="Display name">
           <input class="password" type="password" minlength="8" placeholder="New password (optional)" autocomplete="new-password">
@@ -109,7 +111,8 @@ async function load(){
         const payload={
           role:row.querySelector('.role').value,
           displayName:row.querySelector('.display').value,
-          maxConcurrentStreams:Number(row.querySelector('.streamLimit').value)
+          maxConcurrentStreams:Number(row.querySelector('.streamLimit').value),
+          streamPickerEnabled:row.querySelector('.streamPicker').checked
         };
         const pw=row.querySelector('.password').value;
         if(pw)payload.password=pw;
@@ -139,7 +142,8 @@ document.getElementById('createForm').onsubmit=async e=>{
       displayName:document.getElementById('newDisplay').value.trim(),
       password:document.getElementById('newPassword').value,
       role:document.getElementById('newRole').value,
-      maxConcurrentStreams:Number(document.getElementById('newStreams').value)
+      maxConcurrentStreams:Number(document.getElementById('newStreams').value),
+      streamPickerEnabled:document.getElementById('newStreamPicker').checked
     })});
     e.target.reset();await load();
   }catch(err){createMsg.textContent=err.message;}
