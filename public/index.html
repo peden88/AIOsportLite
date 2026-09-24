@@ -6141,29 +6141,22 @@
       }
       let playbackTarget = target;
       let playbackUrl = url;
-      const isAppleClient = /(?:iPhone|iPad|iPod|Macintosh)/i.test(navigator.userAgent || '');
       const isVod = currentPlaybackKind !== 'sport_event' && currentPlaybackKind !== 'live_channel' && currentPlaybackKind !== 'sport';
-      if (isAppleClient && isVod && currentPlaybackSession && !/\.m3u8(?:$|[?#])/i.test(playbackUrl)) {
-        const meta = target.playbackMeta || {};
-        const nativeContainer = meta.container === 'mp4' || meta.container === 'm4v';
-        const nativeVideo = !meta.codec || meta.codec === 'H264' || meta.codec === 'HEVC';
-        const nativeAudio = !meta.audio || /(?:AAC|DD\+|DD)(?:\s|\/|$)/i.test(meta.audio);
-        if (!(nativeContainer && nativeVideo && nativeAudio)) {
-          showPlaybackLoading('Preparing for Safari…');
-          try {
-            const hlsRes = await fetch('/api/v1/playback/' + encodeURIComponent(currentPlaybackSession) + '/apple-hls', {
-              method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
-            });
-            const hlsData = await hlsRes.json().catch(() => ({}));
-            if (!hlsRes.ok || !hlsData.url) throw new Error(hlsData.error || 'Safari playback preparation failed.');
-            playbackUrl = hlsData.url;
-            playbackTarget = { ...target, url:playbackUrl, requestHeaders:{} };
-          } catch (err) {
-            console.warn('Apple HLS preparation failed', err);
-            return requestNextPlayback(generation);
-          }
-        }
+
+      // No remux/transcode path on web. If the gateway found no native source,
+      // it returns the first raw AIOStreams media result with this marker and
+      // AIOPlay immediately hands that source to the configured external player.
+      if (isVod && target.externalFallback) {
+        const preference = vodPlayerPreference();
+        const externalKind = preference === 'vlc' || preference === 'outplayer'
+          ? preference
+          : (/iPhone|iPad|iPod/i.test(navigator.userAgent || '') ? 'outplayer' : 'vlc');
+        showPlaybackLoading('Opening external player…');
+        const opened = await openCurrentVodInExternalPlayer(externalKind, generation);
+        if (!opened && generation === playbackGeneration) showPlaybackFailure('Could not open the external player.');
+        return;
       }
+
       const useHls = currentPlaybackKind === 'sport_event' || /\.m3u8(?:$|[?#])/i.test(playbackUrl);
 
       if (useHls && Hls.isSupported()) {
