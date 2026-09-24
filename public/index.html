@@ -2067,6 +2067,28 @@
     .episode-state-menu button:hover,.episode-state-menu button:focus-visible {
       background:rgba(255,255,255,.08); outline:none;
     }
+    /* Playback presentation: artwork-first VOD loading screen. */
+    .player-backdrop { opacity:.86; filter:saturate(.94) brightness(.92); }
+    .player-backdrop::after {
+      background:
+        linear-gradient(180deg,rgba(5,7,10,.10) 0%,rgba(5,7,10,.18) 55%,rgba(5,7,10,.40) 100%) !important;
+    }
+    #player-overlay.is-vod .player-hud-main,
+    #player-overlay.is-vod .player-hud-toggle,
+    #player-overlay.is-vod #playerMinimize,
+    #player-overlay.is-vod #playerSwitchSource { display:none !important; }
+    #player-overlay.is-vod .player-hud { display:none !important; }
+
+    /* Make episode actions discoverable on touch rather than long-press-only. */
+    .episode-more {
+      position:absolute; right:8px; top:8px; z-index:6;
+      width:30px; height:30px; display:grid; place-items:center;
+      border:1px solid rgba(255,255,255,.13); border-radius:50%;
+      background:rgba(7,10,14,.88); color:#fff;
+      font:900 18px/1 'Inter',sans-serif; letter-spacing:1px;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .episode-btn.is-watched .episode-more { right:38px; }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
@@ -2234,7 +2256,7 @@
     <div id="video-container">
       <div class="loader" id="loader">
         <div class="spinner"></div>
-        <div>Loading stream...</div>
+        <div>Finding the best stream</div>
       </div>
       <div id="playback-message"><strong>Unable to start playback</strong><span>There are no working streams for this event right now.</span></div>
       <video id="video" controls autoplay></video>
@@ -3541,6 +3563,9 @@
         logo.style.display = 'none';
       }
 
+      const isVodPlayback = !['sport_event','live_channel','sport'].includes(String(contentType || ''));
+      document.getElementById('player-overlay')?.classList.toggle('is-vod', isVodPlayback);
+
       const isEpisode = contentType === 'episode' || String(meta?.contentType || '').toLowerCase() === 'series';
       title.textContent = isEpisode
         ? String(meta?.name || meta?.parentName || 'AIOPlay')
@@ -3688,7 +3713,7 @@
     function expandPlayer() {
       const overlay = document.getElementById('player-overlay');
       if (!overlay) return;
-      overlay.classList.remove('mini');
+      overlay.classList.remove('mini', 'is-vod');
       document.getElementById('miniPlayerBar').hidden = true;
       showPlayerHud(true);
     }
@@ -5301,6 +5326,20 @@
 
             button.append(thumb, copy);
 
+            const more = document.createElement('button');
+            more.type = 'button';
+            more.className = 'episode-more';
+            more.setAttribute('aria-label', 'Episode actions for ' + code);
+            more.title = 'Episode actions';
+            more.textContent = '•••';
+            more.addEventListener('pointerdown', event => event.stopPropagation());
+            more.onclick = event => {
+              event.preventDefault();
+              event.stopPropagation();
+              showEpisodeStateMenu(more, meta, video, () => renderSeason(season));
+            };
+            thumb.appendChild(more);
+
             button.addEventListener('keydown', event => {
               if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
               const sibling = event.key === 'ArrowLeft'
@@ -5553,7 +5592,7 @@
       );
       persistUiState({ push:true, overlay:'player' });
       showPlayerHud(true);
-      showPlaybackLoading('Finding a working stream...');
+      showPlaybackLoading('Finding the best stream');
       prepareNextEpisode(progressContext);
 
       try {
