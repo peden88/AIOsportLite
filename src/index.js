@@ -1552,9 +1552,9 @@ app.get('/api/v1/playback/:sessionId/download-options', requirePage, async (req,
       index:row.index,
       size,
       resolution:String(row.meta?.resolution || ''),
-      source:String(row.meta?.source || ''),
-      codec:String(row.meta?.codec || ''),
-      label:String(row.meta?.label || '').slice(0,300)
+      quality:String(row.meta?.quality || ''),
+      visual:String(row.meta?.visual || ''),
+      audio:String(row.meta?.audio || '')
     };
   }))).filter(Boolean).sort((a,b) => (b.size || 0) - (a.size || 0));
 
