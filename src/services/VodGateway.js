@@ -127,12 +127,19 @@ function privatePlaybackRow(stream, client) {
 
   // Parse non-sensitive media attributes from AIOStreams' display text, but
   // never carry provider/release labels into the opaque playback model.
-  const descriptor = String(stream.title || '').replace(/\s+/g, ' ').trim().slice(0, 700);
+  const descriptor = [
+    stream.title,
+    stream.name,
+    stream.description,
+    stream.streamData && stream.streamData.filename,
+    stream.behaviorHints && stream.behaviorHints.filename
+  ].filter(Boolean).map(String).join(' ').replace(/\s+/g, ' ').trim().slice(0, 1400);
   const hintedSize = Number(stream.behaviorHints && stream.behaviorHints.videoSize);
-  const resolutionMatch = descriptor.match(/\b(2160p|1080p|720p|480p)\b/i);
-  const qualityMatch = descriptor.match(/\b(REMUX|BluRay|WEB[- .]?DL|WEBRip|HDTV)\b/i);
+  const resolutionMatch = descriptor.match(/\b(2160p|1080p|720p|480p|4K|UHD)\b/i);
+  const qualityMatch = descriptor.match(/\b(REMUX|BluRay|BDRip|WEB[- .]?DL|WEBRip|HDTV|DVDRip)\b/i);
+  const codecMatch = descriptor.match(/\b(AV1|HEVC|H[ .-]?265|x265|H[ .-]?264|x264)\b/i);
   const visual = [];
-  if (/\b(?:DV|DoVi|Dolby[ .]?Vision)\b/i.test(descriptor)) visual.push('DV');
+  if (/\b(?:DV|DoVi|Dolby[ .-]?Vision)\b/i.test(descriptor)) visual.push('DV');
   if (/\bHDR10\+\b/i.test(descriptor)) visual.push('HDR10+');
   else if (/\bHDR10\b/i.test(descriptor)) visual.push('HDR10');
   else if (/\bHDR\b/i.test(descriptor)) visual.push('HDR');
@@ -149,12 +156,20 @@ function privatePlaybackRow(stream, client) {
   const channels = descriptor.match(/\b(7\.1|5\.1|2\.0)\b/);
   if (channels) audio.push(channels[1]);
 
+  const resolution = resolutionMatch
+    ? (/^(?:4K|UHD)$/i.test(resolutionMatch[1]) ? '2160p' : resolutionMatch[1].toUpperCase().replace('P','p'))
+    : '';
+  const quality = qualityMatch ? qualityMatch[1].replace(/[ .]/g, '-').toUpperCase() : '';
+  const codec = codecMatch ? codecMatch[1].replace(/[ .-]/g, '').toUpperCase().replace('H265','HEVC').replace('X265','HEVC') : '';
+
+
   return {
     url: direct,
     downloadMeta: {
       size: Number.isFinite(hintedSize) && hintedSize > 0 ? hintedSize : 0,
-      resolution: resolutionMatch ? resolutionMatch[1].toUpperCase().replace('P','p') : '',
-      quality: qualityMatch ? qualityMatch[1].replace(/[ .]/g, '-').toUpperCase() : '',
+      resolution,
+      quality,
+      codec,
       visual: [...new Set(visual)].join(' / '),
       audio: [...new Set(audio)].join(' / ')
     },
