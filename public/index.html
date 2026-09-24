@@ -1958,14 +1958,28 @@
     .header-search-wrap .header-search { padding-right:44px; }
     .clear-search-btn {
       position:absolute; right:7px; top:50%; transform:translateY(-50%);
-      width:32px; height:32px; border:0; border-radius:50%;
-      background:rgba(255,255,255,.08); color:var(--text-muted);
-      font:400 24px/1 'Inter',sans-serif; cursor:pointer;
-      display:grid; place-items:center; padding:0;
+      box-sizing:border-box;
+      width:32px; height:32px; padding:0; margin:0;
+      border:1px solid rgba(255,255,255,.13); border-radius:50%;
+      background:rgba(8,11,15,.36); color:transparent;
+      font-size:0; line-height:0; cursor:pointer;
+      display:grid; place-items:center;
+      box-shadow:0 5px 16px rgba(0,0,0,.18);
+      backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+      -webkit-appearance:none; appearance:none;
     }
+    .clear-search-btn::before,.clear-search-btn::after {
+      content:'';
+      position:absolute;
+      width:13px; height:2px;
+      border-radius:999px;
+      background:#dce3e8;
+      transform:rotate(45deg);
+    }
+    .clear-search-btn::after { transform:rotate(-45deg); }
     .clear-search-btn[hidden] { display:none !important; }
     .clear-search-btn:hover,.clear-search-btn:focus-visible {
-      background:rgba(255,255,255,.14); color:var(--text); outline:none;
+      background:rgba(8,11,15,.52); outline:2px solid rgba(255,255,255,.30); outline-offset:2px;
     }
     @media (max-width: 700px) {
       /* Keep all three series actions on one physical row. This late override
@@ -2168,6 +2182,38 @@
     @media(max-width:650px) {
       .details-shell { padding-left:max(18px,env(safe-area-inset-left)); padding-right:max(18px,env(safe-area-inset-right)); }
     }
+    /* Pass 5 — premium finishing/accessibility/performance pass. */
+    :where(button,a,select,input,[tabindex]):focus-visible {
+      outline:2px solid rgba(210,229,239,.82);
+      outline-offset:3px;
+    }
+    .card:focus-visible .poster-container {
+      outline:2px solid rgba(210,229,239,.82);
+      outline-offset:3px;
+    }
+    @supports (content-visibility:auto) {
+      .vod-card { content-visibility:auto; contain-intrinsic-size:auto 390px; }
+    }
+    @media(pointer:coarse) {
+      .clear-search-btn { width:34px; height:34px; }
+      .header-search-wrap .header-search { padding-right:48px; }
+    }
+    @media(max-width:650px) {
+      .details-copy p { text-wrap:pretty; }
+      .details-title,.episode-title { text-wrap:balance; }
+    }
+    @media(prefers-contrast:more) {
+      .clear-search-btn,.card-quick-trigger,.episode-more,.episode-watched {
+        border-color:rgba(255,255,255,.48) !important;
+        background:rgba(5,8,12,.70) !important;
+      }
+      .episode-overview,.vod-card .desc { color:rgba(255,255,255,.78); }
+    }
+    @media(forced-colors:active) {
+      .clear-search-btn,.card-quick-trigger,.episode-more,.episode-watched {
+        forced-color-adjust:auto; border:1px solid ButtonText !important;
+      }
+    }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
@@ -2184,7 +2230,7 @@
       </div>
       <div class="header-search-wrap">
         <input type="text" id="searchInput" class="header-search" placeholder="Search matches…" aria-label="Search">
-        <button type="button" id="clearSearchBtn" class="clear-search-btn" aria-label="Clear search" title="Clear search" hidden>×</button>
+        <button type="button" id="clearSearchBtn" class="clear-search-btn" aria-label="Clear search" title="Clear search" hidden><span aria-hidden="true"></span></button>
       </div>
       <div class="header-actions">
         <button type="button" id="themeToggle" class="header-icon-button" title="Use light appearance" aria-label="Switch to light appearance" aria-pressed="false">☼</button>
