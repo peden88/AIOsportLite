@@ -46,6 +46,7 @@ const aioPlayProgress = require('./services/AioPlayProgress');
 const aioPlayLibrary = require('./services/AioPlayLibrary');
 const aioPlayWatchState = require('./services/AioPlayWatchState');
 const vodGateway = require('./services/VodGateway');
+const hlsTransmux = require('./services/HlsTransmux');
 
 
 
@@ -1468,6 +1469,27 @@ app.post('/api/v1/playback/:sessionId/heartbeat', requirePage, (req, res) => {
   return res.json({ ok: true });
 });
 
+app.post('/api/v1/playback/:sessionId/apple-hls', requirePage, express.json({ limit:'2kb' }), async (req, res) => {
+  const account = currentAccount(req);
+  const lease = playbackLeases.leaseForSession(req.params.sessionId);
+  if (account && (!lease || lease.userId !== account.user.id || !playbackLeases.touchLease(lease.id))) {
+    return res.status(410).json({ error:'Playback lease expired.', code:'PLAYBACK_LEASE_EXPIRED' });
+  }
+  const target = opaquePlayback.currentTarget(req.params.sessionId);
+  if (!target || target.kind !== 'direct' || !target.url) {
+    return res.status(409).json({ error:'This source cannot be prepared for Safari.' });
+  }
+  try {
+    const result = await hlsTransmux.start(req.params.sessionId, target);
+    const base = getRequestBaseUrl(req).replace(/\/$/, '');
+    return res.json({ ok:true, mode:result.mode, url:base + '/api/v1/apple-hls/' + encodeURIComponent(result.token) + '/index.m3u8' });
+  } catch (err) {
+    return res.status(409).json({ error:err.message || 'This source cannot be prepared without video transcoding.' });
+  }
+});
+
+app.get('/api/v1/apple-hls/:token/:file', (req, res) => hlsTransmux.serve(req, res));
+
 app.post('/api/v1/playback/:sessionId/external', requirePage, (req, res) => {
   const account = currentAccount(req);
   const lease = playbackLeases.leaseForSession(req.params.sessionId);
@@ -1660,6 +1682,7 @@ app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ lim
 });
 
 app.delete('/api/v1/playback/:sessionId', requirePage, (req, res) => {
+  hlsTransmux.stop(req.params.sessionId);
   const account = currentAccount(req);
   const lease = playbackLeases.leaseForSession(req.params.sessionId);
   if (lease && account && lease.userId !== account.user.id) {
