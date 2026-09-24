@@ -2407,8 +2407,6 @@
               <option value="ask">Ask</option>
               <option value="vlc">VLC</option>
               <option value="outplayer">Outplayer</option>
-              <option value="strexo">Strexo</option>
-              <option value="custom">Custom</option>
             </select>
           </div>
         </div>
@@ -2443,7 +2441,6 @@
         <button type="button" onclick="chooseVodPlayer('internal')">AIOPlay</button>
         <button type="button" onclick="chooseVodPlayer('vlc')">VLC</button>
         <button type="button" onclick="chooseVodPlayer('outplayer')">Outplayer</button>
-        <button type="button" onclick="chooseVodPlayer('strexo')">Strexo</button>
         <button type="button" class="wide" onclick="closeVodPlayerChoice()">Cancel</button>
       </div>
     </div>
@@ -2558,8 +2555,6 @@
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
-    const STREXO_TEMPLATE_KEY = 'aioplay.strexoTemplate';
-    const CUSTOM_TEMPLATE_KEY = 'aioplay.customPlayerTemplate';
 
     function setCatalogRailVisible(visible) {
       const rail = document.querySelector('.catalog-rail');
@@ -2650,24 +2645,14 @@
 
     function vodPlayerPreference() {
       const value = localStorage.getItem(VOD_PLAYER_KEY) || 'internal';
-      return ['internal', 'ask', 'vlc', 'outplayer', 'strexo', 'custom'].includes(value)
+      // Removed legacy Strexo/custom choices migrate safely to AIOPlay.
+      if (value === 'strexo' || value === 'custom') {
+        localStorage.setItem(VOD_PLAYER_KEY, 'internal');
+        return 'internal';
+      }
+      return ['internal', 'ask', 'vlc', 'outplayer'].includes(value)
         ? value
         : 'internal';
-    }
-
-    function ensurePlayerTemplate(kind) {
-      const key = kind === 'strexo' ? STREXO_TEMPLATE_KEY : CUSTOM_TEMPLATE_KEY;
-      const existing = localStorage.getItem(key);
-      if (existing && existing.includes('{url}')) return existing;
-      const label = kind === 'strexo' ? 'Strexo' : 'custom player';
-      const suggested = kind === 'strexo' ? 'strexo://play?url={url}' : 'player://play?url={url}';
-      const value = window.prompt(
-        'Enter the ' + label + ' URL template. Use {url} where the encoded playback URL should go.',
-        suggested
-      );
-      if (!value || !value.includes('{url}')) return '';
-      localStorage.setItem(key, value.trim());
-      return value.trim();
     }
 
     function initVodPlayerControl() {
@@ -2675,30 +2660,18 @@
       if (!select) return;
       select.value = vodPlayerPreference();
       select.addEventListener('change', () => {
-        let value = select.value;
-        if ((value === 'strexo' || value === 'custom') && !ensurePlayerTemplate(value)) {
-          value = 'ask';
-          select.value = value;
-        }
+        const value = ['internal', 'ask', 'vlc', 'outplayer'].includes(select.value)
+          ? select.value
+          : 'internal';
+        select.value = value;
         localStorage.setItem(VOD_PLAYER_KEY, value);
       });
     }
 
     function buildExternalPlayerUrl(kind, streamUrl) {
       const encoded = encodeURIComponent(streamUrl);
-      if (kind === 'vlc') {
-        return 'vlc-x-callback://x-callback-url/stream?url=' + encoded;
-      }
-      if (kind === 'outplayer') {
-        return 'outplayer://x-callback-url/play?url=' + encoded;
-      }
-      if (kind === 'strexo' || kind === 'custom') {
-        const template = ensurePlayerTemplate(kind);
-        if (!template) return '';
-        return template
-          .replaceAll('{url}', encoded)
-          .replaceAll('{rawUrl}', streamUrl);
-      }
+      if (kind === 'vlc') return 'vlc-x-callback://x-callback-url/stream?url=' + encoded;
+      if (kind === 'outplayer') return 'outplayer://x-callback-url/play?url=' + encoded;
       return streamUrl;
     }
 
