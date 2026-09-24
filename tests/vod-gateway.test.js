@@ -101,8 +101,8 @@ server = http.createServer((req, res) => {
         },
         {
           name: 'SECRET PROVIDER A',
-          title: 'Best ranked release · 1080p · H264 · AAC · MP4',
-          url: '/api/v1/debrid/playback/owned-chain',
+          title: 'Best ranked release 1080p H264 AAC',
+          url: '/api/v1/debrid/playback/owned-chain.mp4',
           behaviorHints: {
             filename: 'Best.Ranked.Release.1080p.H264.AAC.mp4',
             proxyHeaders: { request: { Referer: 'https://origin.test/' } }
@@ -110,8 +110,8 @@ server = http.createServer((req, res) => {
         },
         {
           name: 'SECRET PROVIDER B',
-          title: 'Second ranked release · 720p · H264 · AAC · MP4',
-          url: '/api/v1/debrid/playback/second-owned-chain',
+          title: 'Second ranked release 720p H264 AAC',
+          url: '/api/v1/debrid/playback/second-owned-chain.mp4',
           behaviorHints: {
             filename: 'Second.Ranked.Release.720p.H264.AAC.mp4'
           }
@@ -180,9 +180,9 @@ server = http.createServer((req, res) => {
   const candidates = await vod.playbackCandidates('movie', 'tt0133093');
   assert.strictEqual(candidates.length, 2);
   assert.ok(!JSON.stringify(candidates).includes('github.com/Viren070/AIOStreams'));
-  assert.strictEqual(candidates[0].url, base + '/api/v1/debrid/playback/owned-chain');
+  assert.strictEqual(candidates[0].url, base + '/api/v1/debrid/playback/owned-chain.mp4');
   assert.strictEqual(candidates[0].behaviorHints.proxyHeaders.request.Referer, 'https://origin.test/');
-  assert.strictEqual(candidates[1].url, base + '/api/v1/debrid/playback/second-owned-chain');
+  assert.strictEqual(candidates[1].url, base + '/api/v1/debrid/playback/second-owned-chain.mp4');
   assert.ok(!JSON.stringify(candidates).includes('example.test/watch-page'));
   assert.ok(!JSON.stringify(candidates).includes('SECRET PROVIDER'));
   assert.ok(!JSON.stringify(candidates).includes('Best ranked release'));
@@ -195,12 +195,12 @@ server = http.createServer((req, res) => {
 
   const first = opaque.startOpaquePlayback('vod', 'movie:tt0133093', candidates);
   assert.strictEqual(first.ok, true);
-  assert.strictEqual(first.playback.url, base + '/api/v1/debrid/playback/owned-chain');
+  assert.strictEqual(first.playback.url, base + '/api/v1/debrid/playback/owned-chain.mp4');
   assert.ok(!JSON.stringify(first).includes('SECRET PROVIDER'));
 
   const next = opaque.nextPlayback(first.sessionId);
   assert.strictEqual(next.ok, true);
-  assert.strictEqual(next.playback.url, base + '/api/v1/debrid/playback/second-owned-chain');
+  assert.strictEqual(next.playback.url, base + '/api/v1/debrid/playback/second-owned-chain.mp4');
   const done = opaque.nextPlayback(first.sessionId);
   assert.strictEqual(done.ok, false);
   assert.strictEqual(done.exhausted, true);
