@@ -1610,7 +1610,13 @@ app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ lim
     : sourceType.includes('quicktime') ? '.mov'
     : sourceType.includes('mp4') ? '.mp4'
     : '.mp4';
-  const rawName = String(req.body?.filename || lease?.episodeTitle || lease?.title || 'AIOPlay video');
+  // Episode downloads are named from structured lease metadata so an episode
+  // title can never leak back into the saved filename.
+  const structuredEpisodeName = lease && lease.contentType === 'episode' && lease.seriesTitle &&
+    Number.isInteger(lease.season) && Number.isInteger(lease.episode)
+      ? String(lease.seriesTitle) + ' - S' + String(lease.season).padStart(2,'0') + 'E' + String(lease.episode).padStart(2,'0')
+      : '';
+  const rawName = String(structuredEpisodeName || req.body?.filename || lease?.title || 'AIOPlay video');
   const filename = rawName.replace(/[^a-z0-9 ._()\-]/gi, '').trim().slice(0,140) || 'AIOPlay video';
   const issued = externalPlayback.issue(target, {
     leaseId: lease ? lease.id : '',
