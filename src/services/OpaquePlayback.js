@@ -43,6 +43,7 @@ function opaqueTarget(row) {
     kind: direct ? 'direct' : 'external',
     url: direct || external,
     ...(row.downloadMeta ? { downloadMeta: { ...row.downloadMeta } } : {}),
+    ...(row.playbackMeta ? { playbackMeta: { ...row.playbackMeta } } : {}),
     ...(requestHeaders && Object.keys(requestHeaders).length ? { requestHeaders } : {})
   };
 }
