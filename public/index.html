@@ -2082,13 +2082,16 @@
     /* Make episode actions discoverable on touch rather than long-press-only. */
     .episode-more {
       position:absolute; right:8px; top:8px; z-index:6;
-      width:30px; height:30px; display:grid; place-items:center;
+      width:30px; height:30px; display:flex; align-items:center; justify-content:center;
       border:1px solid rgba(255,255,255,.13); border-radius:50%;
       background:rgba(7,10,14,.88); color:#fff;
-      font:900 18px/1 'Inter',sans-serif; letter-spacing:1px;
+      font:900 14px/1 'Inter',sans-serif;
+      letter-spacing:0; padding:0 0 6px; margin:0;
+      white-space:nowrap; overflow:hidden;
       -webkit-tap-highlight-color:transparent;
     }
-    .episode-btn.is-watched .episode-more { right:38px; }
+    /* Reserve a separate fixed slot for watched state; never move episode actions. */
+    .episode-watched { right:42px !important; top:8px !important; }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
