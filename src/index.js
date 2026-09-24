@@ -1516,13 +1516,61 @@ app.delete('/api/v1/playback', requirePage, (req, res) => {
   return res.json({ stopped: active.length });
 });
 
+app.get('/api/v1/playback/:sessionId/download-options', requirePage, async (req, res) => {
+  const account = currentAccount(req);
+  const lease = playbackLeases.leaseForSession(req.params.sessionId);
+  if (account && (!lease || lease.userId !== account.user.id || !playbackLeases.touchLease(lease.id))) {
+    return res.status(410).json({ error:'Playback lease expired.', code:'PLAYBACK_LEASE_EXPIRED' });
+  }
+
+  const rows = opaquePlayback.downloadCandidates(req.params.sessionId);
+  const candidates = (await Promise.all(rows.map(async row => {
+    const target = opaquePlayback.targetAt(req.params.sessionId, row.index);
+    if (!target || target.kind !== 'direct' || !target.url || /\.(?:m3u8|mpd)(?:[?#]|$)/i.test(String(target.url))) return null;
+    let size = Number(row.meta && row.meta.size) || 0;
+    let contentType = '';
+    try {
+      const headers = {
+        ...(target.requestHeaders && typeof target.requestHeaders === 'object' ? target.requestHeaders : {}),
+        range:'bytes=0-0'
+      };
+      const probe = await fetch(String(target.url), {
+        method:'GET', headers, redirect:'follow', signal:AbortSignal.timeout(10000)
+      });
+      contentType = String(probe.headers.get('content-type') || '').toLowerCase();
+      const range = String(probe.headers.get('content-range') || '');
+      const rangeSize = Number((range.match(/\/(\d+)$/) || [])[1]);
+      const length = Number(probe.headers.get('content-length'));
+      if (!size && Number.isFinite(rangeSize) && rangeSize > 0) size = rangeSize;
+      else if (!size && probe.status === 200 && Number.isFinite(length) && length > 1) size = length;
+      if (probe.body) await probe.body.cancel().catch(() => {});
+      if (!probe.ok || /text\/html|application\/json|text\/plain/.test(contentType)) return null;
+    } catch (_) {
+      return null;
+    }
+    return {
+      index:row.index,
+      size,
+      resolution:String(row.meta?.resolution || ''),
+      source:String(row.meta?.source || ''),
+      codec:String(row.meta?.codec || ''),
+      label:String(row.meta?.label || '').slice(0,300)
+    };
+  }))).filter(Boolean).sort((a,b) => (b.size || 0) - (a.size || 0));
+
+  return res.json({ candidates });
+});
+
 app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ limit:'4kb' }), async (req, res) => {
   const account = currentAccount(req);
   const lease = playbackLeases.leaseForSession(req.params.sessionId);
   if (account && (!lease || lease.userId !== account.user.id || !playbackLeases.touchLease(lease.id))) {
     return res.status(410).json({ error:'Playback lease expired.', code:'PLAYBACK_LEASE_EXPIRED' });
   }
-  const target = opaquePlayback.currentTarget(req.params.sessionId);
+  const candidateIndex = Number(req.body?.candidateIndex);
+  const target = Number.isInteger(candidateIndex)
+    ? opaquePlayback.targetAt(req.params.sessionId, candidateIndex)
+    : opaquePlayback.currentTarget(req.params.sessionId);
   if (!target || target.kind !== 'direct' || !target.url) {
     return res.status(409).json({ error:'This source cannot be downloaded directly.' });
   }
