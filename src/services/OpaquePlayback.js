@@ -42,6 +42,7 @@ function opaqueTarget(row) {
   return {
     kind: direct ? 'direct' : 'external',
     url: direct || external,
+    ...(row.downloadMeta ? { downloadMeta: { ...row.downloadMeta } } : {}),
     ...(requestHeaders && Object.keys(requestHeaders).length ? { requestHeaders } : {})
   };
 }
@@ -142,6 +143,26 @@ function currentTarget(sessionId) {
   return session.targets[index] || null;
 }
 
+function downloadCandidates(sessionId) {
+  cleanup();
+  const session = sessions.get(String(sessionId || '').trim());
+  if (!session) return [];
+  session.expiresAt = now() + SESSION_TTL_MS;
+  return session.targets.map((target, index) => ({
+    index,
+    meta: target.downloadMeta ? { ...target.downloadMeta } : {}
+  }));
+}
+
+function targetAt(sessionId, index) {
+  cleanup();
+  const session = sessions.get(String(sessionId || '').trim());
+  const i = Number(index);
+  if (!session || !Number.isInteger(i) || i < 0 || i >= session.targets.length) return null;
+  session.expiresAt = now() + SESSION_TTL_MS;
+  return session.targets[i] || null;
+}
+
 function finishPlayback(sessionId) {
   return sessions.delete(String(sessionId || '').trim());
 }
@@ -160,6 +181,8 @@ module.exports = {
   startOpaquePlayback,
   nextPlayback,
   currentTarget,
+  downloadCandidates,
+  targetAt,
   finishPlayback,
   status,
   _opaqueTarget: opaqueTarget,
