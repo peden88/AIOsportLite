@@ -2336,6 +2336,13 @@
       #playerStreamPickerPanel{inset:max(58px,env(safe-area-inset-top)) 10px max(76px,env(safe-area-inset-bottom)) 10px !important;padding:14px !important;border-radius:20px !important}
       .aiostreams-result{padding:13px 14px !important}.aiostreams-result-name{font-size:.84rem !important}.aiostreams-result-title{font-size:.77rem !important}
     }
+
+    .aiostreams-result-head{font-size:.82rem;font-weight:850;text-align:center;color:#f4f5f6;line-height:1.25;margin-bottom:7px}
+    .aiostreams-result-core{font-size:.82rem;font-weight:760;line-height:1.38;text-align:left;color:#fff;white-space:pre-wrap}
+    .aiostreams-result-tech{margin-top:5px;font-size:.76rem;font-weight:700;line-height:1.35;text-align:left;color:rgba(255,255,255,.88);white-space:pre-wrap}
+    .aiostreams-result-source{margin-top:5px;font-size:.74rem;font-weight:680;line-height:1.35;text-align:left;color:rgba(255,255,255,.80);white-space:pre-wrap}
+    .aiostreams-result-badges{margin-top:6px;font-size:.7rem;font-weight:760;line-height:1.35;text-align:left;color:rgba(255,255,255,.66);white-space:pre-wrap}
+    .aiostreams-result-file{margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.07);font-size:.68rem;line-height:1.32;text-align:left;color:rgba(255,255,255,.48);overflow-wrap:anywhere}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2629,6 +2636,34 @@
     const tabs = () => document.getElementById('tabs');
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
 
+    function aiostreamsVisualParts(stream) {
+      const rawName=String(stream?.name||'').trim();
+      const rawTitle=String(stream?.title||stream?.description||'').trim();
+      const filename=String(stream?.filename||'').trim();
+      const lines=(rawTitle||rawName).split(/\n+/).map(v=>v.trim()).filter(Boolean);
+      const resolutionRe=/\b(?:2160p|4k|uhd|1080p|720p|480p|hd|sd)\b/i;
+      const sourceRe=/\b(?:web[ .-]?dl|webrip|bluray|blu[ .-]?ray|remux|hdtv|dvd|cam|telesync|nzbs?|torrent)\b/i;
+      const codecRe=/\b(?:av1|hevc|h\.?265|x265|avc|h\.?264|x264|vc-?1|xvid|divx|10bit|8bit)\b/i;
+      const audioRe=/\b(?:atmos|truehd|dd\+|e-?ac-?3|ac-?3|dts(?:-?hd)?|aac|opus|flac|mp3|[257]\.1)\b/i;
+      const sizeRe=/\b\d+(?:\.\d+)?\s*(?:tb|gb|mb|kb|mbps|kbps)\b/i;
+      let head='',core='',tech='',source='',badges='';
+      for(const line of lines){
+        const isHead=(resolutionRe.test(line)||sourceRe.test(line)) && line.length<90 && !codecRe.test(line) && !audioRe.test(line);
+        const isTech=codecRe.test(line)||audioRe.test(line)||sizeRe.test(line);
+        const isSource=/\[AIO\]|NZBGeek|NZB\.su|altHUB|Usenet|Torrent|Debrid|TorBox|Real-?Debrid|Easynews/i.test(line);
+        const isBadge=/BEST|LQ|SUB|EN\b|DV|HDR|REMUX|cached|uncached/i.test(line);
+        if(!head&&isHead){head=line;continue}
+        if(isSource){source+=(source?'\n':'')+line;continue}
+        if(isTech){tech+=(tech?'\n':'')+line;continue}
+        if(isBadge){badges+=(badges?'\n':'')+line;continue}
+        core+=(core?'\n':'')+line;
+      }
+      if(!head) head=rawName||('Stream #'+(Number(stream?.index||0)+1));
+      else if(rawName && rawName!==head) core=(rawName+(core?'\n'+core:''));
+      if(!core) core=rawTitle||filename||'AIOStreams result';
+      return {head,core,tech,source,badges,filename};
+    }
+
     async function openRawStreamPicker({beforePlayback=false, context=null}={}) {
       const panel=document.getElementById('playerStreamPickerPanel'), rows=document.getElementById('playerStreamPickerRows');
       const ctx=context||currentRawStreamContext;
@@ -2642,10 +2677,14 @@
         rows.innerHTML='';
         streams.forEach(s=>{
           const button=document.createElement('button');button.type='button';button.className='aiostreams-result';
-          const name=document.createElement('div');name.className='aiostreams-result-name';name.textContent=s.name||('Stream #'+(s.index+1));
-          const title=document.createElement('div');title.className='aiostreams-result-title';title.textContent=s.title||s.description||s.filename||'';
-          const meta=document.createElement('div');meta.className='aiostreams-result-meta';meta.textContent='#'+(s.index+1)+(s.filename?' · '+s.filename:'')+(s.playable?'':' · Not directly playable');
-          button.append(name,title,meta);
+          const parts=aiostreamsVisualParts(s);
+          const add=(klass,text)=>{if(!text)return;const el=document.createElement('div');el.className=klass;el.textContent=text;button.appendChild(el)};
+          add('aiostreams-result-head',parts.head);
+          add('aiostreams-result-core',parts.core);
+          add('aiostreams-result-tech',parts.tech);
+          add('aiostreams-result-source',parts.source);
+          add('aiostreams-result-badges',parts.badges);
+          add('aiostreams-result-file','#'+(s.index+1)+(parts.filename?' · '+parts.filename:'')+(s.playable?'':' · Not directly playable'));
           button.onclick=()=>{panel.hidden=true;const args=ctx.playArgs;if(args)fetchAndPlay(...args,s.index)};
           rows.appendChild(button);
         });
