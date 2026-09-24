@@ -2518,7 +2518,7 @@
         </div>
       </div>
       <button type="button" id="playerSkipSegment" class="player-next-up" hidden>Skip Intro</button>
-      <div id="playerStreamPickerPanel" class="player-settings-panel" hidden><strong>Raw AIOStreams results</strong><div id="playerStreamPickerRows" class="player-stream-info">Start a movie or episode to inspect its streams.</div></div>
+      <div id="playerStreamPickerPanel" class="player-settings-panel" hidden><div class="aiostreams-picker-head"><strong>AIOStreams</strong><button type="button" id="playerStreamRefresh" class="player-hud-btn">↻ Refresh</button></div><div id="playerStreamPickerRows" class="player-stream-info aiostreams-picker">Choose a title to load streams.</div></div>
       <div id="playerSettingsPanel" class="player-settings-panel" hidden>
         <div class="player-settings-grid">
           <label>Subtitles<select id="playerSubtitleSelect"><option value="-1">Off</option></select></label>
@@ -2606,25 +2606,30 @@
     const tabs = () => document.getElementById('tabs');
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
 
-    async function openRawStreamPicker() {
+    async function openRawStreamPicker({beforePlayback=false, context=null}={}) {
       const panel=document.getElementById('playerStreamPickerPanel'), rows=document.getElementById('playerStreamPickerRows');
-      if(!panel||!rows)return;
-      panel.hidden=!panel.hidden;
-      if(panel.hidden||!currentRawStreamContext)return;
-      rows.textContent='Loading full AIOStreams output…';
+      const ctx=context||currentRawStreamContext;
+      if(!panel||!rows||!ctx)return false;
+      panel.hidden=false;
+      rows.textContent='Refreshing AIOStreams results…';
       try{
-        const r=await fetch('/api/v1/vod/streams/'+encodeURIComponent(currentRawStreamContext.type)+'/'+encodeURIComponent(currentRawStreamContext.id)+'/raw');
-        const data=await r.json();
-        const streams=Array.isArray(data.streams)?data.streams:[];
+        const r=await fetch('/api/v1/vod/streams/'+encodeURIComponent(ctx.type)+'/'+encodeURIComponent(ctx.id)+'/raw',{cache:'no-store'});
+        if(r.status===403){panel.hidden=true;return false}
+        const data=await r.json(), streams=Array.isArray(data.streams)?data.streams:[];
         rows.innerHTML='';
         streams.forEach(s=>{
-          const button=document.createElement('button');button.type='button';button.className='player-hud-btn';button.style.cssText='display:block;width:100%;margin:7px 0;text-align:left;white-space:normal';
-          button.textContent='#'+(s.index+1)+' '+[s.name,s.title,s.description,s.filename].filter(Boolean).join(' · ')+(s.playable?'':' · NOT PLAYABLE');
-          button.onclick=async()=>{panel.hidden=true;for(let i=0;i<s.index;i++){const rr=await fetch('/api/v1/playback/'+encodeURIComponent(currentPlaybackSession)+'/next',{method:'POST'});if(!rr.ok)break}const target=await fetch('/api/v1/playback/'+encodeURIComponent(currentPlaybackSession)+'/next',{method:'POST'}).then(x=>x.json()).catch(()=>null);if(target?.playback)playOpaqueTarget(target.playback,playbackGeneration)};
+          const button=document.createElement('button');button.type='button';button.className='aiostreams-result';
+          const name=document.createElement('div');name.className='aiostreams-result-name';name.textContent=s.name||('Stream #'+(s.index+1));
+          const title=document.createElement('div');title.className='aiostreams-result-title';title.textContent=s.title||s.description||s.filename||'';
+          const meta=document.createElement('div');meta.className='aiostreams-result-meta';meta.textContent='#'+(s.index+1)+(s.filename?' · '+s.filename:'')+(s.playable?'':' · Not directly playable');
+          button.append(name,title,meta);
+          button.onclick=()=>{panel.hidden=true;const args=ctx.playArgs;if(args)fetchAndPlay(...args,s.index)};
           rows.appendChild(button);
         });
         if(!streams.length)rows.textContent='No AIOStreams results.';
-      }catch(e){rows.textContent='Could not load AIOStreams output.'}
+        document.getElementById('playerStreamRefresh').onclick=()=>openRawStreamPicker({beforePlayback,context:ctx});
+        return true;
+      }catch(e){rows.textContent='Could not load AIOStreams output.';return false}
     }
 
     function setCatalogRailVisible(visible) {
@@ -6056,8 +6061,17 @@
       contentType,
       stremioType,
       progressContext = null,
-      sourceElement = null
+      sourceElement = null,
+      selectedStreamIndex = null
     ) {
+      const pickerAllowed = !!bootstrap?.accountUser?.streamPickerEnabled || bootstrap?.accountUser?.role === 'admin';
+      if (pickerAllowed && !Number.isInteger(selectedStreamIndex) && stremioType && sourceElement?.id !== 'playerBackdrop') {
+        currentRawStreamContext={type:stremioType,id,playArgs:[id,contentType,stremioType,progressContext,sourceElement]};
+        document.getElementById('player-overlay').style.display='flex';
+        document.body.classList.add('player-open');
+        const shown=await openRawStreamPicker({beforePlayback:true,context:currentRawStreamContext});
+        if(shown)return;
+      }
       const priorReturnToDetails = playerReturnToDetails;
       const preservePlayerOrigin = sourceElement?.id === 'playerBackdrop';
       await closePlayer(false, { returnToOrigin:false });
@@ -6095,7 +6109,7 @@
       showPlayerHud(true);
       showPlaybackLoading('Finding the best stream');
       prepareNextEpisode(progressContext);
-      currentRawStreamContext = stremioType ? { type:stremioType, id } : null;
+      currentRawStreamContext = stremioType ? { type:stremioType, id, playArgs:[id,contentType,stremioType,progressContext,sourceElement] } : null;
       currentSkipIntervals = [];
       if (progressContext && Number.isInteger(Number(progressContext.season)) && Number.isInteger(Number(progressContext.episode))) {
         const imdbMatch = String(progressContext.contentId || progressContext.parentId || id || '').match(/tt\d+/);
@@ -6129,6 +6143,7 @@
           payload.episodeTitle = progressContext.episodeTitle || '';
         }
         if (stremioType) payload.stremioType = stremioType;
+        if (Number.isInteger(selectedStreamIndex)) payload.selectedStreamIndex = selectedStreamIndex;
 
         const res = await fetch('/api/v1/play', {
           method: 'POST',
