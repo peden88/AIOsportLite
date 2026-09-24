@@ -1,0 +1,14 @@
+{
+  "name": "AIOPlay",
+  "short_name": "AIOPlay",
+  "description": "AIOPlay media experience",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080c11",
+  "theme_color": "#080c11",
+  "icons": [
+    { "src": "/aioplay-launcher.webp", "sizes": "512x512", "type": "image/webp", "purpose": "any maskable" }
+  ]
+}
