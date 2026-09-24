@@ -47,6 +47,7 @@ const aioPlayLibrary = require('./services/AioPlayLibrary');
 const aioPlayWatchState = require('./services/AioPlayWatchState');
 const vodGateway = require('./services/VodGateway');
 const hlsTransmux = require('./services/HlsTransmux');
+const skipMetadata = require('./services/SkipMetadata');
 
 
 
@@ -1325,6 +1326,21 @@ app.get('/api/v1/vod/search', requirePage, async (req, res) => {
   } catch (err) {
     console.error('[app-vod] search failed:', err.message);
     res.status(err.statusCode || 502).json({ error: 'VOD search is unavailable.' });
+  }
+});
+
+app.get('/api/v1/vod/skip/:imdbId/:season/:episode', requirePage, async (req, res) => {
+  try {
+    const intervals = await skipMetadata.getSkipIntervals({
+      imdbId:req.params.imdbId,
+      season:req.params.season,
+      episode:req.params.episode
+    });
+    res.setHeader('Cache-Control','private, max-age=3600');
+    res.json({ intervals });
+  } catch (err) {
+    console.warn('[skip-metadata] lookup failed:', err.message);
+    res.json({ intervals:[] });
   }
 });
 
