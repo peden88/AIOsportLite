@@ -2090,9 +2090,9 @@
       background:rgba(255,255,255,.045); color:var(--text); text-align:left;
     }
     .download-option:active { transform:scale(.99); }
-    .download-option-size { font-size:1.05rem; font-weight:900; white-space:nowrap; }
+    .download-option-size { font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,sans-serif; font-size:1.16rem; font-weight:800; letter-spacing:-.015em; white-space:nowrap; }
     .download-option-meta { min-width:0; }
-    .download-option-tags { font-size:.76rem; font-weight:800; }
+    .download-option-tags { font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,sans-serif; font-size:.86rem; font-weight:700; line-height:1.28; letter-spacing:-.01em; }
     .download-option-label { margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-muted); font-size:.66rem; }
     .download-option-arrow { opacity:.65; font-size:1.1rem; }
     @media(max-width:650px) {
@@ -2418,7 +2418,6 @@
           <div id="detailsMeta" class="details-meta"></div>
           <p id="detailsDescription"></p>
           <div id="detailsActions" class="details-actions">
-            <button type="button" id="detailsMovieDownload" hidden>Download</button>
             <div class="season-control" id="seasonControl">
               <label for="seasonSelect">Season</label>
               <select id="seasonSelect" class="season-select" aria-label="Season"></select>
@@ -5337,11 +5336,24 @@
     }
 
     function configureMovieDownloadAction(meta) {
-      const button = document.getElementById('detailsMovieDownload');
-      if (!button) return;
+      const actions = document.getElementById('detailsActions');
+      const seasonControl = document.getElementById('seasonControl');
+      if (!actions) return;
+      let button = document.getElementById('detailsMovieDownload');
       const isMovie = normalizedVodType(meta) === 'movie';
-      button.hidden = !isMovie;
-      button.onclick = isMovie ? () => downloadVod(currentDetailsMeta || meta) : null;
+      if (!isMovie) {
+        if (button) button.remove();
+        return;
+      }
+      if (!button) {
+        button = document.createElement('button');
+        button.type = 'button';
+        button.id = 'detailsMovieDownload';
+        button.textContent = 'Download';
+        actions.insertBefore(button, seasonControl || null);
+      }
+      button.hidden = false;
+      button.onclick = () => downloadVod(currentDetailsMeta || meta);
     }
 
     function configureMovieHeroAction(meta) {
@@ -5513,6 +5525,7 @@
       const poster = document.getElementById('detailsPoster');
       setProgressiveImage(poster, currentDetailsMeta.poster || preview.poster);
       configureMovieHeroAction(currentDetailsMeta);
+      configureMovieDownloadAction(currentDetailsMeta);
       appendDetailsAccountActions(currentDetailsMeta);
 
       const actions = document.getElementById('detailsActions');
