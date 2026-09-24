@@ -2313,6 +2313,29 @@
         forced-color-adjust:auto; border:1px solid ButtonText !important;
       }
     }
+
+    /* Diagnostic AIOStreams picker: modal-style, scrollable and faithful to the
+       upstream formatter rather than compressed into player-HUD chips. */
+    #playerStreamPickerPanel{
+      position:fixed !important;inset:max(72px,env(safe-area-inset-top)) 16px max(92px,env(safe-area-inset-bottom)) 16px !important;
+      width:auto !important;max-width:760px !important;height:auto !important;max-height:none !important;margin:0 auto !important;
+      display:flex;flex-direction:column;padding:18px !important;border-radius:22px !important;
+      background:rgba(9,11,14,.985) !important;overflow:hidden !important;z-index:190 !important;
+    }
+    #playerStreamPickerPanel[hidden]{display:none !important}
+    #playerStreamPickerRows{flex:1 1 auto;min-height:0;max-height:none !important;overflow-y:auto !important;overflow-x:hidden !important;
+      overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 22px !important;margin-top:8px !important;border-top:0 !important}
+    .aiostreams-picker-head{flex:0 0 auto;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.09)}
+    .aiostreams-picker-head strong{font-size:1.05rem;letter-spacing:.02em}
+    .aiostreams-result{margin:9px 0 !important;padding:14px 16px !important;border-radius:16px !important;background:rgba(31,33,37,.98) !important;
+      border:1px solid rgba(255,255,255,.10) !important;box-shadow:0 5px 18px rgba(0,0,0,.2)}
+    .aiostreams-result-name{font-size:.9rem !important;line-height:1.35 !important;text-align:left}
+    .aiostreams-result-title{font-size:.82rem !important;line-height:1.38 !important;color:rgba(255,255,255,.92) !important;text-align:left}
+    .aiostreams-result-meta{font-size:.7rem !important;text-align:left;color:rgba(255,255,255,.52) !important}
+    @media(max-width:650px){
+      #playerStreamPickerPanel{inset:max(58px,env(safe-area-inset-top)) 10px max(76px,env(safe-area-inset-bottom)) 10px !important;padding:14px !important;border-radius:20px !important}
+      .aiostreams-result{padding:13px 14px !important}.aiostreams-result-name{font-size:.84rem !important}.aiostreams-result-title{font-size:.77rem !important}
+    }
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -6308,20 +6331,6 @@
       let playbackTarget = target;
       let playbackUrl = url;
       const isVod = currentPlaybackKind !== 'sport_event' && currentPlaybackKind !== 'live_channel' && currentPlaybackKind !== 'sport';
-
-      // Safari/WebKit is external-first again. Do not probe, remux or attempt
-      // native VOD playback there; hand the server-selected source straight to
-      // the user's external player.
-      if (isVod && isSafariBasedBrowser()) {
-        const preference = vodPlayerPreference();
-        const externalKind = preference === 'vlc' || preference === 'outplayer'
-          ? preference
-          : (/iPhone|iPad|iPod/i.test(navigator.userAgent || '') ? 'outplayer' : 'vlc');
-        showPlaybackLoading('Opening external player…');
-        const opened = await openCurrentVodInExternalPlayer(externalKind, generation);
-        if (!opened && generation === playbackGeneration) showPlaybackFailure('Could not open the external player.');
-        return;
-      }
 
       // No remux/transcode path on web. If the gateway found no native source,
       // it returns the first raw AIOStreams media result with this marker and
