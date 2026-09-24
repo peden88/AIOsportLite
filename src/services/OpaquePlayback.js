@@ -44,6 +44,7 @@ function opaqueTarget(row) {
     url: direct || external,
     ...(row.downloadMeta ? { downloadMeta: { ...row.downloadMeta } } : {}),
     ...(row.playbackMeta ? { playbackMeta: { ...row.playbackMeta } } : {}),
+    ...(row.externalFallback ? { externalFallback: true } : {}),
     ...(requestHeaders && Object.keys(requestHeaders).length ? { requestHeaders } : {})
   };
 }
