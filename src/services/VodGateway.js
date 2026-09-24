@@ -173,6 +173,18 @@ function privatePlaybackRow(stream, client) {
       visual: [...new Set(visual)].join(' / '),
       audio: [...new Set(audio)].join(' / ')
     },
+    playbackMeta: {
+      codec,
+      audio: [...new Set(audio)].join(' / '),
+      visual: [...new Set(visual)].join(' / '),
+      quality,
+      resolution,
+      container: /\.mp4(?:[?#]|$)/i.test(direct) ? 'mp4'
+        : /\.m4v(?:[?#]|$)/i.test(direct) ? 'm4v'
+        : /\.m3u8(?:[?#]|$)/i.test(direct) ? 'hls'
+        : /\.mkv(?:[?#]|$)/i.test(direct) ? 'mkv'
+        : ''
+    },
     ...(requestHeaders && Object.keys(requestHeaders).length
       ? { behaviorHints: { proxyHeaders: { request: requestHeaders } } }
       : {})
@@ -317,7 +329,27 @@ async function playbackCandidates(type, id, clientKind = 'web') {
   const response = await client.streams(safeType, safeId);
   const rows = response && Array.isArray(response.streams) ? response.streams : [];
   const max = Math.max(1, Math.min(50, Number(process.env.VOD_PLAYBACK_CANDIDATE_LIMIT) || 20));
-  return rows.map(row => privatePlaybackRow(row, client)).filter(Boolean).slice(0, max);
+  const candidates = rows.map(row => privatePlaybackRow(row, client)).filter(Boolean);
+  // Prefer sources Safari can direct-play first, then sources that only need
+  // repackaging/audio conversion. Preserve AIOStreams order inside each tier.
+  const compatibilityRank = row => {
+    const meta = row.playbackMeta || {};
+    if (meta.container === 'hls') return 0;
+    const video = String(meta.codec || '').toUpperCase();
+    const audio = String(meta.audio || '').toUpperCase();
+    const container = String(meta.container || '').toLowerCase();
+    const videoNative = !video || video === 'H264' || video === 'HEVC';
+    const audioNative = !audio || /(?:AAC|DD\+|DD)(?:\s|\/|$)/.test(audio);
+    if ((container === 'mp4' || container === 'm4v') && videoNative && audioNative) return 1;
+    if (videoNative && audioNative) return 2;
+    if (videoNative) return 3;
+    return 4;
+  };
+  return candidates
+    .map((row, index) => ({ row, index, rank:compatibilityRank(row) }))
+    .sort((a,b) => a.rank - b.rank || a.index - b.index)
+    .slice(0, max)
+    .map(item => item.row);
 }
 
 async function refreshAioStreams() {
