@@ -4923,7 +4923,7 @@
           toast.className = 'download-preparing-toast';
           toast.setAttribute('role', 'status');
           toast.setAttribute('aria-live', 'polite');
-          toast.innerHTML = '<span class="download-preparing-spinner" aria-hidden="true"></span><span>Preparing Download…</span>';
+          toast.innerHTML = '<span class="download-preparing-spinner" aria-hidden="true"></span><span>Starting Download…</span>';
           document.body.appendChild(toast);
         }
         requestAnimationFrame(() => toast.classList.add('visible'));
@@ -4992,6 +4992,9 @@
             return title + (year ? ' (' + year + ')' : '');
           })();
       setDownloadPreparing(true);
+      // Give Safari one paint before stream discovery begins so the user gets
+      // immediate feedback even when the following request resolves quickly.
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       try {
         const playRes = await fetch('/api/v1/play', {
           method:'POST',
@@ -5018,6 +5021,7 @@
           throw new Error('No directly downloadable files were found for this title.');
         }
         setDownloadPreparing(false);
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         const candidate = await chooseDownloadCandidate(candidates);
         if (!candidate) {
           await fetch('/api/v1/playback/' + encodeURIComponent(play.sessionId), { method:'DELETE' }).catch(() => {});
