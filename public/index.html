@@ -2491,11 +2491,13 @@
           <button type="button" id="playerForward10" class="player-hud-btn">+10s</button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn">Fullscreen</button>
+          <button type="button" id="playerStreamPicker" class="player-hud-btn">Streams</button>
           <button type="button" id="playerSettings" class="player-hud-btn">Settings</button>
           <button type="button" id="playerSwitchSource" class="player-hud-btn">Switch source</button>
         </div>
       </div>
       <button type="button" id="playerSkipSegment" class="player-next-up" hidden>Skip Intro</button>
+      <div id="playerStreamPickerPanel" class="player-settings-panel" hidden><strong>Raw AIOStreams results</strong><div id="playerStreamPickerRows" class="player-stream-info">Start a movie or episode to inspect its streams.</div></div>
       <div id="playerSettingsPanel" class="player-settings-panel" hidden>
         <div class="player-settings-grid">
           <label>Subtitles<select id="playerSubtitleSelect"><option value="-1">Off</option></select></label>
@@ -2541,6 +2543,7 @@
     let sharedWatchState = [];
     let currentPlaybackMeta = null;
     let currentSkipIntervals = [];
+    let currentRawStreamContext = null;
     let heroTimer = null;
     let heroPrefetchTimer = null;
     let playerHudTimer = null;
@@ -2581,6 +2584,27 @@
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
+
+    async function openRawStreamPicker() {
+      const panel=document.getElementById('playerStreamPickerPanel'), rows=document.getElementById('playerStreamPickerRows');
+      if(!panel||!rows)return;
+      panel.hidden=!panel.hidden;
+      if(panel.hidden||!currentRawStreamContext)return;
+      rows.textContent='Loading full AIOStreams output…';
+      try{
+        const r=await fetch('/api/v1/vod/streams/'+encodeURIComponent(currentRawStreamContext.type)+'/'+encodeURIComponent(currentRawStreamContext.id)+'/raw');
+        const data=await r.json();
+        const streams=Array.isArray(data.streams)?data.streams:[];
+        rows.innerHTML='';
+        streams.forEach(s=>{
+          const button=document.createElement('button');button.type='button';button.className='player-hud-btn';button.style.cssText='display:block;width:100%;margin:7px 0;text-align:left;white-space:normal';
+          button.textContent='#'+(s.index+1)+' '+[s.name,s.title,s.description,s.filename].filter(Boolean).join(' · ')+(s.playable?'':' · NOT PLAYABLE');
+          button.onclick=async()=>{panel.hidden=true;for(let i=0;i<s.index;i++){const rr=await fetch('/api/v1/playback/'+encodeURIComponent(currentPlaybackSession)+'/next',{method:'POST'});if(!rr.ok)break}const target=await fetch('/api/v1/playback/'+encodeURIComponent(currentPlaybackSession)+'/next',{method:'POST'}).then(x=>x.json()).catch(()=>null);if(target?.playback)playOpaqueTarget(target.playback,playbackGeneration)};
+          rows.appendChild(button);
+        });
+        if(!streams.length)rows.textContent='No AIOStreams results.';
+      }catch(e){rows.textContent='Could not load AIOStreams output.'}
+    }
 
     function setCatalogRailVisible(visible) {
       const rail = document.querySelector('.catalog-rail');
@@ -3974,7 +3998,8 @@
         const el=document.getElementById(id);el.checked=!!prefs[key];el.onchange=()=>{const p=playerPrefs();p[key]=el.checked;savePlayerPrefs(p)};
       }
       const speed=document.getElementById('playerSpeedSelect');speed.value=String(prefs.speed||1);speed.onchange=()=>{video.playbackRate=Number(speed.value);const p=playerPrefs();p.speed=video.playbackRate;savePlayerPrefs(p)};
-      document.getElementById('playerSettings').onclick=()=>{panel.hidden=!panel.hidden;if(!panel.hidden)populatePlayerTracks()};
+      document.getElementById('playerSettings').onclick=()=>{panel.hidden=!panel.hidden;
+    document.getElementById('playerStreamPicker').onclick = openRawStreamPicker;if(!panel.hidden)populatePlayerTracks()};
       document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
       document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
       document.getElementById('playerPip').onclick=async()=>{try{if(document.pictureInPictureElement)await document.exitPictureInPicture();else if(video.requestPictureInPicture)await video.requestPictureInPicture()}catch(_){}};
@@ -6054,6 +6079,7 @@
       showPlayerHud(true);
       showPlaybackLoading('Finding the best stream');
       prepareNextEpisode(progressContext);
+      currentRawStreamContext = stremioType ? { type:stremioType, id } : null;
       currentSkipIntervals = [];
       if (progressContext && Number.isInteger(Number(progressContext.season)) && Number.isInteger(Number(progressContext.episode))) {
         const imdbMatch = String(progressContext.contentId || progressContext.parentId || id || '').match(/tt\d+/);
