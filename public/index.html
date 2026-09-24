@@ -2128,12 +2128,45 @@
     @media(max-width:650px) {
       .card-quick-trigger { opacity:1 !important; }
     }
-    /* Fixed action lane: watched state never changes the menu object. */
+    /* Fixed rendered status object: shares the action object's geometry and
+       centre line so browser glyph metrics cannot move it. */
     .episode-watched {
       right:47px !important;
-      top:11.5px !important;
-      width:24px !important;
-      height:24px !important;
+      top:10px !important;
+      box-sizing:border-box;
+      width:27px !important;
+      height:27px !important;
+      display:grid !important;
+      place-items:center !important;
+      padding:0 !important;
+      border:1px solid rgba(255,255,255,.14) !important;
+      border-radius:50% !important;
+      background:rgba(8,11,15,.36) !important;
+      color:transparent !important;
+      font-size:0 !important;
+      line-height:0 !important;
+      box-shadow:0 5px 16px rgba(0,0,0,.24);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+    .episode-watched::before {
+      content:'';
+      width:10px;
+      height:6px;
+      border-left:2px solid #fff;
+      border-bottom:2px solid #fff;
+      transform:translateY(-1px) rotate(-45deg);
+      transform-origin:center;
+    }
+    .search-context-title:empty { display:none; }
+    @media(max-width:650px) and (orientation:landscape) {
+      .details-shell { max-width:min(94vw,1180px); }
+      .details-head { grid-template-columns:110px minmax(0,1fr); }
+      .details-poster { width:110px; }
+      .episode-btn { flex-basis:min(42vw,270px); }
+    }
+    @media(max-width:650px) {
+      .details-shell { padding-left:max(18px,env(safe-area-inset-left)); padding-right:max(18px,env(safe-area-inset-right)); }
     }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
@@ -3208,6 +3241,7 @@
         button.onclick = () => {
           const input = document.getElementById('searchInput');
           input.value = value;
+          syncClearSearchButton();
           applySearch(value);
           input.focus();
         };
@@ -4233,10 +4267,7 @@
 
     async function applySearch(raw, { persist = true } = {}) {
       const clean = String(raw || '').trim();
-      setSearchContextVisible(
-        !!clean || document.activeElement === document.getElementById('searchInput'),
-        clean ? ('Results for “' + clean + '”') : 'Recent searches'
-      );
+      setSearchContextVisible(!!clean, clean ? ('Results for “' + clean + '”') : '');
 
       if (currentMode === 'sports' || currentMode === 'continue') {
         const query = clean.toLowerCase();
@@ -4284,7 +4315,11 @@
           results.length + (results.length === 1 ? ' result' : ' results') +
           ' for “' + clean + '”';
         rememberSearch(clean);
-        renderGrid(results);
+        if (!results.length) {
+          setGridState('No matches for “' + clean + '”. Try a shorter title or another spelling.');
+        } else {
+          renderGrid(results);
+        }
       } catch (err) {
         console.error(err);
         setGridState('Search is temporarily unavailable.', true, () =>
@@ -4307,11 +4342,14 @@
       setSearchType('', { rerun:false });
       setSearchContextVisible(false);
       syncClearSearchButton();
-      if (restoreCatalog) await applySearch('');
       searchInput.blur();
+      if (restoreCatalog) await applySearch('');
+      setSearchContextVisible(false);
     }
 
     clearSearchBtn?.addEventListener('click', () => clearSearchUi());
+
+    syncClearSearchButton();
 
     searchInput.addEventListener('input', e => {
       syncClearSearchButton();
@@ -4941,6 +4979,8 @@
     }
     function prefetchNearVisibleArtwork(metas) {
       if (!Array.isArray(metas)) return;
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (connection?.saveData || /(^|-)2g$/.test(String(connection?.effectiveType || ''))) return;
       const limit = window.matchMedia?.('(max-width:700px)')?.matches ? 8 : 14;
       metas.slice(0, limit).forEach(prefetchMetaArtwork);
     }
@@ -6002,9 +6042,7 @@
           closeDetailsFromUi();
         } else if (document.getElementById('searchInput').value) {
           event.preventDefault();
-          document.getElementById('searchInput').value = '';
-          setSearchType('', { rerun:false });
-          applySearch('');
+          clearSearchUi();
         } else if (document.getElementById('searchContext') && !document.getElementById('searchContext').hidden) {
           setSearchContextVisible(false);
           document.getElementById('searchInput').blur();
