@@ -117,7 +117,7 @@
       background:rgba(15,15,17,.46);
       backdrop-filter:blur(18px);
       -webkit-backdrop-filter:blur(18px);
-      padding:7px 20px;
+      padding:7px 20px 3px;
       border-top:1px solid rgba(255,255,255,.025);
       border-bottom:1px solid rgba(255,255,255,.035);
       box-shadow:none;
@@ -213,7 +213,7 @@
     .catalog-rail {
       width:100%;
       max-width:1180px;
-      margin:6px auto 0;
+      margin:0 auto;
       min-width:0;
     }
     .catalog-rail.is-empty {
@@ -610,22 +610,39 @@
     }
     .details-head p { color:var(--text-muted); margin:0; white-space:pre-line; }
     .details-close { float:right; background:#292930; color:#fff; border:0; border-radius:10px; padding:9px 13px; cursor:pointer; }
-    .season-control { display:none; margin-top:22px; align-items:center; gap:10px; }
-    .season-control label { color:var(--text-muted); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
-    .season-select {
-      min-height:38px;
-      padding:0 34px 0 12px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.16);
-      background:#1c1c22;
-      color:#fff;
-      font-family:'Inter',sans-serif;
-      font-size:13px;
-      font-weight:700;
-      line-height:normal;
-      outline:none;
+    .season-control {
+      display:none;
+      align-items:center;
+      gap:5px;
+      margin:0;
+      padding:5px;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      background:rgba(10,11,15,.88);
+      box-shadow:0 10px 28px rgba(0,0,0,.24);
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
     }
-    .season-select:focus { border-color:var(--accent); }
+    .season-control label {
+      display:none;
+    }
+    .season-select {
+      height:36px;
+      min-height:36px;
+      padding:0 28px 0 11px;
+      border:1px solid rgba(181,195,207,.28);
+      border-radius:13px;
+      background:#29313a;
+      color:#f5f7f9;
+      font:800 .76rem/1 'Inter',sans-serif;
+      outline:none;
+      cursor:pointer;
+    }
+    .season-select:focus {
+      border-color:rgba(194,208,220,.48);
+      background:#303944;
+    }
+    .season-select option { color:#f5f7f9; background:#15171c; }
     .episode-list {
       margin-top:14px;
       display:flex;
@@ -759,7 +776,7 @@
     .episode-btn.is-watched .episode-title { color:rgba(255,255,255,.72); }
     @media(max-width:650px){
       .top-header { padding:12px 8px 7px; }
-      header { padding:6px 8px; }
+      header { padding:4px 8px 2px; }
       .header-row { gap:8px; }
       .brand img { width: 42px; height: 42px; }
       .header-search { padding: 10px 13px; font-size: 14px; }
@@ -773,7 +790,7 @@
       .mode-tabs { gap:3px; min-width:0; }
       .mode-tab { padding:6px 9px; min-height:30px; font-size:11px; }
       .player-select { height:30px; min-height:30px; max-width:92px; padding:0 20px 0 7px; font-size:11px; }
-      .catalog-rail { margin-top:5px; }
+      .catalog-rail { margin-top:0; }
       .tabs { gap:7px; }
       .tab { padding:8px 13px; font-size:12px; }
       .vod-card { gap:6px; }
@@ -2025,12 +2042,13 @@
           <h2 id="detailsTitle"></h2>
           <div id="detailsMeta" class="details-meta"></div>
           <p id="detailsDescription"></p>
-          <div id="detailsActions" class="details-actions"></div>
+          <div id="detailsActions" class="details-actions">
+            <div class="season-control" id="seasonControl">
+              <label for="seasonSelect">Season</label>
+              <select id="seasonSelect" class="season-select" aria-label="Season"></select>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="season-control" id="seasonControl">
-        <label for="seasonSelect">Season</label>
-        <select id="seasonSelect" class="season-select" aria-label="Season"></select>
       </div>
       <div class="episode-list" id="episodeList"></div>
       <div class="episode-scroll-controls" id="episodeScrollControls" hidden>
@@ -4697,7 +4715,7 @@
       seasonControl.style.display = 'none';
       seasonSelect.innerHTML = '';
       seasonSelect.onchange = null;
-      actions.innerHTML = '';
+      Array.from(actions.children).forEach(child => { if (child.id !== 'seasonControl') child.remove(); });
       if (heroAction) heroAction.hidden = true;
       if (heroPlay) heroPlay.onclick = null;
       currentDetailsMeta = { ...preview, type };
@@ -4730,7 +4748,9 @@
         await toggleWebWatched(meta);
         watched.textContent = isWebWatched(meta) ? '✓ Watched' : 'Mark Watched';
       };
-      actions.append(library, watched);
+      const seasonControl = document.getElementById('seasonControl');
+      actions.insertBefore(library, seasonControl || null);
+      actions.insertBefore(watched, seasonControl || null);
     }
 
     async function openMovie(preview, sourceElement = null) {
@@ -5024,7 +5044,7 @@
       }
 
       document.getElementById('episodeList').innerHTML = '';
-      document.getElementById('detailsActions').innerHTML = '';
+      { const actions = document.getElementById('detailsActions'); Array.from(actions.children).forEach(child => { if (child.id !== 'seasonControl') child.remove(); }); }
       document.getElementById('detailsMeta').innerHTML = '';
       const heroAction = document.getElementById('detailsHeroAction');
       const heroPlay = document.getElementById('detailsMoviePlay');
