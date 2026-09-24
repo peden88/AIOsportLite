@@ -192,6 +192,7 @@ function listActive() {
       username: lease.username,
       displayName: lease.displayName,
       maxConcurrentStreams: lease.maxConcurrentStreams,
+      authSessionId: lease.authSessionId,
       client: lease.client,
       deviceName: lease.deviceName,
       contentType: lease.contentType,
