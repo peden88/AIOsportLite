@@ -781,7 +781,10 @@
       .brand img { width: 42px; height: 42px; }
       .header-search { padding: 10px 13px; font-size: 14px; }
       main { padding: 14px 12px 32px; }
-      .control-bar { gap:4px; margin-top:8px; justify-content:center; }
+      .control-bar { gap:0; margin:0; min-height:0; height:0; justify-content:center; overflow:hidden; }
+      header { margin-top:0; }
+      .catalog-rail { margin-top:0; }
+      .tabs { padding-top:0; padding-bottom:0; }
       .admin-toolbar { gap:3px; min-width:0; }
       .admin-toolbar .admin-action { padding:5px 7px !important; min-height:30px; font-size:10.5px; }
       .admin-icon-button { width:30px; height:30px; min-height:30px !important; flex-basis:30px; }
@@ -811,6 +814,32 @@
       .card:hover .info { padding-bottom:9px; }
       .title { font-size:.93rem; margin-bottom:0; }
       .desc { display:none; }
+      .details-actions {
+        flex-wrap:nowrap;
+        gap:6px;
+        align-items:center;
+      }
+      .details-actions > button {
+        flex:0 1 auto;
+        min-width:0;
+        padding:9px 10px;
+        white-space:nowrap;
+        font-size:.72rem;
+      }
+      .details-actions .season-control {
+        flex:0 1 auto;
+        min-width:0;
+        padding:4px;
+      }
+      .details-actions .season-select {
+        width:auto;
+        max-width:118px;
+        min-width:94px;
+        height:36px;
+        padding-left:9px;
+        padding-right:24px;
+        font-size:.72rem;
+      }
       .details-head{
         grid-template-columns:130px minmax(0,1fr);
         gap:18px 20px;
@@ -1824,7 +1853,10 @@
         display:none !important;
       }
       .control-bar {
-        min-height:30px;
+        min-height:0;
+        height:0;
+        margin:0;
+        overflow:hidden;
       }
       .mobile-bottom-nav {
         position:fixed;
