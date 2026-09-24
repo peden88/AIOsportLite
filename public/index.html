@@ -2026,16 +2026,16 @@
     /* iOS Safari: keep the browser-toolbar transition behind the floating nav
        on the same opaque app surface instead of exposing catalog artwork. */
     @media(max-width:650px) {
-      body::after {
-        content:'';
-        position:fixed;
-        z-index:79;
-        left:0; right:0; bottom:0;
-        height:calc(18px + env(safe-area-inset-bottom, 0px));
-        background:#0a0e13;
-        pointer-events:none;
+      /* Extend the existing floating navigation itself through Safari's bottom
+         safe area. This avoids a second fixed compositing layer (which iOS can
+         seam during toolbar animation) and preserves the single page gradient. */
+      .mobile-bottom-nav {
+        bottom:0;
+        padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+        border-bottom-left-radius:0;
+        border-bottom-right-radius:0;
+        box-shadow:0 -12px 36px rgba(0,0,0,.28);
       }
-      html.light-theme body::after { background:#eef4f8; }
       .season-control.is-sticky {
         position:sticky;
         top:8px;
