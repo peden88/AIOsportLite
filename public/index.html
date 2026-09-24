@@ -2067,6 +2067,43 @@
       background:rgba(20,28,35,.88); border:1px solid rgba(154,173,181,.34);
       color:#eef4f6; font-size:.60rem; font-weight:800; letter-spacing:.04em;
     }
+    .download-preparing-toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+      z-index: 10050;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 10px 16px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 999px;
+      background: rgba(9,14,21,.84);
+      -webkit-backdrop-filter: blur(18px) saturate(135%);
+      backdrop-filter: blur(18px) saturate(135%);
+      box-shadow: 0 10px 34px rgba(0,0,0,.34);
+      color: #fff;
+      font-weight: 800;
+      font-size: .88rem;
+      letter-spacing: .01em;
+      pointer-events: none;
+      transform: translate(-50%, 12px);
+      opacity: 0;
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .download-preparing-toast.visible { opacity: 1; transform: translate(-50%, 0); }
+    .download-preparing-spinner {
+      width: 17px; height: 17px; box-sizing: border-box; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.28); border-top-color: #fff;
+      animation: downloadPreparingSpin .75s linear infinite;
+    }
+    @keyframes downloadPreparingSpin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .download-preparing-toast { transition: none; }
+      .download-preparing-spinner { animation: none; border-top-color: rgba(255,255,255,.9); }
+    }
+
     .episode-state-menu {
       position:fixed; z-index:130; min-width:180px; padding:6px;
       border:1px solid rgba(255,255,255,.10); border-radius:13px;
@@ -4844,6 +4881,25 @@
       return true;
     }
 
+    function setDownloadPreparing(visible) {
+      let toast = document.getElementById('downloadPreparingToast');
+      if (visible) {
+        if (!toast) {
+          toast = document.createElement('div');
+          toast.id = 'downloadPreparingToast';
+          toast.className = 'download-preparing-toast';
+          toast.setAttribute('role', 'status');
+          toast.setAttribute('aria-live', 'polite');
+          toast.innerHTML = '<span class="download-preparing-spinner" aria-hidden="true"></span><span>Preparing Download…</span>';
+          document.body.appendChild(toast);
+        }
+        requestAnimationFrame(() => toast.classList.add('visible'));
+      } else if (toast) {
+        toast.classList.remove('visible');
+        setTimeout(() => { if (!toast.classList.contains('visible')) toast.remove(); }, 180);
+      }
+    }
+
     async function downloadVod(meta, video = null) {
       const isEpisode = !!video;
       const id = isEpisode ? video.id : meta.id;
@@ -4862,6 +4918,7 @@
             const year = yearMatch ? yearMatch[1] : '';
             return title + (year ? ' (' + year + ')' : '');
           })();
+      setDownloadPreparing(true);
       try {
         const playRes = await fetch('/api/v1/play', {
           method:'POST',
@@ -4888,6 +4945,7 @@
           await fetch('/api/v1/playback/' + encodeURIComponent(play.sessionId), { method:'DELETE' }).catch(() => {});
           throw new Error(data.error || 'This source is not downloadable.');
         }
+        setDownloadPreparing(false);
         const a = document.createElement('a');
         a.href = data.url;
         a.download = '';
@@ -4896,6 +4954,7 @@
         a.click();
         a.remove();
       } catch (err) {
+        setDownloadPreparing(false);
         alert(err.message || 'Download could not be started.');
       }
     }
