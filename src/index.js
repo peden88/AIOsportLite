@@ -1526,6 +1526,9 @@ app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ lim
   if (!target || target.kind !== 'direct' || !target.url) {
     return res.status(409).json({ error:'This source cannot be downloaded directly.' });
   }
+  if (/\.(?:m3u8|mpd)(?:[?#]|$)/i.test(String(target.url))) {
+    return res.status(409).json({ error:'Segmented HLS/DASH sources are playback-only and cannot be downloaded as one file.' });
+  }
   const rawName = String(req.body?.filename || lease?.episodeTitle || lease?.title || 'AIOPlay video');
   const filename = rawName.replace(/[^a-z0-9 ._()\-]/gi, '').trim().slice(0,140) || 'AIOPlay video';
   const issued = externalPlayback.issue(target, {
