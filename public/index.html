@@ -2067,6 +2067,39 @@
       background:rgba(20,28,35,.88); border:1px solid rgba(154,173,181,.34);
       color:#eef4f6; font-size:.60rem; font-weight:800; letter-spacing:.04em;
     }
+    .download-picker-overlay {
+      position:fixed; inset:0; z-index:10040; display:flex; align-items:flex-end; justify-content:center;
+      padding:18px max(14px,env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+      background:rgba(0,0,0,.42); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    }
+    .download-picker-overlay[hidden] { display:none; }
+    .download-picker-sheet {
+      width:min(620px,100%); max-height:min(72vh,680px); overflow:hidden;
+      border:1px solid rgba(255,255,255,.13); border-radius:24px;
+      background:rgba(12,17,23,.96); box-shadow:0 24px 70px rgba(0,0,0,.5);
+      display:flex; flex-direction:column;
+    }
+    .download-picker-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 18px 12px; }
+    .download-picker-head h3 { margin:0; font-size:1.05rem; }
+    .download-picker-head p { margin:4px 0 0; color:var(--text-muted); font-size:.74rem; }
+    .download-picker-close { width:32px; height:32px; border:0; border-radius:50%; background:rgba(255,255,255,.08); color:#fff; font-size:18px; }
+    .download-picker-list { overflow:auto; padding:0 12px 14px; -webkit-overflow-scrolling:touch; }
+    .download-option {
+      width:100%; display:grid; grid-template-columns:minmax(92px,auto) 1fr auto; align-items:center; gap:12px;
+      padding:13px 12px; margin:6px 0; border:1px solid rgba(255,255,255,.09); border-radius:15px;
+      background:rgba(255,255,255,.045); color:var(--text); text-align:left;
+    }
+    .download-option:active { transform:scale(.99); }
+    .download-option-size { font-size:1.05rem; font-weight:900; white-space:nowrap; }
+    .download-option-meta { min-width:0; }
+    .download-option-tags { font-size:.76rem; font-weight:800; }
+    .download-option-label { margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-muted); font-size:.66rem; }
+    .download-option-arrow { opacity:.65; font-size:1.1rem; }
+    @media(max-width:650px) {
+      .download-picker-overlay { padding-left:0; padding-right:0; padding-bottom:0; }
+      .download-picker-sheet { width:100%; border-radius:24px 24px 0 0; max-height:76vh; }
+    }
+
     .download-preparing-toast {
       position: fixed;
       left: 50%;
@@ -4900,6 +4933,47 @@
       }
     }
 
+    function formatDownloadSize(bytes) {
+      const n = Number(bytes);
+      if (!Number.isFinite(n) || n <= 0) return 'Size unknown';
+      const gb = n / 1073741824;
+      return gb >= 1 ? gb.toFixed(gb >= 10 ? 1 : 2) + ' GB' : (n / 1048576).toFixed(0) + ' MB';
+    }
+
+    function chooseDownloadCandidate(candidates) {
+      return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'download-picker-overlay';
+        overlay.innerHTML = '<section class="download-picker-sheet" role="dialog" aria-modal="true" aria-label="Choose download">' +
+          '<div class="download-picker-head"><div><h3>Choose Download</h3><p>Largest files first</p></div><button class="download-picker-close" aria-label="Cancel">×</button></div>' +
+          '<div class="download-picker-list"></div></section>';
+        const list = overlay.querySelector('.download-picker-list');
+        let settled = false;
+        const finish = value => {
+          if (settled) return;
+          settled = true;
+          overlay.remove();
+          resolve(value);
+        };
+        overlay.querySelector('.download-picker-close').onclick = () => finish(null);
+        overlay.addEventListener('click', event => { if (event.target === overlay) finish(null); });
+        candidates.forEach(candidate => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'download-option';
+          const tags = [candidate.resolution, candidate.source, candidate.codec].filter(Boolean).join(' · ') || 'Direct media file';
+          button.innerHTML = '<span class="download-option-size"></span><span class="download-option-meta"><span class="download-option-tags"></span><span class="download-option-label"></span></span><span class="download-option-arrow">›</span>';
+          button.querySelector('.download-option-size').textContent = formatDownloadSize(candidate.size);
+          button.querySelector('.download-option-tags').textContent = tags;
+          button.querySelector('.download-option-label').textContent = candidate.label || 'AIOStreams source';
+          button.onclick = () => finish(candidate);
+          list.appendChild(button);
+        });
+        document.body.appendChild(overlay);
+        overlay.querySelector('.download-option')?.focus();
+      });
+    }
+
     async function downloadVod(meta, video = null) {
       const isEpisode = !!video;
       const id = isEpisode ? video.id : meta.id;
@@ -4935,10 +5009,27 @@
         });
         const play = await playRes.json().catch(() => ({}));
         if (!playRes.ok || !play.sessionId) throw new Error(play.error || 'No downloadable stream was found.');
+
+        const optionsRes = await fetch('/api/v1/playback/' + encodeURIComponent(play.sessionId) + '/download-options');
+        const optionsData = await optionsRes.json().catch(() => ({}));
+        if (!optionsRes.ok) throw new Error(optionsData.error || 'Download choices could not be prepared.');
+        const candidates = Array.isArray(optionsData.candidates) ? optionsData.candidates : [];
+        if (!candidates.length) {
+          await fetch('/api/v1/playback/' + encodeURIComponent(play.sessionId), { method:'DELETE' }).catch(() => {});
+          throw new Error('No directly downloadable files were found for this title.');
+        }
+        setDownloadPreparing(false);
+        const candidate = await chooseDownloadCandidate(candidates);
+        if (!candidate) {
+          await fetch('/api/v1/playback/' + encodeURIComponent(play.sessionId), { method:'DELETE' }).catch(() => {});
+          return;
+        }
+        setDownloadPreparing(true);
+
         const res = await fetch('/api/v1/playback/' + encodeURIComponent(play.sessionId) + '/download', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ filename })
+          body:JSON.stringify({ filename, candidateIndex:candidate.index })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.url) {
