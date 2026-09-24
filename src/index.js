@@ -1448,7 +1448,11 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
         return res.status(400).json({ error: 'VOD playback requires movie or series type.' });
       }
 
-      const candidates = await vodGateway.playbackCandidates(stremioType, id, playbackClient);
+      let candidates = await vodGateway.playbackCandidates(stremioType, id, playbackClient);
+      const selectedIndex = Number(body.selectedStreamIndex);
+      if (account?.user?.streamPickerEnabled && Number.isInteger(selectedIndex) && selectedIndex >= 0 && selectedIndex < candidates.length) {
+        candidates = [candidates[selectedIndex], ...candidates.filter((_,i)=>i!==selectedIndex)];
+      }
       const result = opaquePlayback.startOpaquePlayback(
         'vod',
         stremioType + ':' + id,
