@@ -1954,6 +1954,27 @@
       .details-hero-action{position:absolute;right:24px;top:64px;min-width:82px;padding-top:0;z-index:6;}
       .details-play-label{max-width:96px;}
     }
+    .header-search-wrap { position:relative; min-width:0; width:100%; }
+    .header-search-wrap .header-search { padding-right:44px; }
+    .clear-search-btn {
+      position:absolute; right:7px; top:50%; transform:translateY(-50%);
+      width:32px; height:32px; border:0; border-radius:50%;
+      background:rgba(255,255,255,.08); color:var(--text-muted);
+      font:400 24px/1 'Inter',sans-serif; cursor:pointer;
+      display:grid; place-items:center; padding:0;
+    }
+    .clear-search-btn[hidden] { display:none !important; }
+    .clear-search-btn:hover,.clear-search-btn:focus-visible {
+      background:rgba(255,255,255,.14); color:var(--text); outline:none;
+    }
+    @media (max-width: 700px) {
+      /* Keep all three series actions on one physical row. This late override
+         intentionally wins over the desktop .details-actions rule below. */
+      .details-actions { flex-wrap:nowrap !important; gap:6px !important; align-items:center; }
+      .details-actions > button { flex:0 1 auto; min-width:0; padding:9px 9px; font-size:.70rem; white-space:nowrap; }
+      .details-actions .season-control { flex:0 1 auto; min-width:0; margin:0; padding:3px; }
+      .details-actions .season-select { min-width:88px; max-width:108px; height:36px; padding-left:8px; padding-right:22px; font-size:.70rem; }
+    }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
@@ -1968,7 +1989,10 @@
       <div class="brand">
         <img src="/aioplay-brand.webp" alt="AIOPlay">
       </div>
-      <input type="text" id="searchInput" class="header-search" placeholder="Search matches…" aria-label="Search">
+      <div class="header-search-wrap">
+        <input type="text" id="searchInput" class="header-search" placeholder="Search matches…" aria-label="Search">
+        <button type="button" id="clearSearchBtn" class="clear-search-btn" aria-label="Clear search" title="Clear search" hidden>×</button>
+      </div>
       <div class="header-actions">
         <button type="button" id="themeToggle" class="header-icon-button" title="Use light appearance" aria-label="Switch to light appearance" aria-pressed="false">☼</button>
         <button type="button" id="signOutBtn" title="Sign out of this browser" aria-label="Sign out" style="display: none; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 50%; cursor: pointer; padding: 0;">
@@ -3874,7 +3898,10 @@
           const tab = document.createElement('div');
           tab.className = 'tab';
           tab.textContent = catalog.name || catalog.id;
-          tab.onclick = () => loadVodCatalog(catalog, tab, { push:true });
+          tab.onclick = () => {
+            clearSearchUi({ restoreCatalog:false });
+            loadVodCatalog(catalog, tab, { push:true });
+          };
           tabs().appendChild(tab);
           const pair = { catalog, tab };
           if (!first) first = pair;
@@ -4073,7 +4100,26 @@
     }
 
     const searchInput = document.getElementById('searchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+    function syncClearSearchButton() {
+      if (clearSearchBtn) clearSearchBtn.hidden = !searchInput.value.length;
+    }
+
+    async function clearSearchUi({ restoreCatalog = true } = {}) {
+      clearTimeout(searchTimer);
+      searchInput.value = '';
+      setSearchType('', { rerun:false });
+      setSearchContextVisible(false);
+      syncClearSearchButton();
+      if (restoreCatalog) await applySearch('');
+      searchInput.blur();
+    }
+
+    clearSearchBtn?.addEventListener('click', () => clearSearchUi());
+
     searchInput.addEventListener('input', e => {
+      syncClearSearchButton();
       const raw = e.target.value;
       clearTimeout(searchTimer);
       if (currentMode === 'sports' || currentMode === 'continue' || !raw.trim()) {
@@ -4083,9 +4129,9 @@
       searchTimer = setTimeout(() => applySearch(raw), 300);
     });
     searchInput.addEventListener('focus', () => {
-      setSearchContextVisible(true, searchInput.value.trim()
-        ? ('Results for “' + searchInput.value.trim() + '”')
-        : 'Recent searches');
+      if (searchInput.value.trim()) {
+        setSearchContextVisible(true, 'Results for “' + searchInput.value.trim() + '”');
+      }
     });
     searchInput.addEventListener('keydown', event => {
       if (event.key !== 'ArrowDown') return;
