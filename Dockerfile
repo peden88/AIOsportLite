@@ -7,7 +7,7 @@ WORKDIR /app
 # fonts renders every label as nothing at all — silently, with the artwork
 # otherwise intact.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends fonts-dejavu-core fontconfig \
+ && apt-get install -y --no-install-recommends fonts-dejavu-core fontconfig ffmpeg \
  && fc-cache -f \
  && rm -rf /var/lib/apt/lists/*
 
