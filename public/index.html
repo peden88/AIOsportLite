@@ -1975,6 +1975,22 @@
       .details-actions .season-control { flex:0 1 auto; min-width:0; margin:0; padding:3px; }
       .details-actions .season-select { min-width:88px; max-width:108px; height:36px; padding-left:8px; padding-right:22px; font-size:.70rem; }
     }
+    .episode-skeleton {
+      flex:0 0 min(76vw,270px); border-radius:14px; overflow:hidden;
+      border:1px solid rgba(255,255,255,.06); background:rgba(20,25,31,.55);
+    }
+    .episode-skeleton-thumb { aspect-ratio:16/9; }
+    .episode-skeleton-copy { padding:10px; }
+    .episode-skeleton-line { height:10px; border-radius:999px; margin:5px 0; width:82%; }
+    .episode-skeleton-line.short { width:52%; }
+    .episode-skeleton-thumb,.episode-skeleton-line {
+      background:linear-gradient(100deg,rgba(255,255,255,.045) 20%,rgba(255,255,255,.10) 38%,rgba(255,255,255,.045) 56%);
+      background-size:220% 100%; animation:aioplay-skeleton 1.25s ease-in-out infinite;
+    }
+    @keyframes aioplay-skeleton { to { background-position-x:-220%; } }
+    @media (prefers-reduced-motion:reduce) {
+      .episode-skeleton-thumb,.episode-skeleton-line { animation:none; }
+    }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
@@ -4235,6 +4251,7 @@
       }
 
       updateHero(metas[0]);
+      prefetchNearVisibleArtwork(metas);
 
       for (const [metaIndex, meta] of metas.entries()) {
         const card = document.createElement('div');
@@ -4243,7 +4260,12 @@
         card.dataset.contentKey = cardIdentity(meta);
 
         card.tabIndex = 0;
-        card.addEventListener('mouseenter', () => rememberCard(card, meta));
+        card.addEventListener('mouseenter', () => {
+          rememberCard(card, meta);
+          if (currentMode !== 'sports') {
+            loadMetaFor(meta).then(prefetchMetaArtwork).catch(() => {});
+          }
+        });
         card.addEventListener('focus', () => {
           const coarseLive = currentMode === 'sports' &&
             window.matchMedia?.('(hover:none), (pointer:coarse)')?.matches === true;
@@ -4642,6 +4664,60 @@
       setProgressiveImage(logo, artwork);
     }
 
+    const perfMarks = [];
+    function perfStart(name) {
+      const mark = { name, started:performance.now() };
+      perfMarks.push(mark);
+      if (perfMarks.length > 30) perfMarks.shift();
+      return mark;
+    }
+    function perfEnd(mark) {
+      if (!mark) return;
+      mark.ms = Math.round((performance.now() - mark.started) * 10) / 10;
+      if (localStorage.getItem('aioplay.debugPerformance') === '1') {
+        console.debug('[AIOPlay perf]', mark.name, mark.ms + 'ms');
+      }
+    }
+
+    const prefetchedArtwork = new Set();
+    function prefetchImage(url) {
+      const safe = safeImageUrl(url);
+      if (!safe || prefetchedArtwork.has(safe)) return;
+      prefetchedArtwork.add(safe);
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = safe;
+    }
+    function prefetchMetaArtwork(meta) {
+      if (!meta) return;
+      [meta.poster, meta.background, meta.backdrop, meta.backdropUrl,
+       meta.logo, meta.titleLogo, meta.titleArt, meta.clearLogo].forEach(prefetchImage);
+    }
+    function prefetchNearVisibleArtwork(metas) {
+      if (!Array.isArray(metas)) return;
+      const limit = window.matchMedia?.('(max-width:700px)')?.matches ? 8 : 14;
+      metas.slice(0, limit).forEach(prefetchMetaArtwork);
+    }
+
+    let episodeSkeletonTimer = null;
+    function beginEpisodeSkeleton(list) {
+      clearTimeout(episodeSkeletonTimer);
+      episodeSkeletonTimer = setTimeout(() => {
+        if (!list || list.children.length) return;
+        for (let i = 0; i < 4; i++) {
+          const card = document.createElement('div');
+          card.className = 'episode-skeleton';
+          card.innerHTML = '<div class="episode-skeleton-thumb"></div><div class="episode-skeleton-copy"><div class="episode-skeleton-line"></div><div class="episode-skeleton-line short"></div></div>';
+          list.appendChild(card);
+        }
+      }, 110);
+    }
+    function finishEpisodeSkeleton(list) {
+      clearTimeout(episodeSkeletonTimer);
+      episodeSkeletonTimer = null;
+      list?.querySelectorAll('.episode-skeleton').forEach(node => node.remove());
+    }
+
     function setDetailsBackdrop(meta) {
       const backdrop = document.getElementById('detailsBackdrop');
       if (!backdrop) return;
@@ -4670,9 +4746,8 @@
         backdrop.classList.add('is-visible');
       };
       preload.onerror = () => {
+        // Retain the previous decoded artwork rather than flashing a blank shell.
         if (token !== detailsBackdropToken) return;
-        backdrop.classList.remove('is-visible', 'poster-fallback');
-        backdrop.style.backgroundImage = '';
       };
       preload.src = artwork;
     }
@@ -4832,6 +4907,8 @@
     }
 
     async function openMovie(preview, sourceElement = null) {
+      const perf = perfStart('details:movie');
+      prefetchMetaArtwork(preview);
       const source = sourceElement?.querySelector?.('.poster-container') || sourceElement;
       await withSharedTransition(
         source,
@@ -4843,6 +4920,8 @@
 
       const meta = await loadMetaFor({ ...preview, type:'movie' }) || preview;
       currentDetailsMeta = { ...preview, ...meta, type:'movie' };
+      prefetchMetaArtwork(currentDetailsMeta);
+      perfEnd(perf);
       document.getElementById('detailsTitle').textContent = currentDetailsMeta.name || preview.name || 'Movie';
       document.getElementById('detailsDescription').textContent = currentDetailsMeta.description || preview.description || '';
       setDetailsTitleArt(currentDetailsMeta);
@@ -4871,6 +4950,8 @@
     }
 
     async function openSeries(preview, sourceElement = null) {
+      const perf = perfStart('details:series');
+      prefetchMetaArtwork(preview);
       const previousDetailsId = currentDetailsMeta?.id || currentDetailsMeta?.contentId || '';
       if (String(previousDetailsId) !== String(preview.id || '')) {
         currentDetailsSeason = null;
@@ -4889,6 +4970,8 @@
       );
       persistUiState({ push:true, overlay:'details' });
       const poster = document.getElementById('detailsPoster');
+      list.innerHTML = '';
+      beginEpisodeSkeleton(list);
 
       try {
         let meta = vodMetaCache.get(cacheKey) || null;
@@ -4900,6 +4983,9 @@
           vodMetaCache.set(cacheKey, meta);
         }
         currentDetailsMeta = { ...preview, ...meta, type:'series' };
+        prefetchMetaArtwork(currentDetailsMeta);
+        finishEpisodeSkeleton(list);
+        perfEnd(perf);
         document.getElementById('detailsTitle').textContent = meta.name || preview.name || 'Series';
         document.getElementById('detailsDescription').textContent = meta.description || preview.description || '';
         setDetailsTitleArt(currentDetailsMeta);
@@ -5071,8 +5157,11 @@
         restoreDetailsEpisodeFocus();
       } catch (err) {
         console.error(err);
+        finishEpisodeSkeleton(list);
+        perfEnd(perf);
         seasonControl.style.display = 'none';
-        list.innerHTML = '<div style="color:var(--accent);">Could not load episodes.</div>';
+        list.innerHTML = '<div class="content-state-inner"><div class="content-state-copy">Could not load episodes.</div><button type="button" class="content-state-action" id="retryEpisodes">Try again</button></div>';
+        document.getElementById('retryEpisodes')?.addEventListener('click', () => openSeries(preview, sourceElement));
       }
     }
 
