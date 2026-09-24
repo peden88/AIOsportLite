@@ -4849,9 +4849,19 @@
       const id = isEpisode ? video.id : meta.id;
       const contentType = isEpisode ? 'episode' : 'movie';
       const stremioType = isEpisode ? 'series' : 'movie';
+      const cleanDownloadTitle = value => String(value || '')
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const title = cleanDownloadTitle(meta.name || meta.title || (isEpisode ? 'Series' : 'Movie'));
       const filename = isEpisode
-        ? ((meta.name || 'Series') + ' - S' + String(video.season || 0).padStart(2,'0') + 'E' + String(video.episode || 0).padStart(2,'0') + ' - ' + (video.title || video.name || 'Episode'))
-        : (meta.name || meta.title || 'Movie');
+        ? (title + ' - S' + String(video.season || 0).padStart(2,'0') + 'E' + String(video.episode || 0).padStart(2,'0'))
+        : (() => {
+            const release = String(meta.year || meta.releaseInfo || '');
+            const yearMatch = release.match(/(?:^|\D)((?:19|20)\d{2})(?:\D|$)/);
+            const year = yearMatch ? yearMatch[1] : '';
+            return title + (year ? ' (' + year + ')' : '');
+          })();
       try {
         const playRes = await fetch('/api/v1/play', {
           method:'POST',
