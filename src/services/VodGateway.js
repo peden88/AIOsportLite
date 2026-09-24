@@ -330,22 +330,33 @@ async function playbackCandidates(type, id, clientKind = 'web') {
   const rows = response && Array.isArray(response.streams) ? response.streams : [];
   const max = Math.max(1, Math.min(50, Number(process.env.VOD_PLAYBACK_CANDIDATE_LIMIT) || 20));
   const candidates = rows.map(row => privatePlaybackRow(row, client)).filter(Boolean);
-  // Prefer sources Safari can direct-play first, then sources that only need
-  // repackaging/audio conversion. Preserve AIOStreams order inside each tier.
+
+  // Web is intentionally conservative for now: never offer a source that
+  // requires video OR audio transcoding. Keep only native HLS/direct-play
+  // sources and sources whose elementary streams can be copied unchanged into
+  // Safari-friendly HLS packaging. The app keeps the broader candidate set.
+  const noTranscodeWebCompatible = row => {
+    const meta = row.playbackMeta || {};
+    const video = String(meta.codec || '').toUpperCase();
+    const audio = String(meta.audio || '').toUpperCase();
+    const videoNative = !video || video === 'H264' || video === 'HEVC';
+    const audioNative = !audio || /(?:AAC|DD\+|DD)(?:\s|\/|$)/.test(audio);
+    return videoNative && audioNative;
+  };
+  const eligible = clientKind === 'web'
+    ? candidates.filter(noTranscodeWebCompatible)
+    : candidates;
+
+  // Within the no-transcode web pool prefer native HLS/direct MP4 first, then
+  // compatible streams that only need container repackaging.
   const compatibilityRank = row => {
     const meta = row.playbackMeta || {};
     if (meta.container === 'hls') return 0;
-    const video = String(meta.codec || '').toUpperCase();
-    const audio = String(meta.audio || '').toUpperCase();
     const container = String(meta.container || '').toLowerCase();
-    const videoNative = !video || video === 'H264' || video === 'HEVC';
-    const audioNative = !audio || /(?:AAC|DD\+|DD)(?:\s|\/|$)/.test(audio);
-    if ((container === 'mp4' || container === 'm4v') && videoNative && audioNative) return 1;
-    if (videoNative && audioNative) return 2;
-    if (videoNative) return 3;
-    return 4;
+    if (container === 'mp4' || container === 'm4v') return 1;
+    return 2;
   };
-  return candidates
+  return eligible
     .map((row, index) => ({ row, index, rank:compatibilityRank(row) }))
     .sort((a,b) => a.rank - b.rank || a.index - b.index)
     .slice(0, max)
