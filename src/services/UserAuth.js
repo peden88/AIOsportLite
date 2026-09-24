@@ -148,6 +148,7 @@ function publicUser(user) {
     role: user.role,
     enabled: user.enabled !== false,
     maxConcurrentStreams: normaliseConcurrentStreams(user.maxConcurrentStreams, 1),
+    streamPickerEnabled: user.streamPickerEnabled === true,
     createdAt: user.createdAt
   };
 }
@@ -167,7 +168,8 @@ async function createUser({
   displayName,
   role = 'user',
   enabled = true,
-  maxConcurrentStreams = 1
+  maxConcurrentStreams = 1,
+  streamPickerEnabled = false
 }) {
   const name = validateUsername(username);
   if (findUserByUsername(name)) {
@@ -183,6 +185,7 @@ async function createUser({
     role: safeRole,
     enabled: enabled !== false,
     maxConcurrentStreams: normaliseConcurrentStreams(maxConcurrentStreams, 1),
+    streamPickerEnabled: streamPickerEnabled === true,
     password: await hashPassword(password),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -212,6 +215,8 @@ async function updateUser(id, patch = {}) {
   } else if (user.maxConcurrentStreams === undefined) {
     user.maxConcurrentStreams = 1;
   }
+  if (patch.streamPickerEnabled !== undefined) user.streamPickerEnabled = patch.streamPickerEnabled === true;
+  else if (user.streamPickerEnabled === undefined) user.streamPickerEnabled = false;
   user.enabled = nextEnabled;
   user.role = nextRole;
   if (nextPassword) user.password = nextPassword;
