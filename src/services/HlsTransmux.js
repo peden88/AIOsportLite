@@ -11,14 +11,17 @@ async function start(id,target){
  const copyAudio=/(?:^|\s|\/)(?:AAC)(?:\s|\/|$)/.test(audio);
  const fullTranscode=!copyVideo;
  const token=crypto.randomUUID(),dir=fs.mkdtempSync(path.join(os.tmpdir(),'aioplay-hls-')),playlist=path.join(dir,'index.m3u8');
- const args=['-hide_banner','-loglevel','warning'];const headers=safeHeaders(target);if(headers)args.push('-headers',headers+'\r\n');
+ const args=['-hide_banner','-loglevel','warning','-fflags','+genpts','-avoid_negative_ts','make_zero'];const headers=safeHeaders(target);if(headers)args.push('-headers',headers+'\r\n');
  args.push('-i',String(target.url),'-map','0:v:0','-map','0:a:0?');
  if(copyVideo) args.push('-c:v','copy');
  else args.push('-c:v','libx264','-preset',String(process.env.AIOPLAY_TRANSCODE_PRESET||'veryfast'),'-crf',String(process.env.AIOPLAY_TRANSCODE_CRF||'21'),'-pix_fmt','yuv420p','-profile:v','high','-level','4.1');
  if(copyAudio) args.push('-c:a','copy');
  else args.push('-c:a','aac','-b:a',String(process.env.AIOPLAY_AUDIO_BITRATE||'192k'),'-ac','2');
- args.push('-max_muxing_queue_size','2048');
- args.push('-f','hls','-hls_time','4','-hls_list_size','8','-hls_flags','delete_segments+append_list+independent_segments','-hls_segment_type','fmp4','-hls_fmp4_init_filename','init.mp4','-hls_segment_filename',path.join(dir,'seg-%06d.m4s'),playlist);
+ args.push('-max_muxing_queue_size','2048','-muxpreload','0','-muxdelay','0');
+ // VOD compatibility output must use a stable timeline. The old sliding live
+ // playlist deleted early segments while FFmpeg was racing ahead of playback;
+ // hls.js then jumped to the new live edge every time it refreshed.
+ args.push('-start_at_zero','-f','hls','-hls_time','4','-hls_list_size','0','-hls_playlist_type','event','-hls_flags','independent_segments+temp_file','-hls_segment_type','fmp4','-hls_fmp4_init_filename','init.mp4','-hls_segment_filename',path.join(dir,'seg-%06d.m4s'),playlist);
  const proc=childProcess.spawn('ffmpeg',args,{stdio:['ignore','ignore','pipe']});const s={token,playbackId:String(id),dir,process:proc,createdAt:Date.now()};sessions.set(token,s);byPlayback.set(String(id),token);
  const deadline=Date.now()+12000;while(Date.now()<deadline){if(fs.existsSync(playlist)&&fs.statSync(playlist).size>20)return{token,mode:fullTranscode?'transcode':(copyAudio?'remux':'audio-transcode')};if(proc.exitCode!==null){stop(id);throw new Error('AIOPlay-compatible HLS could not be created from this source.');}await new Promise(r=>setTimeout(r,120));}
  stop(id);throw new Error('Timed out preparing AIOPlay-compatible playback.');
