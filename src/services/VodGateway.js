@@ -329,30 +329,11 @@ async function playbackCandidates(type, id, clientKind = 'web') {
   const response = await client.streams(safeType, safeId);
   const rows = response && Array.isArray(response.streams) ? response.streams : [];
   const max = Math.max(1, Math.min(50, Number(process.env.VOD_PLAYBACK_CANDIDATE_LIMIT) || 20));
-  const candidates = rows.map(row => privatePlaybackRow(row, client)).filter(Boolean);
 
-  if (clientKind !== 'web') return candidates.slice(0, max);
-
-  // Web native playback is now direct-play only. No FFmpeg remuxing and no
-  // transcoding. Preserve AIOStreams order inside the compatible pool.
-  const directPlay = candidates.filter(row => {
-    const meta = row.playbackMeta || {};
-    const container = String(meta.container || '').toLowerCase();
-    const video = String(meta.codec || '').toUpperCase();
-    const audio = String(meta.audio || '').toUpperCase();
-    const containerNative = container === 'hls' || container === 'mp4' || container === 'm4v';
-    const videoNative = !video || video === 'H264' || video === 'HEVC';
-    const audioNative = !audio || /(?:AAC|DD\+|DD)(?:\s|\/|$)/.test(audio);
-    return containerNative && videoNative && audioNative;
-  });
-
-  // If there is no direct-play source, keep exactly the first raw AIOStreams
-  // media result as an external-player fallback. Marking it explicitly lets
-  // the browser skip its native player without changing app behaviour.
-  if (!directPlay.length && candidates.length) {
-    return [{ ...candidates[0], externalFallback: true }];
-  }
-  return directPlay.slice(0, max);
+  // Restore the original server-owned AIOStreams ordering. Browser-specific
+  // playback policy belongs in the web client; the gateway should not discard
+  // or rewrite the candidate pile.
+  return rows.map(row => privatePlaybackRow(row, client)).filter(Boolean).slice(0, max);
 }
 async function refreshAioStreams() {
   const cfg = appServices._privateConfig();
