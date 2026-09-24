@@ -1329,6 +1329,17 @@ app.get('/api/v1/vod/search', requirePage, async (req, res) => {
   }
 });
 
+app.get('/api/v1/vod/streams/:type/:id/raw', requirePage, async (req,res)=>{
+  try {
+    const rows=await vodGateway.rawPlaybackCandidates(req.params.type,req.params.id,'web');
+    res.setHeader('Cache-Control','no-store');
+    res.json({ streams:rows });
+  } catch(err) {
+    console.error('[app-vod] raw stream diagnostics failed:',err.message);
+    res.status(err.statusCode||502).json({error:'Could not load raw AIOStreams results.'});
+  }
+});
+
 app.get('/api/v1/vod/skip/:imdbId/:season/:episode', requirePage, async (req, res) => {
   try {
     const intervals = await skipMetadata.getSkipIntervals({
