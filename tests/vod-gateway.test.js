@@ -101,16 +101,20 @@ server = http.createServer((req, res) => {
         },
         {
           name: 'SECRET PROVIDER A',
-          title: 'Best ranked release',
+          title: 'Best ranked release · 1080p · H264 · AAC · MP4',
           url: '/api/v1/debrid/playback/owned-chain',
           behaviorHints: {
+            filename: 'Best.Ranked.Release.1080p.H264.AAC.mp4',
             proxyHeaders: { request: { Referer: 'https://origin.test/' } }
           }
         },
         {
           name: 'SECRET PROVIDER B',
-          title: 'Second ranked release',
-          url: '/api/v1/debrid/playback/second-owned-chain'
+          title: 'Second ranked release · 720p · H264 · AAC · MP4',
+          url: '/api/v1/debrid/playback/second-owned-chain',
+          behaviorHints: {
+            filename: 'Second.Ranked.Release.720p.H264.AAC.mp4'
+          }
         },
         {
           name: 'External page must never autoplay',
