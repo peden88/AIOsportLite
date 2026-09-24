@@ -1559,7 +1559,35 @@ app.get('/api/v1/playback/:sessionId/download-options', requirePage, async (req,
     };
   }))).filter(Boolean).sort((a,b) => (b.size || 0) - (a.size || 0));
 
-  return res.json({ candidates });
+  // Collapse equivalent results, then keep a balanced spread of sizes.
+  // Episodes: 0-2 GiB, 2-4 GiB, 4+ GiB. Movies: 0-8, 8-16, 16+ GiB.
+  const isEpisode = lease && lease.contentType === 'episode';
+  const GiB = 1073741824;
+  const limits = isEpisode ? [2 * GiB, 4 * GiB] : [8 * GiB, 16 * GiB];
+  const seen = new Set();
+  const unique = [];
+  for (const candidate of candidates) {
+    const key = [
+      Number(candidate.size || 0),
+      candidate.resolution,
+      candidate.quality,
+      candidate.codec,
+      candidate.visual,
+      candidate.audio
+    ].join('|').toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(candidate);
+  }
+  const bands = [[], [], []];
+  for (const candidate of unique) {
+    const size = Number(candidate.size || 0);
+    const band = size < limits[0] ? 0 : size < limits[1] ? 1 : 2;
+    if (bands[band].length < 2) bands[band].push(candidate);
+  }
+  const balanced = bands.flat().sort((a,b) => (b.size || 0) - (a.size || 0));
+
+  return res.json({ candidates: balanced });
 });
 
 app.post('/api/v1/playback/:sessionId/download', requirePage, express.json({ limit:'4kb' }), async (req, res) => {
