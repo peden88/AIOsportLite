@@ -127,19 +127,36 @@ function privatePlaybackRow(stream, client) {
 
   // Parse non-sensitive media attributes from AIOStreams' display text, but
   // never carry provider/release labels into the opaque playback model.
-  const descriptor = String(stream.title || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  const descriptor = String(stream.title || '').replace(/\s+/g, ' ').trim().slice(0, 700);
   const hintedSize = Number(stream.behaviorHints && stream.behaviorHints.videoSize);
   const resolutionMatch = descriptor.match(/\b(2160p|1080p|720p|480p)\b/i);
-  const sourceMatch = descriptor.match(/\b(REMUX|BluRay|WEB[- .]?DL|WEBRip|HDTV)\b/i);
-  const codecMatch = descriptor.match(/\b(AV1|HEVC|H[ .]?265|x265|H[ .]?264|x264)\b/i);
+  const qualityMatch = descriptor.match(/\b(REMUX|BluRay|WEB[- .]?DL|WEBRip|HDTV)\b/i);
+  const visual = [];
+  if (/\b(?:DV|DoVi|Dolby[ .]?Vision)\b/i.test(descriptor)) visual.push('DV');
+  if (/\bHDR10\+\b/i.test(descriptor)) visual.push('HDR10+');
+  else if (/\bHDR10\b/i.test(descriptor)) visual.push('HDR10');
+  else if (/\bHDR\b/i.test(descriptor)) visual.push('HDR');
+  if (/\bHLG\b/i.test(descriptor)) visual.push('HLG');
+
+  const audio = [];
+  if (/\b(?:TrueHD|TRUE[ .-]?HD)\b/i.test(descriptor)) audio.push('TrueHD');
+  else if (/\b(?:EAC3|E-AC-3|DDP|DD\+)\b/i.test(descriptor)) audio.push('DD+');
+  else if (/\b(?:AC3|AC-3|DD)\b/i.test(descriptor)) audio.push('DD');
+  if (/\bAtmos\b/i.test(descriptor)) audio.push('Atmos');
+  if (/\bDTS[ .-]?HD(?:[ .-]?MA)?\b/i.test(descriptor)) audio.push('DTS-HD MA');
+  else if (/\bDTS\b/i.test(descriptor)) audio.push('DTS');
+  if (/\bAAC\b/i.test(descriptor)) audio.push('AAC');
+  const channels = descriptor.match(/\b(7\.1|5\.1|2\.0)\b/);
+  if (channels) audio.push(channels[1]);
 
   return {
     url: direct,
     downloadMeta: {
       size: Number.isFinite(hintedSize) && hintedSize > 0 ? hintedSize : 0,
       resolution: resolutionMatch ? resolutionMatch[1].toUpperCase().replace('P','p') : '',
-      source: sourceMatch ? sourceMatch[1].replace(/[ .]/g, '-').toUpperCase() : '',
-      codec: codecMatch ? codecMatch[1].replace(/[ .]/g, '').toUpperCase() : ''
+      quality: qualityMatch ? qualityMatch[1].replace(/[ .]/g, '-').toUpperCase() : '',
+      visual: [...new Set(visual)].join(' / '),
+      audio: [...new Set(audio)].join(' / ')
     },
     ...(requestHeaders && Object.keys(requestHeaders).length
       ? { behaviorHints: { proxyHeaders: { request: requestHeaders } } }
