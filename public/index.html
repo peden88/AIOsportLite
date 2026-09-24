@@ -386,6 +386,8 @@
     #close-btn { position: absolute; top: 30px; right: 40px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 12px 24px; border-radius: 30px; cursor: pointer; z-index: 101; font-weight: 600; }
     #video-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
     video { width: 100%; max-width: 1400px; max-height: 85vh; border-radius: 16px; background: #000; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }    
+    .player-settings-panel{position:absolute;right:24px;bottom:120px;z-index:108;width:min(420px,calc(100vw - 32px));padding:16px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(8,11,15,.94);color:#fff;backdrop-filter:blur(18px);box-shadow:0 18px 60px rgba(0,0,0,.45)}
+    .player-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.player-settings-panel label{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:.82rem}.player-settings-grid label{display:grid;gap:5px;margin:0}.player-settings-panel select{width:100%;background:#202831;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:9px;padding:8px}.player-stream-info{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1);font-size:.72rem;color:rgba(255,255,255,.68);line-height:1.5}
     .loader { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 15px; }
     #playback-message { display:none; position:absolute; max-width:520px; padding:20px 24px; text-align:center; color:var(--text-muted); }
     #playback-message strong { display:block; color:var(--text); font-size:1.05rem; margin-bottom:6px; }
@@ -2485,8 +2487,28 @@
         <div class="player-hud-actions">
           <button type="button" id="playerMinimize" class="player-hud-btn">Minimize</button>
           <button type="button" id="playerTryAnother" class="player-hud-btn">Try another stream</button>
+          <button type="button" id="playerBack10" class="player-hud-btn">−10s</button>
+          <button type="button" id="playerForward10" class="player-hud-btn">+10s</button>
+          <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
+          <button type="button" id="playerFullscreen" class="player-hud-btn">Fullscreen</button>
+          <button type="button" id="playerSettings" class="player-hud-btn">Settings</button>
           <button type="button" id="playerSwitchSource" class="player-hud-btn">Switch source</button>
         </div>
+      </div>
+      <button type="button" id="playerSkipSegment" class="player-next-up" hidden>Skip Intro</button>
+      <div id="playerSettingsPanel" class="player-settings-panel" hidden>
+        <div class="player-settings-grid">
+          <label>Subtitles<select id="playerSubtitleSelect"><option value="-1">Off</option></select></label>
+          <label>Audio<select id="playerAudioSelect"><option value="-1">Default</option></select></label>
+          <label>Quality<select id="playerQualitySelect"><option value="-1">Auto</option></select></label>
+          <label>Speed<select id="playerSpeedSelect"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+        </div>
+        <label><input type="checkbox" id="playerAutoNext"> Auto-play next episode</label>
+        <label><input type="checkbox" id="playerAutoIntro"> Auto-skip intro/opening</label>
+        <label><input type="checkbox" id="playerAutoRecap"> Auto-skip recap</label>
+        <label><input type="checkbox" id="playerAutoOutro"> Auto-skip outro/ending</label>
+        <label><input type="checkbox" id="playerAutoRecover"> Auto-recover failed/stalled streams</label>
+        <div id="playerStreamInfo" class="player-stream-info"></div>
       </div>
       <button type="button" id="playerNextUp" class="player-next-up" hidden>
         <span class="player-next-label">UP NEXT</span>
@@ -3829,10 +3851,10 @@
     function playbackMarkers(meta) {
       if (!meta || typeof meta !== 'object') return [];
       const markers = [];
-      const push = (kind, start, label = '') => {
+      const push = (kind, start, label = '', end = null) => {
         const seconds = markerTime(start);
         if (seconds == null) return;
-        markers.push({ kind, start:seconds, label:label || kind });
+        markers.push({ kind, start:seconds, end:markerTime(end), label:label || kind });
       };
 
       const inspect = row => {
@@ -3846,7 +3868,7 @@
               ? 'outro'
               : '';
         if (!kind) return;
-        push(kind, row.start ?? row.startTime ?? row.startMs ?? row.time, row.title || row.name);
+        push(kind, row.start ?? row.startTime ?? row.startMs ?? row.time, row.title || row.name, row.end ?? row.endTime ?? row.endMs);
       };
 
       ['chapters','markers','segments','skipSegments'].forEach(key => {
@@ -3858,7 +3880,8 @@
           push(
             key === 'opening' ? 'intro' : key === 'ending' ? 'outro' : key,
             value.start ?? value.startTime ?? value.startMs,
-            value.label || key
+            value.label || key,
+            value.end ?? value.endTime ?? value.endMs
           );
         }
       });
@@ -3913,6 +3936,53 @@
       overlay.classList.remove('mini', 'is-vod');
       document.getElementById('miniPlayerBar').hidden = true;
       showPlayerHud(true);
+    }
+
+    const PLAYER_PREFS_KEY = 'aioplay.playerPrefs.v1';
+    let playerStallTimer = null;
+    let lastPlayerProgress = 0;
+    function playerPrefs(){
+      try{return{autoNext:true,autoIntro:true,autoRecap:true,autoOutro:true,autoRecover:true,speed:1,...JSON.parse(localStorage.getItem(PLAYER_PREFS_KEY)||'{}')}}catch(_){return{autoNext:true,autoIntro:true,autoRecap:true,autoOutro:true,autoRecover:true,speed:1}}
+    }
+    function savePlayerPrefs(p){try{localStorage.setItem(PLAYER_PREFS_KEY,JSON.stringify(p))}catch(_){}}
+    function populatePlayerTracks(){
+      const video=document.getElementById('video'), sub=document.getElementById('playerSubtitleSelect'), aud=document.getElementById('playerAudioSelect'), qual=document.getElementById('playerQualitySelect');
+      sub.innerHTML='<option value="-1">Off</option>';
+      [...(video.textTracks||[])].forEach((t,i)=>sub.add(new Option(t.label||t.language||('Subtitle '+(i+1)),String(i))));
+      aud.innerHTML='<option value="-1">Default</option>';
+      const audio=hls?.audioTracks||[];
+      audio.forEach((t,i)=>aud.add(new Option(t.name||t.lang||('Audio '+(i+1)),String(i))));
+      qual.innerHTML='<option value="-1">Auto</option>';
+      const levels=hls?.levels||[];
+      levels.forEach((l,i)=>qual.add(new Option((l.height?l.height+'p':'Level '+(i+1))+(l.bitrate?' · '+Math.round(l.bitrate/1000)+' kbps':''),String(i))));
+      document.getElementById('playerStreamInfo').textContent='Stream '+(currentPlaybackSession?'active':'idle')+' · '+(video.videoWidth||'?')+'×'+(video.videoHeight||'?')+' · '+(hls?'HLS adaptive':'native media');
+    }
+    function updateSkipSegment(video){
+      const button=document.getElementById('playerSkipSegment'), now=Number(video.currentTime||0), prefs=playerPrefs();
+      const marker=playbackMarkers(currentPlaybackMeta).find(m=>m.start<=now+2 && (m.end==null||now<m.end));
+      if(!marker){button.hidden=true;return}
+      const end=Number(marker.end||marker.start+90);
+      const auto=(marker.kind==='intro'&&prefs.autoIntro)||(marker.kind==='recap'&&prefs.autoRecap)||(marker.kind==='outro'&&prefs.autoOutro);
+      if(auto&&end>now){video.currentTime=end;button.hidden=true;return}
+      button.textContent='Skip '+(marker.kind==='outro'?'Outro':marker.kind[0].toUpperCase()+marker.kind.slice(1)); button.hidden=false; button.onclick=()=>{video.currentTime=end;button.hidden=true};
+    }
+    function setupPlayerFeatures(){
+      const video=document.getElementById('video'), panel=document.getElementById('playerSettingsPanel'), prefs=playerPrefs();
+      for(const [id,key] of [['playerAutoNext','autoNext'],['playerAutoIntro','autoIntro'],['playerAutoRecap','autoRecap'],['playerAutoOutro','autoOutro'],['playerAutoRecover','autoRecover']]){
+        const el=document.getElementById(id);el.checked=!!prefs[key];el.onchange=()=>{const p=playerPrefs();p[key]=el.checked;savePlayerPrefs(p)};
+      }
+      const speed=document.getElementById('playerSpeedSelect');speed.value=String(prefs.speed||1);speed.onchange=()=>{video.playbackRate=Number(speed.value);const p=playerPrefs();p.speed=video.playbackRate;savePlayerPrefs(p)};
+      document.getElementById('playerSettings').onclick=()=>{panel.hidden=!panel.hidden;if(!panel.hidden)populatePlayerTracks()};
+      document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
+      document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
+      document.getElementById('playerPip').onclick=async()=>{try{if(document.pictureInPictureElement)await document.exitPictureInPicture();else if(video.requestPictureInPicture)await video.requestPictureInPicture()}catch(_){}};
+      document.getElementById('playerFullscreen').onclick=()=>{const host=document.getElementById('video-container');if(document.fullscreenElement)document.exitFullscreen?.();else host.requestFullscreen?.()};
+      document.getElementById('playerSubtitleSelect').onchange=e=>{[...(video.textTracks||[])].forEach((t,i)=>t.mode=i===Number(e.target.value)?'showing':'disabled')};
+      document.getElementById('playerAudioSelect').onchange=e=>{if(hls&&Number(e.target.value)>=0)hls.audioTrack=Number(e.target.value)};
+      document.getElementById('playerQualitySelect').onchange=e=>{if(hls)hls.currentLevel=Number(e.target.value)};
+      video.addEventListener('loadedmetadata',()=>{video.playbackRate=Number(playerPrefs().speed||1);populatePlayerTracks()});
+      video.addEventListener('timeupdate',()=>{updateSkipSegment(video);lastPlayerProgress=Date.now()});
+      clearInterval(playerStallTimer);playerStallTimer=setInterval(()=>{if(playerPrefs().autoRecover&&!video.paused&&!video.ended&&lastPlayerProgress&&Date.now()-lastPlayerProgress>15000&&currentPlaybackSession&&!requestingFallback){lastPlayerProgress=Date.now();requestNextPlayback(playbackGeneration)}},5000);
     }
 
     function setupTryAnotherStream() {
@@ -5473,6 +5543,8 @@
       list.innerHTML = type === 'series'
         ? '<div style="color:var(--text-muted);">Loading episodes...</div>'
         : '';
+      const episodeControls = document.getElementById('episodeScrollControls');
+      if (episodeControls) episodeControls.hidden = true;
     }
 
     function appendDetailsAccountActions(meta) {
@@ -6345,6 +6417,10 @@
       if (currentMode === 'continue') {
         loadContinueWatching({ push:false });
       }
+      if (playerPrefs().autoNext && currentNextEpisode) {
+        const next=currentNextEpisode;
+        setTimeout(()=>fetchAndPlay(next.video.id,'episode','series',next.progress,document.getElementById('playerBackdrop')),1200);
+      }
     });
 
     const playerOverlay = document.getElementById('player-overlay');
@@ -6497,6 +6573,7 @@
       updatePlayerTimeline(video);
     });
 
+    setupPlayerFeatures();
     setupTryAnotherStream();
     initVodPlayerControl();
     initContent();
