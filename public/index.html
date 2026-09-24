@@ -6371,18 +6371,26 @@
       let playbackUrl = url;
       const isVod = currentPlaybackKind !== 'sport_event' && currentPlaybackKind !== 'live_channel' && currentPlaybackKind !== 'sport';
 
-      // No remux/transcode path on web. If the gateway found no native source,
-      // it returns the first raw AIOStreams media result with this marker and
-      // AIOPlay immediately hands that source to the configured external player.
-      if (isVod && target.externalFallback) {
-        const preference = vodPlayerPreference();
-        const externalKind = preference === 'vlc' || preference === 'outplayer'
-          ? preference
-          : (/iPhone|iPad|iPod/i.test(navigator.userAgent || '') ? 'outplayer' : 'vlc');
-        showPlaybackLoading('Opening external player…');
-        const opened = await openCurrentVodInExternalPlayer(externalKind, generation);
-        if (!opened && generation === playbackGeneration) showPlaybackFailure('Could not open the external player.');
-        return;
+      // Temporary compatibility experiment: route all direct VOD through the
+      // backend FFmpeg pipeline. It stream-copies AVC/AAC, transcodes audio when
+      // only audio is incompatible, and falls back to H.264/AAC for other video.
+      if (isVod && currentPlaybackSession && target.kind === 'direct') {
+        showPlaybackLoading('Preparing compatible stream…');
+        try {
+          const preparedRes = await fetch('/api/v1/playback/' + encodeURIComponent(currentPlaybackSession) + '/apple-hls', { method:'POST' });
+          const prepared = await preparedRes.json().catch(() => ({}));
+          if (generation !== playbackGeneration) return;
+          if (preparedRes.ok && prepared.ok && prepared.url) {
+            playbackUrl = prepared.url;
+            playbackTarget = { ...target, url:prepared.url, requestHeaders:{} };
+            const info=document.getElementById('playerStreamInfo');
+            if(info) info.textContent='Compatibility mode · '+String(prepared.mode||'HLS').replace('-', ' ');
+          } else {
+            console.warn('Compatibility preparation failed', prepared.error || preparedRes.status);
+          }
+        } catch (err) {
+          console.warn('Compatibility preparation failed', err);
+        }
       }
 
       const useHls = currentPlaybackKind === 'sport_event' || /\.m3u8(?:$|[?#])/i.test(playbackUrl);
