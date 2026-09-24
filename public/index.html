@@ -2643,6 +2643,15 @@
       setTimeout(() => host.classList.remove('is-entering'), 260);
     }
 
+    function isSafariBasedBrowser() {
+      const ua = navigator.userAgent || '';
+      const vendor = navigator.vendor || '';
+      const appleDevice = /iPhone|iPad|iPod/i.test(ua);
+      const desktopSafari = /Safari/i.test(ua) && /Apple/i.test(vendor) &&
+        !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/i.test(ua);
+      return appleDevice || desktopSafari;
+    }
+
     function vodPlayerPreference() {
       const value = localStorage.getItem(VOD_PLAYER_KEY) || 'internal';
       // Removed legacy Strexo/custom choices migrate safely to AIOPlay.
@@ -2868,19 +2877,21 @@
       let startX = 0;
       let startScroll = 0;
       rail.addEventListener('pointerdown', event => {
-        if (event.pointerType === 'touch') return;
+        if (event.pointerType === 'touch' || event.button !== 0) return;
         dragging = true;
         moved = false;
         startX = event.clientX;
         startScroll = rail.scrollLeft;
-        rail.classList.add('is-dragging');
-        rail.setPointerCapture?.(event.pointerId);
       });
       rail.addEventListener('pointermove', event => {
         if (!dragging) return;
         const delta = event.clientX - startX;
-        if (Math.abs(delta) > 5) moved = true;
-        rail.scrollLeft = startScroll - delta;
+        if (Math.abs(delta) > 5 && !moved) {
+          moved = true;
+          rail.classList.add('is-dragging');
+          rail.setPointerCapture?.(event.pointerId);
+        }
+        if (moved) rail.scrollLeft = startScroll - delta;
       });
       const stop = event => {
         dragging = false;
@@ -6142,6 +6153,20 @@
       let playbackTarget = target;
       let playbackUrl = url;
       const isVod = currentPlaybackKind !== 'sport_event' && currentPlaybackKind !== 'live_channel' && currentPlaybackKind !== 'sport';
+
+      // Safari/WebKit is external-first again. Do not probe, remux or attempt
+      // native VOD playback there; hand the server-selected source straight to
+      // the user's external player.
+      if (isVod && isSafariBasedBrowser()) {
+        const preference = vodPlayerPreference();
+        const externalKind = preference === 'vlc' || preference === 'outplayer'
+          ? preference
+          : (/iPhone|iPad|iPod/i.test(navigator.userAgent || '') ? 'outplayer' : 'vlc');
+        showPlaybackLoading('Opening external player…');
+        const opened = await openCurrentVodInExternalPlayer(externalKind, generation);
+        if (!opened && generation === playbackGeneration) showPlaybackFailure('Could not open the external player.');
+        return;
+      }
 
       // No remux/transcode path on web. If the gateway found no native source,
       // it returns the first raw AIOStreams media result with this marker and
