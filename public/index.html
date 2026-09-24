@@ -2085,13 +2085,21 @@
       width:34px; height:34px; display:flex; align-items:center; justify-content:center;
       border:1px solid rgba(255,255,255,.13); border-radius:50%;
       background:rgba(7,10,14,.90); color:#fff;
-      font:900 15px/1 'Inter',sans-serif;
-      letter-spacing:0; padding:0 0 7px; margin:0;
+      font:900 0/1 'Inter',sans-serif;
+      letter-spacing:0; padding:0; margin:0;
       text-align:center; white-space:nowrap; overflow:hidden;
       -webkit-tap-highlight-color:transparent;
     }
+    .episode-more::before {
+      content:'•••';
+      display:block;
+      font-size:14px;
+      line-height:1;
+      letter-spacing:1.6px;
+      transform:translateY(-1px);
+    }
     /* Fixed action lane: watched state never changes the menu position. */
-    .episode-watched { right:52px !important; top:10px !important; }
+    .episode-watched { right:52px !important; top:15px !important; }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
