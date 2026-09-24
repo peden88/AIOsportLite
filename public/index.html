@@ -2418,6 +2418,7 @@
           <div id="detailsMeta" class="details-meta"></div>
           <p id="detailsDescription"></p>
           <div id="detailsActions" class="details-actions">
+            <button type="button" id="detailsMovieDownload" hidden>Download</button>
             <div class="season-control" id="seasonControl">
               <label for="seasonSelect">Season</label>
               <select id="seasonSelect" class="season-select" aria-label="Season"></select>
@@ -5335,6 +5336,14 @@
       return grid().childElementCount > 0;
     }
 
+    function configureMovieDownloadAction(meta) {
+      const button = document.getElementById('detailsMovieDownload');
+      if (!button) return;
+      const isMovie = normalizedVodType(meta) === 'movie';
+      button.hidden = !isMovie;
+      button.onclick = isMovie ? () => downloadVod(currentDetailsMeta || meta) : null;
+    }
+
     function configureMovieHeroAction(meta) {
       const slot = document.getElementById('detailsHeroAction');
       const play = document.getElementById('detailsMoviePlay');
@@ -5490,6 +5499,7 @@
       );
       persistUiState({ push:true, overlay:'details' });
       configureMovieHeroAction(currentDetailsMeta);
+      configureMovieDownloadAction(currentDetailsMeta);
 
       const meta = await loadMetaFor({ ...preview, type:'movie' }) || preview;
       currentDetailsMeta = { ...preview, ...meta, type:'movie' };
@@ -5573,6 +5583,7 @@
         );
 
         configureSeriesHeroAction(currentDetailsMeta, videos);
+      configureMovieDownloadAction(currentDetailsMeta);
         appendDetailsAccountActions(currentDetailsMeta);
 
         if (!videos.length) {
