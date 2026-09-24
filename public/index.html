@@ -1991,6 +1991,38 @@
     @media (prefers-reduced-motion:reduce) {
       .episode-skeleton-thumb,.episode-skeleton-line { animation:none; }
     }
+    /* Pass 2 — tactile navigation and motion */
+    .card,.episode-btn,.details-actions button,.details-play-orb,.mobile-bottom-nav button,
+    .tabs button,.quick-actions button,.content-state-action {
+      -webkit-tap-highlight-color:transparent;
+    }
+    .card,.episode-btn,.details-actions button,.details-play-orb,.mobile-bottom-nav button,
+    .tabs button,.quick-actions button {
+      transition:transform .16s cubic-bezier(.2,.72,.22,1), opacity .16s ease,
+                 border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+    }
+    .card.is-pressed,.episode-btn.is-pressed,.details-actions button.is-pressed,
+    .details-play-orb.is-pressed,.mobile-bottom-nav button.is-pressed,.tabs button.is-pressed,
+    .quick-actions button.is-pressed {
+      transform:scale(.975);
+    }
+    #details-overlay.details-entering .details-shell {
+      animation:details-premium-in .24s cubic-bezier(.2,.72,.22,1) both;
+    }
+    @keyframes details-premium-in {
+      from { opacity:.72; transform:translate3d(0,12px,0) scale(.992); }
+      to { opacity:1; transform:translate3d(0,0,0) scale(1); }
+    }
+    ::view-transition-old(aioplay-poster),
+    ::view-transition-new(aioplay-poster) {
+      animation-duration:320ms;
+      animation-timing-function:cubic-bezier(.2,.72,.22,1);
+    }
+    @media(prefers-reduced-motion:reduce) {
+      #details-overlay.details-entering .details-shell { animation:none; }
+      .card,.episode-btn,.details-actions button,.details-play-orb,.mobile-bottom-nav button,
+      .tabs button,.quick-actions button { transition:none; }
+    }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
@@ -2995,6 +3027,11 @@
         scrollY: Math.max(0, Math.round(window.scrollY || 0)),
         focusedId: lastActiveCard?.dataset?.contentId || '',
         focusedKey: lastActiveCard?.dataset?.contentKey || '',
+        detailsId: currentDetailsMeta?.id || currentDetailsMeta?.contentId || '',
+        detailsType: currentDetailsMeta?.type || '',
+        detailsSeason: currentDetailsSeason,
+        detailsEpisodeId: currentDetailsEpisodeId || '',
+        detailsScrollTop: Math.max(0, Math.round(document.getElementById('details-overlay')?.scrollTop || 0)),
         updatedAt: Date.now()
       };
     }
@@ -3111,7 +3148,7 @@
 
     async function withSharedTransition(sourceElement, update, targetElementGetter) {
       const source = sourceElement instanceof Element ? sourceElement : null;
-      if (!document.startViewTransition) {
+      if (!document.startViewTransition || reducedMotionActive()) {
         await update();
         return;
       }
@@ -3132,6 +3169,31 @@
       } finally {
         if (source) source.style.viewTransitionName = '';
         if (target instanceof Element) target.style.viewTransitionName = '';
+      }
+    }
+
+    async function closeDetailsWithSharedTransition() {
+      const overlay = document.getElementById('details-overlay');
+      const poster = document.getElementById('detailsPoster');
+      const targetCard = lastActiveCard?.isConnected ? lastActiveCard : null;
+      const target = targetCard?.querySelector?.('.poster-container') || targetCard;
+      if (!document.startViewTransition || reducedMotionActive() || !(target instanceof Element)) {
+        await animateDetailsDismiss();
+        return;
+      }
+      poster.style.viewTransitionName = 'aioplay-poster';
+      let transitionTarget = null;
+      try {
+        const transition = document.startViewTransition(async () => {
+          overlay.classList.add('details-fading');
+          transitionTarget = target;
+          transitionTarget.style.viewTransitionName = 'aioplay-poster';
+        });
+        await transition.finished.catch(() => {});
+      } finally {
+        poster.style.viewTransitionName = '';
+        if (transitionTarget) transitionTarget.style.viewTransitionName = '';
+        overlay.classList.remove('details-fading');
       }
     }
 
@@ -4865,6 +4927,13 @@
       const heroPlay = document.getElementById('detailsMoviePlay');
       document.body.classList.add('details-open');
       overlay.style.display = 'block';
+      overlay.classList.remove('details-fading');
+      if (!reducedMotionActive()) {
+        overlay.classList.remove('details-entering');
+        void overlay.offsetWidth;
+        overlay.classList.add('details-entering');
+        setTimeout(() => overlay.classList.remove('details-entering'), 280);
+      }
       seasonControl.style.display = 'none';
       seasonSelect.innerHTML = '';
       seasonSelect.onchange = null;
@@ -5233,7 +5302,7 @@
       if (!overlay || overlay.style.display !== 'block') return;
       const historyOwned = history.state?.aioplay?.overlay === 'details';
 
-      await animateDetailsDismiss();
+      await closeDetailsWithSharedTransition();
       closeDetails({
         restoreFocus:true,
         persist:!historyOwned
@@ -5725,8 +5794,21 @@
       statePersistTimer = setTimeout(() => persistUiState(), 120);
     }, { passive:true });
     window.addEventListener('pagehide', () => persistUiState());
+    let detailsStateTimer = null;
+    document.getElementById('details-overlay')?.addEventListener('scroll', () => {
+      clearTimeout(detailsStateTimer);
+      detailsStateTimer = setTimeout(() => persistUiState({ overlay:'details' }), 140);
+    }, { passive:true });
 
     document.addEventListener('pointerdown', event => {
+      const pressable = event.target.closest?.('.card,.episode-btn,.details-actions button,.details-play-orb,.mobile-bottom-nav button,.tabs button,.quick-actions button');
+      if (pressable && !reducedMotionActive()) {
+        pressable.classList.add('is-pressed');
+        const release = () => pressable.classList.remove('is-pressed');
+        window.addEventListener('pointerup', release, { once:true });
+        window.addEventListener('pointercancel', release, { once:true });
+        setTimeout(release, 650);
+      }
       const menu = document.getElementById('quickActions');
       if (!menu || menu.hidden) return;
       if (!menu.contains(event.target) && !event.target.closest?.('.card-quick-trigger')) {
@@ -5776,7 +5858,12 @@
         detailsOverlay.style.display = 'block';
         setDetailsTitleArt(currentDetailsMeta);
         setDetailsBackdrop(currentDetailsMeta);
-        restoreDetailsEpisodeFocus();
+        if (snapshot?.detailsSeason != null) currentDetailsSeason = Number(snapshot.detailsSeason);
+        if (snapshot?.detailsEpisodeId) currentDetailsEpisodeId = String(snapshot.detailsEpisodeId);
+        requestAnimationFrame(() => {
+          detailsOverlay.scrollTop = Math.max(0, Number(snapshot?.detailsScrollTop || 0));
+          restoreDetailsEpisodeFocus();
+        });
       }
 
       restoringUiState = false;
