@@ -116,11 +116,31 @@ async function handle(req, res) {
       signal: controller.signal
     });
 
+    const upstreamType = String(upstream.headers.get('content-type') || '').toLowerCase();
+    if (record.downloadName && (
+      upstreamType.includes('text/html') ||
+      upstreamType.includes('application/json') ||
+      upstreamType.includes('text/plain')
+    )) {
+      // Never let Safari save an upstream error/login page as a video download.
+      // Consume a small diagnostic body server-side and return JSON instead.
+      const diagnostic = (await upstream.text()).slice(0, 240);
+      console.warn('[download] rejected non-media upstream:', upstream.status, upstreamType, diagnostic.replace(/\s+/g, ' '));
+      return res.status(502).json({
+        error: 'The selected stream returned a web page instead of a media file. Try another source.'
+      });
+    }
+
     res.status(upstream.status);
     copyResponseHeaders(upstream, res);
     if (record.downloadName) {
       res.setHeader('Content-Disposition', 'attachment; filename="' + record.downloadName + '"');
       res.setHeader('X-Content-Type-Options', 'nosniff');
+      // Downloads are binary attachments; do not allow Safari to reinterpret
+      // an ambiguous upstream response as an HTML document.
+      if (!upstreamType || upstreamType === 'application/octet-stream') {
+        res.setHeader('Content-Type', 'application/octet-stream');
+      }
     }
 
     if (req.method === 'HEAD' || !upstream.body) {
