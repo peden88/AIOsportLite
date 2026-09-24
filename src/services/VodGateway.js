@@ -125,8 +125,21 @@ function privatePlaybackRow(stream, client) {
       ? { ...stream.behaviorHints.proxyHeaders.request }
       : undefined;
 
+  const label = String(stream.title || stream.name || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  const hintedSize = Number(stream.behaviorHints && stream.behaviorHints.videoSize);
+  const resolutionMatch = label.match(/\b(2160p|1080p|720p|480p)\b/i);
+  const sourceMatch = label.match(/\b(REMUX|BluRay|WEB[- .]?DL|WEBRip|HDTV)\b/i);
+  const codecMatch = label.match(/\b(AV1|HEVC|H[ .]?265|x265|H[ .]?264|x264)\b/i);
+
   return {
     url: direct,
+    downloadMeta: {
+      label,
+      size: Number.isFinite(hintedSize) && hintedSize > 0 ? hintedSize : 0,
+      resolution: resolutionMatch ? resolutionMatch[1].toUpperCase().replace('P','p') : '',
+      source: sourceMatch ? sourceMatch[1].replace(/[ .]/g, '-').toUpperCase() : '',
+      codec: codecMatch ? codecMatch[1].replace(/[ .]/g, '').toUpperCase() : ''
+    },
     ...(requestHeaders && Object.keys(requestHeaders).length
       ? { behaviorHints: { proxyHeaders: { request: requestHeaders } } }
       : {})
