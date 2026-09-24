@@ -4961,11 +4961,10 @@
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'download-option';
-          const tags = [candidate.resolution, candidate.source, candidate.codec].filter(Boolean).join(' · ') || 'Direct media file';
-          button.innerHTML = '<span class="download-option-size"></span><span class="download-option-meta"><span class="download-option-tags"></span><span class="download-option-label"></span></span><span class="download-option-arrow">›</span>';
+          const tags = [candidate.resolution, candidate.quality, candidate.visual, candidate.audio].filter(Boolean).join('  |  ') || 'Media details unavailable';
+          button.innerHTML = '<span class="download-option-size"></span><span class="download-option-meta"><span class="download-option-tags"></span></span><span class="download-option-arrow">›</span>';
           button.querySelector('.download-option-size').textContent = formatDownloadSize(candidate.size);
           button.querySelector('.download-option-tags').textContent = tags;
-          button.querySelector('.download-option-label').textContent = candidate.label || 'AIOStreams source';
           button.onclick = () => finish(candidate);
           list.appendChild(button);
         });
