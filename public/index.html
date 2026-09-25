@@ -2731,6 +2731,42 @@
       }
       #player-overlay.is-vod #playerFullscreen { top:calc(72dvh + 60px) !important; }
     }
+
+    @media(max-width:650px), (hover:none) and (pointer:coarse) {
+      #player-overlay.is-vod .transport-skip-svg {
+        display:block;
+        width:43px;
+        height:43px;
+        overflow:visible;
+      }
+      #player-overlay.is-vod .transport-skip-svg .skip-arc,
+      #player-overlay.is-vod .transport-skip-svg .skip-arrow {
+        fill:none;
+        stroke:#fff;
+        stroke-width:6;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+      }
+      #player-overlay.is-vod .transport-skip-svg .skip-arrow {
+        fill:#fff;
+        stroke-width:4;
+      }
+      #player-overlay.is-vod .transport-skip-svg text {
+        fill:#fff;
+        font:700 25px/1 -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
+        text-anchor:middle;
+      }
+      #player-overlay.is-vod .transport-skip-ring,
+      #player-overlay.is-vod .transport-skip-number { display:none !important; }
+
+      /* Safari bottom toolbar occupies roughly the final 90px of the visual
+         viewport. Anchor this action immediately above it rather than to the
+         transport cluster. */
+      #player-overlay.is-vod #playerTryAnother {
+        bottom:max(14px,env(safe-area-inset-bottom)) !important;
+        transform:translate(-50%,-82px) !important;
+      }
+    }
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2927,8 +2963,8 @@
           <button type="button" id="playerMinimize" class="player-hud-btn">Minimize</button>
           <button type="button" id="playerTryAnother" class="player-hud-btn">Try another stream</button>
           <button type="button" id="playerPlayPause" class="player-hud-btn player-transport-main" aria-label="Pause"><span class="transport-main-icon pause" aria-hidden="true"></span></button>
-          <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip back" aria-label="Back 10 seconds"><span class="transport-skip-ring" aria-hidden="true"></span><span class="transport-skip-number">10</span></button>
-          <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip forward" aria-label="Forward 10 seconds"><span class="transport-skip-ring" aria-hidden="true"></span><span class="transport-skip-number">10</span></button>
+          <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip back" aria-label="Back 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><path class="skip-arc" d="M18 20 A22 22 0 1 0 47 20"/><path class="skip-arrow" d="M19 10 L8 20 L21 26"/><text x="32" y="40">10</text></svg></button>
+          <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip forward" aria-label="Forward 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><path class="skip-arc" d="M46 20 A22 22 0 1 1 17 20"/><path class="skip-arrow" d="M45 10 L56 20 L43 26"/><text x="32" y="40">10</text></svg></button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn player-fullscreen-object" aria-label="Fullscreen"><span aria-hidden="true"></span></button>
           <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
