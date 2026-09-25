@@ -215,7 +215,6 @@ class StremioServiceClient {
     const maxCatalogs = Math.max(1, Math.min(50, Number(process.env.VOD_SEARCH_CATALOG_LIMIT) || 20));
     const catalogs = (manifest.catalogs || []).filter(cat => {
       if (!cat || !cat.id || !cat.type) return false;
-      if (type && String(cat.type) !== String(type)) return false;
       const extras = Array.isArray(cat.extra) ? cat.extra : [];
       const required = extras.filter(x => x && x.isRequired).map(x => x.name);
       if (!extras.some(x => x && x.name === 'search')) return false;
