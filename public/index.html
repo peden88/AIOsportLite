@@ -3133,6 +3133,53 @@
     z-index:180 !important;
   }
 }
+
+/* Live mobile correction: hide only legacy HUD chrome, not the transport/action children. */
+@media(max-width:650px), (hover:none) and (pointer:coarse) {
+  #player-overlay.is-live .player-hud {
+    display:block !important;
+    position:static !important;
+    width:0 !important;
+    height:0 !important;
+    padding:0 !important;
+    margin:0 !important;
+    border:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+    overflow:visible !important;
+  }
+  #player-overlay.is-live .player-hud-main,
+  #player-overlay.is-live .player-hud-copy,
+  #player-overlay.is-live .player-hud-progress { display:none !important; }
+
+  #player-overlay.is-live .player-hud-actions {
+    display:contents !important;
+  }
+
+  #player-overlay.is-live #playerPlayPause {
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+
+  #player-overlay.is-live #playerTryAnother {
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+    position:fixed !important;
+    left:50% !important;
+    top:calc(35dvh - 58px) !important;
+    bottom:auto !important;
+    transform:translateX(-50%) !important;
+    min-width:220px !important;
+    justify-content:center !important;
+    z-index:180 !important;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
