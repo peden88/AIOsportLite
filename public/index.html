@@ -6888,10 +6888,14 @@
     }
 
     function playSelectedDetailsTrailer(item){
-      const stage=document.getElementById('detailsTrailerStage'),video=document.getElementById('detailsTrailerVideo'),frame=document.getElementById('detailsTrailerFrame');if(!stage||!video||!frame)return;
       clearTimeout(detailsTrailerTimer);detailsTrailerTimer=null;
-      if(item.kind==='direct'){frame.hidden=true;frame.src='about:blank';video.hidden=false;video.src=item.url;video.muted=false;video.defaultMuted=false;video.controls=true;video.play().catch(()=>{})}
-      else{try{video.pause()}catch(_){}video.hidden=true;video.removeAttribute('src');frame.hidden=false;frame.src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.id)+'?autoplay=1&controls=1&rel=0&playsinline=1'}
+      if(item?.kind==='youtube'&&item.id){
+        const url='https://www.youtube.com/watch?v='+encodeURIComponent(item.id);
+        const win=window.open(url,'_blank','noopener,noreferrer');if(win)return;
+        window.location.href=url;return;
+      }
+      const stage=document.getElementById('detailsTrailerStage'),video=document.getElementById('detailsTrailerVideo');if(!stage||!video||!item?.url)return;
+      video.hidden=false;video.src=item.url;video.muted=false;video.defaultMuted=false;video.controls=true;video.play().catch(()=>{window.location.href=item.url});
       stage.classList.add('is-visible');stage.setAttribute('aria-hidden','false');
     }
 
@@ -6911,6 +6915,10 @@
         if(!res.ok)return;const bundle=await res.json();
         if(String(currentDetailsMeta?.id||currentDetailsMeta?.contentId||'')!==visitId)return;
         const enriched={...meta,...(bundle.meta||{})};
+        // If the server returned structured TMDB people, always prefer those over
+        // the string-only Cinemeta/AIOMetadata fallback so portraits survive.
+        if(Array.isArray(bundle.meta?.castMembers)&&bundle.meta.castMembers.length)enriched.castMembers=bundle.meta.castMembers;
+        if(Array.isArray(bundle.meta?.creatorMembers)&&bundle.meta.creatorMembers.length)enriched.creatorMembers=bundle.meta.creatorMembers;
         currentDetailsMeta={...currentDetailsMeta,...enriched};
         renderDetailsPeople(enriched);renderDetailsRatings(enriched);renderDetailsTrailers(enriched);
         const section=document.getElementById('detailsRelatedSection'),host=document.getElementById('detailsRelated');
