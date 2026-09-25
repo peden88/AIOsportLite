@@ -228,6 +228,7 @@ class StremioServiceClient {
 
     const seen = new Set();
     const metas = [];
+    const catalogRows = [];
     for (let i = 0; i < settled.length; i++) {
       const result = settled[i];
       if (result.status !== 'fulfilled') continue;
@@ -235,16 +236,34 @@ class StremioServiceClient {
       const rows = Array.isArray(body.metas) ? body.metas
         : Array.isArray(body.metasDetailed) ? body.metasDetailed
         : [];
-      for (const meta of rows) {
-        if (!meta || !meta.id) continue;
-        const metaType = String(meta.type || catalogs[i].type || '');
+      const catalog = catalogs[i];
+      const rowMetas = [];
+      for (const rawMeta of rows) {
+        if (!rawMeta || !rawMeta.id) continue;
+        // Nuvio treats the catalog descriptor as authoritative when an addon omits
+        // the type on a meta row. Preserve that here so Movie/Series filtering does
+        // not accidentally discard perfectly valid search results.
+        const meta = rawMeta.type ? rawMeta : { ...rawMeta, type: String(catalog.type || '') };
+        const metaType = String(meta.type || catalog.type || '');
+        if (type && metaType !== String(type)) continue;
+        rowMetas.push(meta);
         const key = metaType + ':' + String(meta.id);
         if (seen.has(key)) continue;
         seen.add(key);
         metas.push(meta);
       }
+      if (rowMetas.length) {
+        const extras = Array.isArray(catalog.extra) ? catalog.extra : [];
+        catalogRows.push({
+          catalogId: String(catalog.id),
+          catalogName: String(catalog.name || catalog.id),
+          type: String(catalog.type || ''),
+          supportsSkip: extras.some(x => x && x.name === 'skip'),
+          metas: rowMetas
+        });
+      }
     }
-    return { metas };
+    return { metas, catalogs: catalogRows };
   }
 }
 
