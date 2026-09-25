@@ -779,7 +779,36 @@
       -webkit-box-orient:vertical;
       overflow:hidden;
     }
-    .episode-btn.is-watched .episode-title { color:rgba(255,255,255,.72); }
+    .episode-airdate {
+      margin-top:4px;
+      color:rgba(255,255,255,.46);
+      font:600 .61rem/1.2 'Inter',sans-serif;
+      white-space:nowrap;
+    }
+    .episode-unavailable {
+      display:inline-flex;
+      align-items:center;
+      margin-left:7px;
+      padding:2px 5px;
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:5px;
+      color:rgba(255,255,255,.68);
+      background:rgba(10,14,19,.72);
+      font:800 .54rem/1 'Inter',sans-serif;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      vertical-align:middle;
+    }
+    .episode-btn.is-unavailable { opacity:.72; cursor:default; }
+    .episode-btn.is-unavailable .episode-thumb::after {
+      content:'';
+      position:absolute;
+      inset:0;
+      z-index:2;
+      background:rgba(4,7,10,.24);
+      pointer-events:none;
+    }
+        .episode-btn.is-watched .episode-title { color:rgba(255,255,255,.72); }
     @media(max-width:650px){
       .top-header { padding:12px 8px 7px; }
       header { padding:4px 8px 2px; }
@@ -6177,7 +6206,28 @@
             title.textContent = code + ' · ' + episodeTitle;
             copy.appendChild(title);
 
-            const overviewText = String(video.overview || video.description || '').trim();
+            const rawAirDate = video.released || video.releaseDate || video.airDate || video.aired || video.firstAired || video.first_air_date || null;
+            const airTime = rawAirDate ? Date.parse(rawAirDate) : NaN;
+            const hasAirDate = Number.isFinite(airTime);
+            const notAvailable = hasAirDate && airTime > Date.now();
+            if (hasAirDate) {
+              const air = document.createElement('div');
+              air.className = 'episode-airdate';
+              air.textContent = new Intl.DateTimeFormat(undefined, {
+                day:'numeric', month:'short', year:'numeric'
+              }).format(new Date(airTime));
+              if (notAvailable) {
+                const unavailable = document.createElement('span');
+                unavailable.className = 'episode-unavailable';
+                unavailable.textContent = 'Not Available';
+                air.appendChild(unavailable);
+                button.classList.add('is-unavailable');
+                button.setAttribute('aria-disabled', 'true');
+              }
+              copy.appendChild(air);
+            }
+
+                        const overviewText = String(video.overview || video.description || '').trim();
             if (overviewText) {
               const overview = document.createElement('div');
               overview.className = 'episode-overview';
@@ -6234,6 +6284,10 @@
             });
 
             button.onclick = async event => {
+              if (button.classList.contains('is-unavailable')) {
+                event.preventDefault();
+                return;
+              }
               if (button.dataset.longPressed === '1') {
                 delete button.dataset.longPressed;
                 event.preventDefault();
