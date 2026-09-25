@@ -4,6 +4,29 @@ const appServices = require('./AppServiceRegistry');
 const { StremioServiceClient, UpstreamServiceError } = require('./StremioServiceClient');
 
 const clients = new Map();
+let fallbackMetadataClient = null;
+function fallbackClient() {
+  if (!fallbackMetadataClient) fallbackMetadataClient = new StremioServiceClient('https://v3-cinemeta.strem.io/manifest.json', { serviceName:'Cinemeta fallback' });
+  return fallbackMetadataClient;
+}
+function sparse(value) { return value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0); }
+async function enrichSparseMeta(meta, type, id) {
+  if (!meta || typeof meta !== 'object') return meta;
+  // AIOMetadata remains authoritative. Cinemeta only fills standard Stremio
+  // fields that the selected AIOMetadata provider/config did not emit.
+  if (!/^tt\d+$/i.test(String(id || ''))) return meta;
+  const needs = ['cast','director','writer','trailers','trailer','genres'].some(key => sparse(meta[key]));
+  if (!needs) return meta;
+  try {
+    const body = await fallbackClient().meta(type, id);
+    const fallback = body && body.meta ? body.meta : {};
+    const merged = { ...meta };
+    for (const key of ['cast','director','writer','trailers','trailer','genres']) {
+      if (sparse(merged[key]) && !sparse(fallback[key])) merged[key] = fallback[key];
+    }
+    return merged;
+  } catch (_) { return meta; }
+}
 
 function assertVodEnabled() {
   const cfg = appServices._privateConfig();
@@ -99,7 +122,10 @@ async function search(query, type) {
 }
 
 async function meta(type, id) {
-  return clientFor('metadata').meta(validStremioType(type), cleanId(id));
+  const safeType=validStremioType(type), safeId=cleanId(id);
+  const body=await clientFor('metadata').meta(safeType,safeId);
+  if (!body || !body.meta) return body;
+  return { ...body, meta:await enrichSparseMeta(body.meta,safeType,safeId) };
 }
 
 function privatePlaybackRow(stream, client) {
@@ -323,42 +349,45 @@ async function probe(options = {}) {
 }
 
 async function related(type, id, options = {}) {
-  const safeType = validStremioType(type);
-  const safeId = cleanId(id);
-  const client = clientFor('metadata');
-  const sourceBody = await client.meta(safeType, safeId);
-  const source = sourceBody && sourceBody.meta ? sourceBody.meta : {};
-  const sourceGenres = new Set((Array.isArray(source.genres) ? source.genres : []).map(v => String(v).toLowerCase()));
-  const sourceName = String(source.name || source.title || '').toLowerCase();
-  const sourceYear = Number(String(source.releaseInfo || source.year || '').match(/\d{4}/)?.[0] || 0);
-  const descriptors = await client.catalogDescriptors();
-  const catalogs = descriptors.filter(row => row.type === safeType && (!row.requiredExtras || row.requiredExtras.length === 0)).slice(0, 16);
-  const settled = await Promise.allSettled(catalogs.map(row => client.catalog(row.type, row.id, {})));
-  const seen = new Set([safeType + ':' + safeId]);
-  const scored = [];
-  for (const result of settled) {
-    if (result.status !== 'fulfilled') continue;
-    const body = result.value || {};
-    const rows = Array.isArray(body.metas) ? body.metas : Array.isArray(body.metasDetailed) ? body.metasDetailed : [];
-    for (const item of rows) {
-      if (!item || !item.id || !item.poster) continue;
-      const itemType = String(item.type || safeType);
-      const key = itemType + ':' + String(item.id);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const genres = (Array.isArray(item.genres) ? item.genres : []).map(v => String(v).toLowerCase());
-      const overlap = genres.filter(g => sourceGenres.has(g)).length;
-      const year = Number(String(item.releaseInfo || item.year || '').match(/\d{4}/)?.[0] || 0);
-      const yearScore = sourceYear && year ? Math.max(0, 5 - Math.min(5, Math.abs(sourceYear - year) / 3)) : 0;
-      const name = String(item.name || item.title || '').toLowerCase();
-      const sameFranchise = sourceName && name && (name.includes(sourceName.split(':')[0]) || sourceName.includes(name.split(':')[0])) ? 4 : 0;
-      const score = overlap * 12 + yearScore + sameFranchise;
-      if (score > 0 || sourceGenres.size === 0) scored.push({ item:{...item,type:itemType}, score });
+  const safeType=validStremioType(type), safeId=cleanId(id), client=clientFor('metadata');
+  const sourceBody=await meta(safeType,safeId), source=sourceBody?.meta||{};
+  const sourceGenres=new Set((Array.isArray(source.genres)?source.genres:[]).map(v=>String(v).toLowerCase()));
+  const sourceName=String(source.name||source.title||'').toLowerCase(), sourceYear=Number(String(source.releaseInfo||source.year||'').match(/\d{4}/)?.[0]||0);
+  const descriptors=await client.catalogDescriptors();
+  const catalogs=descriptors.filter(row=>(row.type===safeType||row.type==='all')&&(!row.requiredExtras||row.requiredExtras.length===0)).slice(0,24);
+  // Pull several pages from broad catalogs. The previous implementation only
+  // sampled page zero, which made unrelated details pages repeat the same hits.
+  const jobs=[];
+  for(const row of catalogs){
+    const skips=row.supportsSkip?[0,20,40]:[0];
+    for(const skip of skips) jobs.push({row,extra:skip?{skip:String(skip)}:{}});
+    if(row.genres?.length&&sourceGenres.size){
+      const genre=row.genres.find(g=>sourceGenres.has(String(g).toLowerCase()));
+      if(genre) jobs.push({row,extra:{genre:String(genre)}});
     }
   }
-  scored.sort((a,b) => b.score - a.score);
-  const limit = Math.max(1, Math.min(18, Number(options.limit) || 12));
-  return { metas: scored.slice(0, limit).map(row => row.item) };
+  const settled=await Promise.allSettled(jobs.slice(0,60).map(job=>client.catalog(job.row.type,job.row.id,job.extra)));
+  const seen=new Set([safeType+':'+safeId]), scored=[];
+  for(const result of settled){
+    if(result.status!=='fulfilled')continue;
+    const body=result.value||{},rows=Array.isArray(body.metas)?body.metas:Array.isArray(body.metasDetailed)?body.metasDetailed:[];
+    for(const item of rows){
+      if(!item?.id||!item?.poster)continue;
+      const itemType=String(item.type||safeType).toLowerCase();
+      if(itemType!==safeType)continue;
+      const key=itemType+':'+String(item.id);if(seen.has(key))continue;seen.add(key);
+      const genres=(Array.isArray(item.genres)?item.genres:[]).map(v=>String(v).toLowerCase()),overlap=genres.filter(g=>sourceGenres.has(g)).length;
+      const year=Number(String(item.releaseInfo||item.year||'').match(/\d{4}/)?.[0]||0);
+      const yearScore=sourceYear&&year?Math.max(0,6-Math.min(6,Math.abs(sourceYear-year)/3)):0;
+      const name=String(item.name||item.title||'').toLowerCase(),stem=sourceName.split(/[:\-]/)[0].trim();
+      const franchise=stem.length>4&&name.includes(stem)?8:0;
+      const score=overlap*14+yearScore+franchise+Math.random()*1.5;
+      if(score>0||sourceGenres.size===0)scored.push({item:{...item,type:itemType},score});
+    }
+  }
+  scored.sort((a,b)=>b.score-a.score);
+  const limit=Math.max(1,Math.min(24,Number(options.limit)||12));
+  return {metas:scored.slice(0,limit).map(row=>row.item),poolSize:scored.length};
 }
 
 async function playbackCandidates(type, id, clientKind = 'web') {
@@ -457,5 +486,5 @@ module.exports = {
   validStremioType,
   _privatePlaybackRow: privatePlaybackRow,
   _clientFor: clientFor,
-  _resetForTests() { clients.clear(); }
+  _resetForTests() { clients.clear(); fallbackMetadataClient=null; }
 };
