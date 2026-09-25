@@ -6873,7 +6873,7 @@
       const section=document.getElementById('detailsRatingsSection'),host=document.getElementById('detailsRatings');if(!section||!host)return;host.innerHTML='';
       const rows=[];const push=(label,value)=>{if(value!==undefined&&value!==null&&String(value).trim()!==''&&Number(value)>0)rows.push([label,String(Math.round(Number(value)*10)/10)])};
       if(Array.isArray(meta?.ratings))meta.ratings.forEach(row=>push(row?.source,row?.value));
-      push('IMDb',meta?.imdbRating||meta?.imdb_rating);push('TMDB',meta?.tmdbRating||meta?.tmdb_rating||meta?.rating);push('Metacritic',meta?.metacriticRating||meta?.metacritic);push('Rotten Tomatoes',meta?.tomatoesRating||meta?.rottenTomatoes);
+      push('IMDb',meta?.imdbRating||meta?.imdb_rating);push('TMDB',meta?.tmdbRating||meta?.tmdb_rating||meta?.rating);push('Metacritic',meta?.metacriticRating||meta?.metacritic);push('Rotten Tomatoes',meta?.tomatoesRating||meta?.rottenTomatoes);push('Letterboxd',meta?.letterboxdRating||meta?.letterboxd);
       const unique=[];rows.forEach(r=>{if(!unique.some(x=>x[0]===r[0]&&x[1]===r[1]))unique.push(r)});
       unique.forEach(([label,value])=>{const card=document.createElement('div');card.className='details-rating-card';const strong=document.createElement('strong');strong.textContent=value;const small=document.createElement('small');small.textContent=label;card.append(strong,small);host.appendChild(card)});
       setPanelAvailability(section,!!host.children.length);refreshDetailsTabs();
