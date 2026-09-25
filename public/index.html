@@ -2526,8 +2526,40 @@
     .aiostreams-result-title{font-size:.82rem !important;line-height:1.38 !important;color:rgba(255,255,255,.92) !important;text-align:left}
     .aiostreams-result-meta{font-size:.7rem !important;text-align:left;color:rgba(255,255,255,.52) !important}
     @media(max-width:650px){
-      #playerStreamPickerPanel{inset:max(58px,env(safe-area-inset-top)) 10px max(76px,env(safe-area-inset-bottom)) 10px !important;padding:14px !important;border-radius:20px !important}
-      .aiostreams-result{padding:13px 14px !important}.aiostreams-result-name{font-size:.84rem !important}.aiostreams-result-title{font-size:.77rem !important}
+      /* Mobile uses native media controls/settings. Suppress every custom
+         settings surface and entry point; the stream picker remains available. */
+      #playerSettings,
+      #playerSettingsPanel { display:none !important; }
+
+      /* Sit below the persistent AIOPlay/Close Player header rather than
+         colliding with it, and leave browser/player chrome clear at the bottom. */
+      #playerStreamPickerPanel{
+        top:max(104px,calc(env(safe-area-inset-top) + 74px)) !important;
+        right:14px !important;
+        bottom:max(92px,calc(env(safe-area-inset-bottom) + 72px)) !important;
+        left:14px !important;
+        inset-inline:14px !important;
+        width:auto !important;
+        max-width:none !important;
+        padding:12px !important;
+        border-radius:20px !important;
+      }
+      .aiostreams-picker-head{
+        display:flex;
+        justify-content:flex-end;
+        align-items:center;
+        min-height:36px;
+        padding:0 0 8px !important;
+      }
+      #playerStreamRefresh{
+        min-height:34px;
+        padding:8px 13px !important;
+        border-radius:12px !important;
+      }
+      #playerStreamPickerRows{margin-top:0 !important;}
+      .aiostreams-result{padding:13px 14px !important}
+      .aiostreams-result-name{font-size:.84rem !important}
+      .aiostreams-result-title{font-size:.77rem !important}
     }
 
     .aiostreams-result-head{font-size:.82rem;font-weight:850;text-align:center;color:#f4f5f6;line-height:1.25;margin-bottom:7px}
@@ -2741,7 +2773,7 @@
         </div>
       </div>
       <button type="button" id="playerSkipSegment" class="player-next-up" hidden>Skip Intro</button>
-      <div id="playerStreamPickerPanel" class="player-settings-panel" hidden><div class="aiostreams-picker-head"><strong>AIOStreams</strong><button type="button" id="playerStreamRefresh" class="player-hud-btn">↻ Refresh</button></div><div id="playerStreamPickerRows" class="player-stream-info aiostreams-picker">Choose a title to load streams.</div></div>
+      <div id="playerStreamPickerPanel" class="player-settings-panel" hidden><div class="aiostreams-picker-head"><button type="button" id="playerStreamRefresh" class="player-hud-btn">↻ Refresh</button></div><div id="playerStreamPickerRows" class="player-stream-info aiostreams-picker">Choose a title to load streams.</div></div>
       <div id="playerSettingsPanel" class="player-settings-panel" hidden>
         <div class="player-settings-grid">
           <label>Subtitles<select id="playerSubtitleSelect"><option value="-1">Off</option></select></label>
