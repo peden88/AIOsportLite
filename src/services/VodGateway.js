@@ -406,6 +406,7 @@ function mdbRatings(body){
   const direct=[['IMDb',body.imdb_rating??body.imdbrating],['TMDB',body.tmdb_rating??body.tmdbrating],['Metacritic',body.metacritic_rating??body.metacritic],['Rotten Tomatoes',body.tomatoes_rating??body.tomatoes],['Letterboxd',body.letterboxd_rating??body.letterboxd],['Roger Ebert',body.rogerebert_rating??body.rogerebert]];
   direct.forEach(([s,v])=>add(s,v));
   (Array.isArray(body.ratings)?body.ratings:[]).forEach(row=>add(String(row?.source||row?.name||''),row?.value??row?.score));
+  const scores=body.score||body.scores||{};if(scores&&typeof scores==='object'&&!Array.isArray(scores))Object.entries(scores).forEach(([s,v])=>add(String(s),v));
   return out;
 }
 function mergeTmdbRelated(tmdb,type){
