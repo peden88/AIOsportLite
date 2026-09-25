@@ -3104,6 +3104,35 @@
     z-index:170 !important;
   }
 }
+
+/* Live mobile player: single source-switch action above the video; no HUD/action pane. */
+@media(max-width:650px), (hover:none) and (pointer:coarse) {
+  #player-overlay.is-live .player-hud {
+    display:none !important;
+  }
+  #player-overlay.is-live #playerMinimize,
+  #player-overlay.is-live #playerBack10,
+  #player-overlay.is-live #playerForward10,
+  #player-overlay.is-live #playerPip,
+  #player-overlay.is-live #playerStreamPicker,
+  #player-overlay.is-live #playerSettings,
+  #player-overlay.is-live #playerSwitchSource {
+    display:none !important;
+  }
+  #player-overlay.is-live #playerTryAnother {
+    display:flex !important;
+    position:fixed !important;
+    left:50% !important;
+    right:auto !important;
+    top:calc(35dvh - 58px) !important;
+    bottom:auto !important;
+    transform:translateX(-50%) !important;
+    width:auto !important;
+    min-width:220px !important;
+    justify-content:center !important;
+    z-index:180 !important;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
