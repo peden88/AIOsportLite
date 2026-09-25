@@ -348,46 +348,70 @@ async function probe(options = {}) {
   };
 }
 
-async function related(type, id, options = {}) {
-  const safeType=validStremioType(type), safeId=cleanId(id), client=clientFor('metadata');
-  const sourceBody=await meta(safeType,safeId), source=sourceBody?.meta||{};
-  const sourceGenres=new Set((Array.isArray(source.genres)?source.genres:[]).map(v=>String(v).toLowerCase()));
-  const sourceName=String(source.name||source.title||'').toLowerCase(), sourceYear=Number(String(source.releaseInfo||source.year||'').match(/\d{4}/)?.[0]||0);
-  const descriptors=await client.catalogDescriptors();
-  const catalogs=descriptors.filter(row=>(row.type===safeType||row.type==='all')&&(!row.requiredExtras||row.requiredExtras.length===0)).slice(0,24);
-  // Pull several pages from broad catalogs. The previous implementation only
-  // sampled page zero, which made unrelated details pages repeat the same hits.
-  const jobs=[];
-  for(const row of catalogs){
-    const skips=row.supportsSkip?[0,20,40]:[0];
-    for(const skip of skips) jobs.push({row,extra:skip?{skip:String(skip)}:{}});
-    if(row.genres?.length&&sourceGenres.size){
-      const genre=row.genres.find(g=>sourceGenres.has(String(g).toLowerCase()));
-      if(genre) jobs.push({row,extra:{genre:String(genre)}});
-    }
+const enrichmentCache = new Map();
+function cached(key, ttl=10*60*1000){const row=enrichmentCache.get(key);return row&&Date.now()-row.at<ttl?row.value:null}
+function putCache(key,value){enrichmentCache.set(key,{at:Date.now(),value});return value}
+async function publicJson(url, options={}) {
+  const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),Number(options.timeoutMs)||9000);timer.unref?.();
+  try{
+    const response=await fetch(url,{headers:{Accept:'application/json','User-Agent':'AIOPlay/1.0 metadata-enrichment',...(options.headers||{})},signal:controller.signal,redirect:'follow'});
+    if(!response.ok)throw Object.assign(new Error('upstream '+response.status),{status:response.status});
+    return await response.json();
+  } finally {clearTimeout(timer)}
+}
+function parseIds(meta,id){
+  const raw=String(id||meta?.id||'');
+  return {
+    imdb:String(meta?.imdbId||meta?.imdb_id||raw.match(/tt\d+/i)?.[0]||''),
+    tmdb:Number(meta?.tmdbId||meta?.tmdb_id||raw.match(/tmdb:(\d+)/i)?.[1]||0)||null,
+    trakt:Number(meta?.traktId||meta?.trakt_id||raw.match(/trakt:(\d+)/i)?.[1]||0)||null,
+    slug:String(meta?.slug||'')
+  };
+}
+async function traktRelated(type,ids){
+  const path=ids.imdb||ids.trakt||ids.slug;if(!path)return [];
+  const endpoint=type==='movie'?'movies':'shows',key='trakt:'+endpoint+':'+path,c=cached(key);if(c)return c;
+  try{
+    const body=await publicJson('https://api.trakt.tv/'+endpoint+'/'+encodeURIComponent(path)+'/related?limit=20',{headers:{'trakt-api-version':'2','trakt-api-key':process.env.TRAKT_CLIENT_ID||''}});
+    if(!Array.isArray(body))return [];
+    return putCache(key,body.map(row=>{
+      const rid=row?.ids||{},imdb=rid.imdb||'',tmdb=rid.tmdb||null;
+      return {id:imdb||('tmdb:'+tmdb),imdbId:imdb,tmdbId:tmdb,type,name:row?.title||'',releaseInfo:row?.year?String(row.year):'',description:row?.overview||'',genres:row?.genres||[],rating:row?.rating};
+    }).filter(x=>x.id&&x.name));
+  }catch(_){return []}
+}
+async function tmdbResolve(type,ids){
+  const token=String(process.env.TMDB_API_READ_ACCESS_TOKEN||process.env.TMDB_BEARER_TOKEN||'').trim(),apiKey=String(process.env.TMDB_API_KEY||'').trim();
+  if(ids.tmdb)return ids.tmdb;if(!ids.imdb||(!token&&!apiKey))return null;
+  const headers=token?{Authorization:'Bearer '+token}:{},qs=apiKey?'?api_key='+encodeURIComponent(apiKey):'';
+  try{const body=await publicJson('https://api.themoviedb.org/3/find/'+encodeURIComponent(ids.imdb)+qs+(qs?'&':'?')+'external_source=imdb_id',{headers});const rows=type==='movie'?body?.movie_results:body?.tv_results;return Number(rows?.[0]?.id)||null}catch(_){return null}
+}
+async function tmdbBundle(type,tmdbId){
+  const token=String(process.env.TMDB_API_READ_ACCESS_TOKEN||process.env.TMDB_BEARER_TOKEN||'').trim(),apiKey=String(process.env.TMDB_API_KEY||'').trim();if(!tmdbId||(!token&&!apiKey))return null;
+  const media=type==='movie'?'movie':'tv',headers=token?{Authorization:'Bearer '+token}:{},qs=(apiKey?'api_key='+encodeURIComponent(apiKey)+'&':'')+'append_to_response=credits,videos,recommendations,external_ids&language=en-US';
+  const key='tmdb:'+media+':'+tmdbId,c=cached(key);if(c)return c;
+  try{return putCache(key,await publicJson('https://api.themoviedb.org/3/'+media+'/'+tmdbId+'?'+qs,{headers}))}catch(_){return null}
+}
+function normalizeTmdbPerson(row,role){return {name:String(row?.name||row?.original_name||''),character:String(row?.character||row?.job||role||''),photo:row?.profile_path?'https://image.tmdb.org/t/p/w500'+row.profile_path:'',tmdbId:row?.id||null}}
+function tmdbPreview(row,type){const rid=row?.external_ids?.imdb_id||'',tid=row?.id;return {id:rid||('tmdb:'+tid),tmdbId:tid,imdbId:rid,type,name:row?.title||row?.name||'',releaseInfo:String(row?.release_date||row?.first_air_date||'').slice(0,4),description:row?.overview||'',rating:row?.vote_average,poster:row?.backdrop_path?'https://image.tmdb.org/t/p/w780'+row.backdrop_path:(row?.poster_path?'https://image.tmdb.org/t/p/w500'+row.poster_path:''),background:row?.backdrop_path?'https://image.tmdb.org/t/p/w780'+row.backdrop_path:'',genres:[]}}
+async function enrichment(type,id){
+  const safeType=validStremioType(type),safeId=cleanId(id),baseBody=await meta(safeType,safeId),base=baseBody?.meta||{},ids=parseIds(base,safeId),tmdbId=await tmdbResolve(safeType,ids),tmdb=await tmdbBundle(safeType,tmdbId);
+  const creators=[],cast=[];
+  if(tmdb){
+    if(safeType==='series')(tmdb.created_by||[]).forEach(x=>creators.push(normalizeTmdbPerson(x,'Creator')));
+    (tmdb.credits?.crew||[]).filter(x=>['Director','Writer','Screenplay','Creator'].includes(String(x.job||''))).forEach(x=>creators.push(normalizeTmdbPerson(x,x.job)));
+    (tmdb.credits?.cast||[]).slice(0,30).forEach(x=>cast.push(normalizeTmdbPerson(x,'Cast')));
   }
-  const settled=await Promise.allSettled(jobs.slice(0,60).map(job=>client.catalog(job.row.type,job.row.id,job.extra)));
-  const seen=new Set([safeType+':'+safeId]), scored=[];
-  for(const result of settled){
-    if(result.status!=='fulfilled')continue;
-    const body=result.value||{},rows=Array.isArray(body.metas)?body.metas:Array.isArray(body.metasDetailed)?body.metasDetailed:[];
-    for(const item of rows){
-      if(!item?.id||!item?.poster)continue;
-      const itemType=String(item.type||safeType).toLowerCase();
-      if(itemType!==safeType)continue;
-      const key=itemType+':'+String(item.id);if(seen.has(key))continue;seen.add(key);
-      const genres=(Array.isArray(item.genres)?item.genres:[]).map(v=>String(v).toLowerCase()),overlap=genres.filter(g=>sourceGenres.has(g)).length;
-      const year=Number(String(item.releaseInfo||item.year||'').match(/\d{4}/)?.[0]||0);
-      const yearScore=sourceYear&&year?Math.max(0,6-Math.min(6,Math.abs(sourceYear-year)/3)):0;
-      const name=String(item.name||item.title||'').toLowerCase(),stem=sourceName.split(/[:\-]/)[0].trim();
-      const franchise=stem.length>4&&name.includes(stem)?8:0;
-      const score=overlap*14+yearScore+franchise+Math.random()*1.5;
-      if(score>0||sourceGenres.size===0)scored.push({item:{...item,type:itemType},score});
-    }
-  }
-  scored.sort((a,b)=>b.score-a.score);
-  const limit=Math.max(1,Math.min(24,Number(options.limit)||12));
-  return {metas:scored.slice(0,limit).map(row=>row.item),poolSize:scored.length};
+  const trailers=(tmdb?.videos?.results||[]).filter(x=>x?.site==='YouTube'&&['Trailer','Teaser'].includes(String(x.type||''))).sort((a,b)=>(b.official===true)-(a.official===true)).map(x=>({name:x.name||x.type,type:x.type,lang:x.iso_639_1||'',youtubeId:x.key,official:x.official===true}));
+  const ratings=[];const imdbRating=base.imdbRating||base.imdb_rating;if(imdbRating)ratings.push({source:'IMDb',value:Number(imdbRating)});
+  const tmdbRating=tmdb?.vote_average||base.tmdbRating||base.tmdb_rating||base.rating;if(tmdbRating)ratings.push({source:'TMDB',value:Number(tmdbRating)});
+  let related=await traktRelated(safeType,{...ids,tmdb:tmdbId||ids.tmdb});
+  if(!related.length&&tmdb?.recommendations?.results)related=tmdb.recommendations.results.map(x=>tmdbPreview(x,safeType)).filter(x=>x.id&&x.name);
+  return {meta:{...base,tmdbId:tmdbId||ids.tmdb,castMembers:cast.length?cast:base.castMembers,creatorMembers:creators.length?creators:base.creatorMembers,trailers:trailers.length?trailers:base.trailers,ratings},related,source:{related:related.length?'trakt-or-tmdb':'none',people:tmdb?'tmdb':'aiometadata',trailers:trailers.length?'tmdb':'aiometadata'}};
+}
+async function related(type,id,options={}){
+  const bundle=await enrichment(type,id),limit=Math.max(1,Math.min(24,Number(options.limit)||20));
+  return {metas:(bundle.related||[]).slice(0,limit),source:bundle.source?.related||'none'};
 }
 
 async function playbackCandidates(type, id, clientKind = 'web') {
@@ -477,6 +501,7 @@ module.exports = {
   catalog,
   search,
   meta,
+  enrichment,
   related,
   playbackCandidates,
   rawPlaybackCandidates,
@@ -486,5 +511,5 @@ module.exports = {
   validStremioType,
   _privatePlaybackRow: privatePlaybackRow,
   _clientFor: clientFor,
-  _resetForTests() { clients.clear(); fallbackMetadataClient=null; }
+  _resetForTests() { clients.clear(); enrichmentCache.clear(); fallbackMetadataClient=null; }
 };
