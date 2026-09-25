@@ -2916,6 +2916,7 @@
     const grid = () => document.getElementById('grid');
     const tabs = () => document.getElementById('tabs');
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
+    let currentUserIsAdmin = false;
 
     function aiostreamsVisualParts(stream) {
       const rawName=String(stream?.name||'').trim();
@@ -2963,9 +2964,11 @@
           add('aiostreams-result-head',parts.head);
           add('aiostreams-result-core',parts.core);
           add('aiostreams-result-tech',parts.tech);
-          add('aiostreams-result-source',parts.source);
-          add('aiostreams-result-badges',parts.badges);
-          add('aiostreams-result-file','#'+(s.index+1)+(parts.filename?' · '+parts.filename:'')+(s.playable?'':' · Not directly playable'));
+          if (currentUserIsAdmin) {
+            add('aiostreams-result-source',parts.source);
+            add('aiostreams-result-badges',parts.badges);
+            add('aiostreams-result-file','#'+(s.index+1)+(parts.filename?' · '+parts.filename:'')+(s.playable?'':' · Not directly playable'));
+          }
           button.onclick=()=>{panel.hidden=true;const args=ctx.playArgs;if(args)fetchAndPlay(...args,s.index)};
           rows.appendChild(button);
         });
@@ -7189,6 +7192,7 @@
         });
       }
       const isAdmin = !!(gate.user && gate.user.role === 'admin');
+      currentUserIsAdmin = isAdmin;
       document.querySelectorAll('.admin-only').forEach(el => {
         if (isAdmin) {
           const visibleDisplay = el.classList.contains('control-separator')
