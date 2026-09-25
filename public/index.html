@@ -2359,6 +2359,9 @@
       }
       #player-overlay.is-vod .player-hud-actions > * { display:none !important; }
       #player-overlay.is-vod #playerTryAnother,
+      #player-overlay.is-vod #playerPlayPause,
+      #player-overlay.is-vod #playerBack10,
+      #player-overlay.is-vod #playerForward10,
       #player-overlay.is-vod #playerFullscreen {
         display:inline-flex !important;
         align-items:center;
@@ -2374,10 +2377,19 @@
         pointer-events:auto;
       }
       #player-overlay.is-vod #playerTryAnother {
-        display:inline-flex !important;
-        align-items:center;
-        justify-content:center;
-        min-width:180px;
+        min-width:154px;
+      }
+      #player-overlay.is-vod #playerPlayPause,
+      #player-overlay.is-vod #playerBack10,
+      #player-overlay.is-vod #playerForward10 {
+        min-width:58px;
+        padding:13px 12px !important;
+      }
+      #player-overlay.is-vod .player-hud-actions {
+        flex-wrap:wrap !important;
+        justify-content:center !important;
+        gap:8px !important;
+        max-width:calc(100vw - 24px) !important;
       }
     }
 
@@ -2763,6 +2775,7 @@
         <div class="player-hud-actions">
           <button type="button" id="playerMinimize" class="player-hud-btn">Minimize</button>
           <button type="button" id="playerTryAnother" class="player-hud-btn">Try another stream</button>
+          <button type="button" id="playerPlayPause" class="player-hud-btn">Pause</button>
           <button type="button" id="playerBack10" class="player-hud-btn">−10s</button>
           <button type="button" id="playerForward10" class="player-hud-btn">+10s</button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
@@ -4313,7 +4326,17 @@
       const speed=document.getElementById('playerSpeedSelect');speed.value=String(prefs.speed||1);speed.onchange=()=>{video.playbackRate=Number(speed.value);const p=playerPrefs();p.speed=video.playbackRate;savePlayerPrefs(p)};
       document.getElementById('playerSettings').onclick=()=>{panel.hidden=!panel.hidden;
     document.getElementById('playerStreamPicker').onclick = openRawStreamPicker;if(!panel.hidden)populatePlayerTracks()};
-      document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
+      const playPauseButton=document.getElementById('playerPlayPause');
+      const syncPlayPauseButton=()=>{ if(playPauseButton) playPauseButton.textContent=video.paused?'Play':'Pause'; };
+      playPauseButton.onclick=async()=>{ try{ if(video.paused) await video.play(); else video.pause(); }catch(_){} syncPlayPauseButton(); };
+      video.addEventListener('play',syncPlayPauseButton);
+      video.addEventListener('pause',syncPlayPauseButton);
+      video.addEventListener('ended',syncPlayPauseButton);
+      // iOS may pause when its native fullscreen controller is dismissed.
+      // Keep playback state usable inline and expose the transport controls.
+      video.addEventListener('webkitendfullscreen',()=>{ syncPlayPauseButton(); });
+      document.addEventListener('fullscreenchange',()=>{ syncPlayPauseButton(); });
+            document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
       document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
       document.getElementById('playerPip').onclick=async()=>{try{if(document.pictureInPictureElement)await document.exitPictureInPicture();else if(video.requestPictureInPicture)await video.requestPictureInPicture()}catch(_){}};
       const enterPlayerFullscreen = async () => {
