@@ -2767,6 +2767,43 @@
         transform:translate(-50%,-82px) !important;
       }
     }
+
+    @media(max-width:650px), (hover:none) and (pointer:coarse) {
+      #player-overlay.is-vod .transport-skip-svg { width:46px !important; height:46px !important; }
+      #player-overlay.is-vod .transport-skip-svg .skip-arc {
+        fill:none !important; stroke:#fff !important; stroke-width:5.1 !important;
+        stroke-linecap:round !important; stroke-linejoin:round !important;
+      }
+      #player-overlay.is-vod .transport-skip-svg .skip-arrow {
+        fill:#fff !important; stroke:#fff !important; stroke-width:1.5 !important;
+        stroke-linejoin:round !important;
+      }
+      #player-overlay.is-vod .transport-skip-svg text {
+        fill:#fff !important;
+        font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif !important;
+        font-size:24px !important; font-weight:600 !important; letter-spacing:-2px !important;
+        text-anchor:middle !important;
+      }
+      #player-overlay.is-vod #playerBack10,
+      #player-overlay.is-vod #playerForward10 {
+        width:64px !important; min-width:64px !important; height:64px !important; min-height:64px !important;
+        background:linear-gradient(180deg,#252525 0%,#1e1e1e 100%) !important;
+        border:1px solid rgba(255,255,255,.20) !important;
+        box-shadow:inset 0 1px 1px rgba(255,255,255,.10),0 3px 8px rgba(0,0,0,.32) !important;
+      }
+      #player-overlay.is-vod #playerPlayPause {
+        width:92px !important; min-width:92px !important; height:92px !important; min-height:92px !important;
+        background:linear-gradient(180deg,#252525 0%,#1e1e1e 100%) !important;
+        border:1px solid rgba(255,255,255,.20) !important;
+      }
+      #player-overlay.is-vod .transport-main-icon { width:38px !important; height:48px !important; }
+      #player-overlay.is-vod .transport-main-icon.pause::before,
+      #player-overlay.is-vod .transport-main-icon.pause::after { width:12px !important; border-radius:4px !important; }
+      #player-overlay.is-vod .transport-main-icon.play::before {
+        left:5px !important; top:2px !important;
+        border-top-width:22px !important; border-bottom-width:22px !important; border-left-width:34px !important;
+      }
+    }
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2963,8 +3000,8 @@
           <button type="button" id="playerMinimize" class="player-hud-btn">Minimize</button>
           <button type="button" id="playerTryAnother" class="player-hud-btn">Try another stream</button>
           <button type="button" id="playerPlayPause" class="player-hud-btn player-transport-main" aria-label="Pause"><span class="transport-main-icon pause" aria-hidden="true"></span></button>
-          <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip back" aria-label="Back 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><path class="skip-arc" d="M18 20 A22 22 0 1 0 47 20"/><path class="skip-arrow" d="M19 10 L8 20 L21 26"/><text x="32" y="40">10</text></svg></button>
-          <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip forward" aria-label="Forward 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><path class="skip-arc" d="M46 20 A22 22 0 1 1 17 20"/><path class="skip-arrow" d="M45 10 L56 20 L43 26"/><text x="32" y="40">10</text></svg></button>
+          <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip back" aria-label="Back 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><path class="skip-arc" d="M17.2 18.8 A22.5 22.5 0 1 0 49.2 22.2"/><path class="skip-arrow" d="M18.5 8.5 L7.8 18.7 L20.9 24.1 Z"/><text x="32" y="41">10</text></svg></button>
+          <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip forward" aria-label="Forward 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><path class="skip-arc" d="M46.8 18.8 A22.5 22.5 0 1 1 14.8 22.2"/><path class="skip-arrow" d="M45.5 8.5 L56.2 18.7 L43.1 24.1 Z"/><text x="32" y="41">10</text></svg></button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn player-fullscreen-object" aria-label="Fullscreen"><span aria-hidden="true"></span></button>
           <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
