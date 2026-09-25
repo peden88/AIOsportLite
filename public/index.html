@@ -2935,6 +2935,45 @@
     text-wrap:pretty;
   }
 }
+
+/* Mobile details: use the full readable card width for synopsis/actions. */
+@media(max-width:650px) {
+  .details-copy,
+  .details-copy p {
+    width:100% !important;
+    max-width:none !important;
+  }
+  .details-copy p {
+    margin-right:0 !important;
+    padding-right:0 !important;
+  }
+  .details-actions {
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    width:100% !important;
+  }
+  .details-actions > button,
+  .details-actions .season-control {
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    min-height:52px !important;
+  }
+  .details-actions > button {
+    padding:12px 10px !important;
+    font-size:.88rem !important;
+    font-weight:800 !important;
+  }
+  .details-actions .season-select {
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    height:44px !important;
+    font-size:.88rem !important;
+    font-weight:800 !important;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
