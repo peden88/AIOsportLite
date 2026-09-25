@@ -322,6 +322,45 @@ async function probe(options = {}) {
   };
 }
 
+async function related(type, id, options = {}) {
+  const safeType = validStremioType(type);
+  const safeId = cleanId(id);
+  const client = clientFor('metadata');
+  const sourceBody = await client.meta(safeType, safeId);
+  const source = sourceBody && sourceBody.meta ? sourceBody.meta : {};
+  const sourceGenres = new Set((Array.isArray(source.genres) ? source.genres : []).map(v => String(v).toLowerCase()));
+  const sourceName = String(source.name || source.title || '').toLowerCase();
+  const sourceYear = Number(String(source.releaseInfo || source.year || '').match(/\d{4}/)?.[0] || 0);
+  const descriptors = await client.catalogDescriptors();
+  const catalogs = descriptors.filter(row => row.type === safeType && (!row.requiredExtras || row.requiredExtras.length === 0)).slice(0, 16);
+  const settled = await Promise.allSettled(catalogs.map(row => client.catalog(row.type, row.id, {})));
+  const seen = new Set([safeType + ':' + safeId]);
+  const scored = [];
+  for (const result of settled) {
+    if (result.status !== 'fulfilled') continue;
+    const body = result.value || {};
+    const rows = Array.isArray(body.metas) ? body.metas : Array.isArray(body.metasDetailed) ? body.metasDetailed : [];
+    for (const item of rows) {
+      if (!item || !item.id || !item.poster) continue;
+      const itemType = String(item.type || safeType);
+      const key = itemType + ':' + String(item.id);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const genres = (Array.isArray(item.genres) ? item.genres : []).map(v => String(v).toLowerCase());
+      const overlap = genres.filter(g => sourceGenres.has(g)).length;
+      const year = Number(String(item.releaseInfo || item.year || '').match(/\d{4}/)?.[0] || 0);
+      const yearScore = sourceYear && year ? Math.max(0, 5 - Math.min(5, Math.abs(sourceYear - year) / 3)) : 0;
+      const name = String(item.name || item.title || '').toLowerCase();
+      const sameFranchise = sourceName && name && (name.includes(sourceName.split(':')[0]) || sourceName.includes(name.split(':')[0])) ? 4 : 0;
+      const score = overlap * 12 + yearScore + sameFranchise;
+      if (score > 0 || sourceGenres.size === 0) scored.push({ item:{...item,type:itemType}, score });
+    }
+  }
+  scored.sort((a,b) => b.score - a.score);
+  const limit = Math.max(1, Math.min(18, Number(options.limit) || 12));
+  return { metas: scored.slice(0, limit).map(row => row.item) };
+}
+
 async function playbackCandidates(type, id, clientKind = 'web') {
   const safeType = validStremioType(type);
   const safeId = cleanId(id);
@@ -409,6 +448,7 @@ module.exports = {
   catalog,
   search,
   meta,
+  related,
   playbackCandidates,
   rawPlaybackCandidates,
   refreshAioStreams,
