@@ -1359,6 +1359,16 @@ app.get('/api/v1/vod/skip/:imdbId/:season/:episode', requirePage, async (req, re
   }
 });
 
+app.get('/api/v1/vod/related/:type/:id', requirePage, async (req, res) => {
+  try {
+    res.setHeader('Cache-Control','private, max-age=900');
+    res.json(await vodGateway.related(req.params.type, req.params.id, { limit:req.query.limit }));
+  } catch (err) {
+    console.error('[app-vod] related titles failed:', err.message);
+    res.status(err.statusCode || 502).json({ error:'Related titles are unavailable.', metas:[] });
+  }
+});
+
 app.get('/api/v1/vod/meta/:type/:id', requirePage, async (req, res) => {
   try {
     res.json(await vodGateway.meta(req.params.type, req.params.id));
