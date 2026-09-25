@@ -2892,6 +2892,21 @@
    transform:translateX(-50%) !important; margin:0 !important;
  }
 }
+
+/* Mobile VOD stream switch: deliberately share the same bottom anchor as the
+   proven docked primary navigation instead of tracking Safari visualViewport. */
+@media(max-width:650px), (hover:none) and (pointer:coarse) {
+  #player-overlay.is-vod #playerTryAnother {
+    position:fixed !important;
+    left:50% !important;
+    right:auto !important;
+    top:auto !important;
+    bottom:calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    transform:translateX(-50%) !important;
+    margin:0 !important;
+    z-index:170 !important;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4694,10 +4709,8 @@
       const button = document.getElementById('playerTryAnother');
       const overlay = document.getElementById('player-overlay');
       if (!button || !overlay || !overlay.classList.contains('is-vod') || !window.matchMedia('(max-width:650px), (hover:none) and (pointer:coarse)').matches) return;
-      const vv = window.visualViewport;
-      const visibleBottom = vv ? (window.innerHeight - (vv.offsetTop + vv.height)) : 0;
-      // Safari's address-bar safe zone starts ~76px above the visual viewport bottom.
-      button.style.setProperty('bottom', Math.max(76, visibleBottom + 76) + 'px', 'important');
+      // Match the exact bottom anchor used by .mobile-bottom-nav.
+      button.style.setProperty('bottom', 'calc(8px + env(safe-area-inset-bottom, 0px))', 'important');
     }
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', positionMobileTryAnother);
