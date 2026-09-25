@@ -2176,6 +2176,48 @@
     .download-option-tags { font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,sans-serif; font-size:.86rem; font-weight:700; line-height:1.28; letter-spacing:-.01em; }
     .download-option-label { margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-muted); font-size:.66rem; }
     .download-option-arrow { opacity:.65; font-size:1.1rem; }
+    .download-option.episode-download-option {
+      display:flex;
+      align-items:center;
+      width:100%;
+      min-width:0;
+      gap:8px;
+      padding:13px 12px;
+      overflow:hidden;
+      white-space:nowrap;
+    }
+    .episode-download-option .episode-download-code {
+      flex:0 0 auto;
+      font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,sans-serif;
+      font-size:.86rem;
+      font-weight:800;
+      line-height:1;
+    }
+    .episode-download-option .episode-download-separator {
+      flex:0 0 auto;
+      opacity:.45;
+      font-size:.76rem;
+    }
+    .episode-download-option .episode-download-name {
+      flex:1 1 auto;
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,sans-serif;
+      font-size:.82rem;
+      font-weight:750;
+      line-height:1.1;
+    }
+    .episode-download-option .download-option-arrow {
+      flex:0 0 auto;
+      margin-left:auto;
+    }
+    @media(max-width:420px) {
+      .download-option.episode-download-option { gap:6px; padding:12px 10px; }
+      .episode-download-option .episode-download-code { font-size:.80rem; }
+      .episode-download-option .episode-download-name { font-size:.76rem; }
+    }
     @media(max-width:650px) {
       .download-picker-overlay { padding-left:0; padding-right:0; padding-bottom:0; }
       .download-picker-sheet { width:100%; border-radius:24px 24px 0 0; max-height:76vh; }
@@ -5315,17 +5357,18 @@
             : ('E' + String(ep).padStart(2,'0'));
           const button = document.createElement('button');
           button.type = 'button';
-          button.className = 'download-option';
+          button.className = 'download-option episode-download-option';
           button.innerHTML =
-            '<span class="download-option-size"></span>' +
-            '<span class="download-option-meta"><span class="download-option-tags"></span>' +
-            '<span class="download-option-label"></span></span>' +
+            '<span class="episode-download-code"></span>' +
+            '<span class="episode-download-separator">|</span>' +
+            '<span class="episode-download-name"></span>' +
             '<span class="download-option-arrow">›</span>';
-          button.querySelector('.download-option-size').textContent = code;
-          button.querySelector('.download-option-tags').textContent =
-            video.title || video.name || ('Episode ' + ep);
-          button.querySelector('.download-option-label').textContent =
-            String(video.overview || video.description || '').trim();
+          button.querySelector('.episode-download-code').textContent = code;
+          const suppliedTitle = String(video.title || video.name || '').trim();
+          const genericEpisode = 'Episode ' + ep;
+          const titleIsGeneric = suppliedTitle.toLowerCase() === genericEpisode.toLowerCase();
+          button.querySelector('.episode-download-name').textContent =
+            genericEpisode + ((!suppliedTitle || titleIsGeneric) ? '' : ('  “' + suppliedTitle + '”'));
           button.onclick = () => finish(video);
           list.appendChild(button);
         });
