@@ -2382,15 +2382,58 @@
       #player-overlay.is-vod #playerPlayPause,
       #player-overlay.is-vod #playerBack10,
       #player-overlay.is-vod #playerForward10 {
-        min-width:58px;
-        padding:13px 12px !important;
+        position:relative;
+        flex:0 0 auto;
+        width:52px !important;
+        min-width:52px !important;
+        height:52px !important;
+        min-height:52px !important;
+        padding:0 !important;
+        border:1px solid rgba(255,255,255,.18) !important;
+        border-radius:50% !important;
+        background:rgba(42,42,42,.66) !important;
+        color:#fff !important;
+        box-shadow:0 8px 24px rgba(0,0,0,.34) !important;
+        backdrop-filter:blur(14px) !important;
+        -webkit-backdrop-filter:blur(14px) !important;
+      }
+      #player-overlay.is-vod #playerPlayPause {
+        width:68px !important;
+        min-width:68px !important;
+        height:68px !important;
+        min-height:68px !important;
+        font:800 1.72rem/1 system-ui,sans-serif !important;
+        letter-spacing:-.08em;
+      }
+      #player-overlay.is-vod .player-transport-skip {
+        font:800 .66rem/1 system-ui,sans-serif !important;
+      }
+      #player-overlay.is-vod .transport-skip-glyph {
+        position:absolute;
+        inset:7px 0 auto;
+        font-size:1.55rem;
+        line-height:1;
+        font-weight:500;
+      }
+      #player-overlay.is-vod .transport-skip-number {
+        position:absolute;
+        inset:20px 0 auto;
+        font-size:.64rem;
+        line-height:1;
       }
       #player-overlay.is-vod .player-hud-actions {
-        flex-wrap:wrap !important;
+        display:grid !important;
+        grid-template-columns:auto 52px 68px 52px auto;
+        align-items:center !important;
         justify-content:center !important;
-        gap:8px !important;
-        max-width:calc(100vw - 24px) !important;
+        gap:10px !important;
+        max-width:calc(100vw - 18px) !important;
       }
+      #player-overlay.is-vod #playerTryAnother { grid-column:1 / -1; justify-self:center; }
+      #player-overlay.is-vod #playerBack10 { grid-column:2; grid-row:2; }
+      #player-overlay.is-vod #playerPlayPause { grid-column:3; grid-row:2; }
+      #player-overlay.is-vod #playerForward10 { grid-column:4; grid-row:2; }
+      #player-overlay.is-vod #playerFullscreen { grid-column:1 / -1; grid-row:3; justify-self:center; }
     }
 
     /* Shared rendered action object: identical geometry for posters and episodes. */
@@ -2775,9 +2818,9 @@
         <div class="player-hud-actions">
           <button type="button" id="playerMinimize" class="player-hud-btn">Minimize</button>
           <button type="button" id="playerTryAnother" class="player-hud-btn">Try another stream</button>
-          <button type="button" id="playerPlayPause" class="player-hud-btn">Pause</button>
-          <button type="button" id="playerBack10" class="player-hud-btn">−10s</button>
-          <button type="button" id="playerForward10" class="player-hud-btn">+10s</button>
+          <button type="button" id="playerPlayPause" class="player-hud-btn player-transport-main" aria-label="Pause">Ⅱ</button>
+          <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip" aria-label="Back 10 seconds"><span class="transport-skip-glyph">↶</span><span class="transport-skip-number">10</span></button>
+          <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip" aria-label="Forward 10 seconds"><span class="transport-skip-glyph">↷</span><span class="transport-skip-number">10</span></button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn">Fullscreen</button>
           <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
@@ -4327,7 +4370,11 @@
       document.getElementById('playerSettings').onclick=()=>{panel.hidden=!panel.hidden;
     document.getElementById('playerStreamPicker').onclick = openRawStreamPicker;if(!panel.hidden)populatePlayerTracks()};
       const playPauseButton=document.getElementById('playerPlayPause');
-      const syncPlayPauseButton=()=>{ if(playPauseButton) playPauseButton.textContent=video.paused?'Play':'Pause'; };
+      const syncPlayPauseButton=()=>{
+        if(!playPauseButton) return;
+        playPauseButton.textContent=video.paused?'▶':'Ⅱ';
+        playPauseButton.setAttribute('aria-label',video.paused?'Play':'Pause');
+      };
       playPauseButton.onclick=async()=>{ try{ if(video.paused) await video.play(); else video.pause(); }catch(_){} syncPlayPauseButton(); };
       video.addEventListener('play',syncPlayPauseButton);
       video.addEventListener('pause',syncPlayPauseButton);
