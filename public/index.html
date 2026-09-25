@@ -143,6 +143,8 @@
       transition: border-color 0.2s, background 0.2s;
     }
     .header-search::placeholder { color: var(--text-muted); }
+    .search-row-heading{grid-column:1/-1;margin:12px 0 0;font:800 1.05rem/1.2 'Outfit',sans-serif;color:var(--text);letter-spacing:.01em}
+    .search-row-heading small{margin-left:7px;color:var(--text-muted);font:650 .7rem/1 'Inter',sans-serif;text-transform:uppercase;letter-spacing:.08em}
     .header-search:focus { border-color: var(--accent); background: rgba(255,255,255,0.08); }
     .control-bar {
       display:flex;
@@ -818,6 +820,7 @@
       .card:hover .info { padding-bottom:9px; }
       .title { font-size:.93rem; margin-bottom:0; }
       .desc { display:none; }
+      .details-player-picker { display:none !important; }
       .details-actions {
         flex-wrap:nowrap;
         gap:6px;
@@ -4615,9 +4618,16 @@
         const res = await fetch(url);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Search failed');
-        const results = [...(data.metas || [])].sort((a, b) =>
-          progressMatchScore(b) - progressMatchScore(a)
-        );
+        // Keep AIOMetadata's searchable catalogs separate, in manifest order, as
+        // Nuvio does. This prevents broad franchise searches from being flattened
+        // into a single lossy result set before Movie/Series presentation.
+        const catalogRows = Array.isArray(data.catalogs) ? data.catalogs : [];
+        const results = catalogRows.length
+          ? catalogRows.flatMap(row => (row.metas || []).map(meta => ({
+              ...meta,
+              _searchCatalog: { id:row.catalogId, name:row.catalogName, type:row.type }
+            })))
+          : [...(data.metas || [])];
         document.getElementById('searchContextTitle').textContent =
           results.length + (results.length === 1 ? ' result' : ' results') +
           ' for “' + clean + '”';
@@ -4666,7 +4676,7 @@
         applySearch(raw);
         return;
       }
-      searchTimer = setTimeout(() => applySearch(raw), 300);
+      searchTimer = setTimeout(() => applySearch(raw), 350);
     });
     searchInput.addEventListener('focus', () => {
       if (searchInput.value.trim()) {
@@ -4777,7 +4787,22 @@
       updateHero(metas[0]);
       prefetchNearVisibleArtwork(metas);
 
+      let lastSearchCatalogKey = '';
       for (const [metaIndex, meta] of metas.entries()) {
+        if (meta && meta._searchCatalog) {
+          const searchCatalogKey = String(meta._searchCatalog.type || '') + ':' + String(meta._searchCatalog.id || '');
+          if (searchCatalogKey !== lastSearchCatalogKey) {
+            lastSearchCatalogKey = searchCatalogKey;
+            const heading = document.createElement('div');
+            heading.className = 'search-row-heading';
+            const label = document.createElement('span');
+            label.textContent = String(meta._searchCatalog.name || 'Results');
+            const suffix = document.createElement('small');
+            suffix.textContent = String(meta._searchCatalog.type || '');
+            heading.append(label, suffix);
+            host.appendChild(heading);
+          }
+        }
         const card = document.createElement('div');
         card.className = 'card' + (currentMode === 'sports' ? ' live-card' : '');
         card.dataset.contentId = String(meta.id || '');
