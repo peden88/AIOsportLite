@@ -820,7 +820,6 @@
       .card:hover .info { padding-bottom:9px; }
       .title { font-size:.93rem; margin-bottom:0; }
       .desc { display:none; }
-      .details-player-picker { display:none !important; }
       .details-actions {
         flex-wrap:nowrap;
         gap:6px;
@@ -2001,12 +2000,43 @@
       background:rgba(8,11,15,.52); outline:2px solid rgba(255,255,255,.30); outline-offset:2px;
     }
     @media (max-width: 700px) {
-      /* Keep all three series actions on one physical row. This late override
-         intentionally wins over the desktop .details-actions rule below. */
-      .details-actions { flex-wrap:nowrap !important; gap:6px !important; align-items:center; }
-      .details-actions > button { flex:0 1 auto; min-width:0; padding:9px 9px; font-size:.70rem; white-space:nowrap; }
-      .details-actions .season-control { flex:0 1 auto; min-width:0; margin:0; padding:3px; }
-      .details-actions .season-select { min-width:88px; max-width:108px; height:36px; padding-left:8px; padding-right:22px; font-size:.70rem; }
+      /* Details actions: never overflow the sheet. Series keeps its three
+         controls aligned above episodes; movies use a balanced two-column grid. */
+      .details-actions {
+        display:grid !important;
+        width:100%;
+        gap:7px !important;
+        align-items:stretch;
+      }
+      .details-actions[data-details-type="series"] { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .details-actions[data-details-type="movie"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .details-actions > button,
+      .details-actions .season-control {
+        width:100%;
+        min-width:0 !important;
+        margin:0 !important;
+        min-height:42px;
+      }
+      .details-actions > button {
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:9px 7px !important;
+        font-size:.70rem !important;
+        line-height:1.12;
+        white-space:normal !important;
+        text-align:center;
+      }
+      .details-actions .season-control { padding:3px !important; }
+      .details-actions .season-select {
+        width:100% !important;
+        min-width:0 !important;
+        max-width:none !important;
+        height:36px;
+        padding-left:8px;
+        padding-right:22px;
+        font-size:.70rem;
+      }
     }
     .episode-skeleton {
       flex:0 0 min(76vw,270px); border-radius:14px; overflow:hidden;
@@ -2189,6 +2219,43 @@
       display:flex !important;
       visibility:visible !important;
       opacity:1 !important;
+    }
+    @media(max-width:650px), (hover:none) and (pointer:coarse) {
+      #player-overlay.is-vod .player-hud {
+        left:0 !important;
+        right:0 !important;
+        bottom:calc(18px + env(safe-area-inset-bottom,0px)) !important;
+        justify-content:center !important;
+        pointer-events:none;
+      }
+      #player-overlay.is-vod .player-hud-actions {
+        position:static !important;
+        width:auto !important;
+        max-width:none !important;
+        padding:0 !important;
+        border:0 !important;
+        background:transparent !important;
+        box-shadow:none !important;
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+        pointer-events:none;
+      }
+      #player-overlay.is-vod .player-hud-actions > * { display:none !important; }
+      #player-overlay.is-vod #playerTryAnother {
+        display:inline-flex !important;
+        align-items:center;
+        justify-content:center;
+        min-width:190px;
+        min-height:50px;
+        padding:13px 22px !important;
+        border:1px solid rgba(255,255,255,.20) !important;
+        border-radius:15px !important;
+        background:#273039 !important;
+        color:#f5f7f8 !important;
+        box-shadow:0 10px 28px rgba(0,0,0,.34) !important;
+        font:800 .86rem/1 'Inter',sans-serif !important;
+        pointer-events:auto;
+      }
     }
 
     /* Shared rendered action object: identical geometry for posters and episodes. */
@@ -3900,6 +3967,11 @@
 
       const isVodPlayback = !['sport_event','live_channel','sport'].includes(String(contentType || ''));
       document.getElementById('player-overlay')?.classList.toggle('is-vod', isVodPlayback);
+      const playbackVideo = document.getElementById('video');
+      if (playbackVideo) {
+        const compactTouch = window.matchMedia?.('(max-width:650px), (hover:none) and (pointer:coarse)')?.matches === true;
+        playbackVideo.controls = !(isVodPlayback && compactTouch);
+      }
 
       const isEpisode = contentType === 'episode' || String(meta?.contentType || '').toLowerCase() === 'series';
       title.textContent = isEpisode
@@ -5649,6 +5721,7 @@
       const seasonControl = document.getElementById('seasonControl');
       const seasonSelect = document.getElementById('seasonSelect');
       const actions = document.getElementById('detailsActions');
+      actions.dataset.detailsType = type;
       const heroAction = document.getElementById('detailsHeroAction');
       const heroPlay = document.getElementById('detailsMoviePlay');
       document.body.classList.add('details-open');
