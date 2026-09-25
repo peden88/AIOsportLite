@@ -389,18 +389,36 @@ async function tmdbResolve(type,ids){
 }
 async function tmdbBundle(type,tmdbId){
   const token=String(process.env.TMDB_API_READ_ACCESS_TOKEN||process.env.TMDB_BEARER_TOKEN||'').trim(),apiKey=String(process.env.TMDB_API_KEY||'').trim();if(!tmdbId||(!token&&!apiKey))return null;
-  const media=type==='movie'?'movie':'tv',headers=token?{Authorization:'Bearer '+token}:{},qs=(apiKey?'api_key='+encodeURIComponent(apiKey)+'&':'')+'append_to_response=credits,videos,recommendations,external_ids&language=en-US';
+  const media=type==='movie'?'movie':'tv',headers=token?{Authorization:'Bearer '+token}:{},qs=(apiKey?'api_key='+encodeURIComponent(apiKey)+'&':'')+'append_to_response=credits,videos,recommendations,similar,external_ids&language=en-US';
   const key='tmdb:'+media+':'+tmdbId,c=cached(key);if(c)return c;
   try{return putCache(key,await publicJson('https://api.themoviedb.org/3/'+media+'/'+tmdbId+'?'+qs,{headers}))}catch(_){return null}
 }
 function normalizeTmdbPerson(row,role){return {name:String(row?.name||row?.original_name||''),character:String(row?.character||row?.job||role||''),photo:row?.profile_path?'https://image.tmdb.org/t/p/w500'+row.profile_path:'',tmdbId:row?.id||null}}
 function tmdbPreview(row,type){const rid=row?.external_ids?.imdb_id||'',tid=row?.id;return {id:rid||('tmdb:'+tid),tmdbId:tid,imdbId:rid,type,name:row?.title||row?.name||'',releaseInfo:String(row?.release_date||row?.first_air_date||'').slice(0,4),description:row?.overview||'',rating:row?.vote_average,poster:row?.backdrop_path?'https://image.tmdb.org/t/p/w780'+row.backdrop_path:(row?.poster_path?'https://image.tmdb.org/t/p/w500'+row.poster_path:''),background:row?.backdrop_path?'https://image.tmdb.org/t/p/w780'+row.backdrop_path:'',genres:[]}}
+async function mdbListMeta(imdbId){
+  const apiKey=String(process.env.MDBLIST_API_KEY||process.env.MDBLIST_APIKEY||'').trim();if(!apiKey||!imdbId)return null;
+  const key='mdblist:'+imdbId,c=cached(key,24*60*60*1000);if(c)return c;
+  try{return putCache(key,await publicJson('https://api.mdblist.com/?apikey='+encodeURIComponent(apiKey)+'&i='+encodeURIComponent(imdbId),{timeoutMs:8000}))}catch(_){return null}
+}
+function mdbRatings(body){
+  const out=[];if(!body||typeof body!=='object')return out;
+  const add=(source,value)=>{const n=Number(value);if(source&&Number.isFinite(n)&&n>0&&!out.some(x=>x.source===source))out.push({source,value:n})};
+  const direct=[['IMDb',body.imdb_rating??body.imdbrating],['TMDB',body.tmdb_rating??body.tmdbrating],['Metacritic',body.metacritic_rating??body.metacritic],['Rotten Tomatoes',body.tomatoes_rating??body.tomatoes],['Letterboxd',body.letterboxd_rating??body.letterboxd],['Roger Ebert',body.rogerebert_rating??body.rogerebert]];
+  direct.forEach(([s,v])=>add(s,v));
+  (Array.isArray(body.ratings)?body.ratings:[]).forEach(row=>add(String(row?.source||row?.name||''),row?.value??row?.score));
+  return out;
+}
+function mergeTmdbRelated(tmdb,type){
+  const rows=[...(tmdb?.recommendations?.results||[]),...(tmdb?.similar?.results||[])],seen=new Set(),out=[];
+  for(const row of rows){const item=tmdbPreview(row,type),key=String(item.tmdbId||item.id);if(!item.id||!item.name||seen.has(key))continue;seen.add(key);out.push(item)}
+  return out;
+}
 async function cinemetaMeta(type,imdbId){
   if(!imdbId)return null;const ct=type==='movie'?'movie':'series',key='cinemeta:'+ct+':'+imdbId,c=cached(key);if(c)return c;
   try{return putCache(key,await publicJson(CINEMETA_BASE+'/meta/'+ct+'/'+encodeURIComponent(imdbId)+'.json'))}catch(_){return null}
 }
 async function enrichment(type,id){
-  const safeType=validStremioType(type),safeId=cleanId(id),baseBody=await meta(safeType,safeId),base=baseBody?.meta||{},ids=parseIds(base,safeId),cine=(await cinemetaMeta(safeType,ids.imdb))?.meta||{},merged={...cine,...base},mergedIds=parseIds(merged,safeId),tmdbId=await tmdbResolve(safeType,mergedIds),tmdb=await tmdbBundle(safeType,tmdbId);
+  const safeType=validStremioType(type),safeId=cleanId(id),baseBody=await meta(safeType,safeId),base=baseBody?.meta||{},ids=parseIds(base,safeId),cine=(await cinemetaMeta(safeType,ids.imdb))?.meta||{},merged={...cine,...base},mergedIds=parseIds(merged,safeId),tmdbId=await tmdbResolve(safeType,mergedIds),[tmdb,mdb]=await Promise.all([tmdbBundle(safeType,tmdbId),mdbListMeta(mergedIds.imdb)]);
   const creators=[],cast=[];
   const basePeople=v=>Array.isArray(v)?v:(v?[v]:[]);
   if(!tmdb){basePeople(merged.director).forEach(name=>creators.push({name:String(name),character:'Director'}));basePeople(merged.writer).forEach(name=>creators.push({name:String(name),character:'Writer'}));basePeople(merged.cast).forEach(name=>cast.push(typeof name==='string'?{name,character:'Cast'}:name));}
@@ -410,11 +428,12 @@ async function enrichment(type,id){
     (tmdb.credits?.cast||[]).slice(0,30).forEach(x=>cast.push(normalizeTmdbPerson(x,'Cast')));
   }
   const trailers=(tmdb?.videos?.results||[]).filter(x=>x?.site==='YouTube'&&['Trailer','Teaser'].includes(String(x.type||''))).sort((a,b)=>(b.official===true)-(a.official===true)).map(x=>({name:x.name||x.type,type:x.type,lang:x.iso_639_1||'',youtubeId:x.key,official:x.official===true}));
-  const ratings=[];const imdbRating=merged.imdbRating||merged.imdb_rating;if(imdbRating)ratings.push({source:'IMDb',value:Number(imdbRating)});
-  const tmdbRating=tmdb?.vote_average||merged.tmdbRating||merged.tmdb_rating||merged.rating;if(tmdbRating)ratings.push({source:'TMDB',value:Number(tmdbRating)});
-  let related=await traktRelated(safeType,{...ids,tmdb:tmdbId||ids.tmdb});
-  if(!related.length&&tmdb?.recommendations?.results)related=tmdb.recommendations.results.map(x=>tmdbPreview(x,safeType)).filter(x=>x.id&&x.name);
-  return {meta:{...cine,...base,tmdbId:tmdbId||mergedIds.tmdb,castMembers:cast.length?cast:(base.castMembers||cine.castMembers),creatorMembers:creators.length?creators:(base.creatorMembers||cine.creatorMembers),trailers:trailers.length?trailers:(merged.trailers||merged.trailerStreams||base.trailers),ratings},related,source:{related:related.length?'trakt-or-tmdb':'none',people:tmdb?'tmdb':'aiometadata',trailers:trailers.length?'tmdb':'aiometadata'}};
+  const ratings=mdbRatings(mdb);const addRating=(source,value)=>{const n=Number(value);if(Number.isFinite(n)&&n>0&&!ratings.some(x=>x.source===source))ratings.push({source,value:n})};
+  addRating('IMDb',merged.imdbRating||merged.imdb_rating);addRating('TMDB',tmdb?.vote_average||merged.tmdbRating||merged.tmdb_rating||merged.rating);
+  // Trakt-free Nuvio-style recommendation path: TMDB Recommendations first,
+  // then TMDB Similar, with AIOMetadata/Cinemeta retained for title metadata.
+  const related=mergeTmdbRelated(tmdb,safeType);
+  return {meta:{...cine,...base,tmdbId:tmdbId||mergedIds.tmdb,castMembers:cast.length?cast:(base.castMembers||cine.castMembers),creatorMembers:creators.length?creators:(base.creatorMembers||cine.creatorMembers),trailers:trailers.length?trailers:(merged.trailers||merged.trailerStreams||base.trailers),ratings},related,source:{related:related.length?'tmdb-recommendations-similar':'none',ratings:mdb?'mdblist+tmdb':'tmdb',people:tmdb?'tmdb':'aiometadata',trailers:trailers.length?'tmdb':'aiometadata'}};
 }
 async function related(type,id,options={}){
   const bundle=await enrichment(type,id),limit=Math.max(1,Math.min(24,Number(options.limit)||20));
