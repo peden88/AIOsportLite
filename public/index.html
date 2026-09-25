@@ -3025,6 +3025,49 @@
     padding-bottom:0 !important;
   }
 }
+
+/* Mobile details geometry fix: target the actual description/actions elements. */
+@media(max-width:650px) {
+  #detailsCopy {
+    width:calc(100% + 20px) !important;
+    max-width:none !important;
+    margin-right:-20px !important;
+    box-sizing:border-box !important;
+  }
+  #detailsDescription {
+    display:block !important;
+    width:100% !important;
+    max-width:none !important;
+    margin-right:0 !important;
+    padding-right:0 !important;
+    box-sizing:border-box !important;
+  }
+  #detailsActions {
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    width:100% !important;
+    max-width:none !important;
+    margin-right:0 !important;
+    gap:10px !important;
+    box-sizing:border-box !important;
+  }
+  #detailsActions > button,
+  #detailsActions > .season-control {
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+    height:58px !important;
+    min-height:58px !important;
+    margin:0 !important;
+    box-sizing:border-box !important;
+  }
+  #detailsActions > button,
+  #detailsActions .season-select {
+    font-size:.82rem !important;
+    font-weight:800 !important;
+    line-height:1 !important;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
