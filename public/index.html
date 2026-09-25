@@ -895,8 +895,12 @@
         grid-column:2;
         grid-row:1;
         min-width:0;
-        padding-top:54px;
+        padding-top:0;
         justify-self:center;
+        align-self:start;
+        /* Match the bottom of the play/player stack to the 2:3 poster bottom.
+           Poster is 130x195 on mobile; this stack is ~150px tall. */
+        transform:translateY(42px);
       }
       .details-play-orb{
         width:70px;
