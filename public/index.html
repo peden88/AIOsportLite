@@ -494,7 +494,7 @@
     .details-section[hidden]{display:none}.details-section h3{margin:0 0 12px;font:800 1.05rem/1.2 'Outfit',sans-serif;color:#f8fafc}
     .details-people{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 5px;scrollbar-width:none}.details-people::-webkit-scrollbar{display:none}
     .details-person{flex:0 0 auto;max-width:180px;padding:8px 11px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(10,12,16,.50);color:#eef2f5;font-size:.76rem;line-height:1.25}.details-person small{display:block;margin-top:3px;color:rgba(225,232,238,.58);font-size:.64rem}
-    .details-related{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.details-related-card{min-width:0;border:0;background:transparent;color:#fff;text-align:left;cursor:pointer;padding:0}.details-related-card img{display:block;width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:10px;border:2px solid transparent;box-shadow:0 8px 22px rgba(0,0,0,.26);transition:transform .18s,border-color .18s}.details-related-card:hover img,.details-related-card:focus-visible img{transform:translateY(-3px);border-color:var(--accent)}.details-related-card span{display:block;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 .72rem/1.2 'Inter',sans-serif}
+    .details-related{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:start}.details-related-card{min-width:0;border:0;background:transparent;color:#fff;text-align:left;cursor:pointer;padding:0}.details-related-card img{display:block;width:100%;height:auto;aspect-ratio:2/3;object-fit:cover;border-radius:10px;border:2px solid transparent;box-shadow:0 8px 22px rgba(0,0,0,.26);transition:transform .18s,border-color .18s}.details-related-card:hover img,.details-related-card:focus-visible img{transform:translateY(-3px);border-color:var(--accent)}.details-related-card span{display:block;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 .72rem/1.2 'Inter',sans-serif}
     @media(max-width:850px){.details-related{grid-template-columns:repeat(4,minmax(0,1fr))}}
     @media(max-width:650px){.details-related{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.details-secondary{margin-top:18px;gap:18px}.details-trailer-badge{left:14px;bottom:14px}.details-trailer-dismiss{right:14px;bottom:12px}}
     @media(prefers-reduced-motion:reduce){.details-trailer-stage{transition:none!important}}
@@ -3450,6 +3450,10 @@
         </div>
       </div>
       <div class="episode-list" id="episodeList"></div>
+      <div class="episode-scroll-controls" id="episodeScrollControls" hidden>
+        <button type="button" id="episodeScrollLeft" aria-label="Scroll episodes left">‹</button>
+        <button type="button" id="episodeScrollRight" aria-label="Scroll episodes right">›</button>
+      </div>
       <div class="details-secondary" id="detailsSecondary">
         <section class="details-section" id="detailsPeopleSection" hidden>
           <h3>Cast &amp; Crew</h3>
@@ -3459,10 +3463,6 @@
           <h3>More Like This</h3>
           <div class="details-related" id="detailsRelated"></div>
         </section>
-      </div>
-      <div class="episode-scroll-controls" id="episodeScrollControls" hidden>
-        <button type="button" id="episodeScrollLeft" aria-label="Scroll episodes left">‹</button>
-        <button type="button" id="episodeScrollRight" aria-label="Scroll episodes right">›</button>
       </div>
     </div>
   </div>
@@ -6747,8 +6747,10 @@
 
     function trailerCandidate(meta) {
       const rows = [
-        meta?.trailer, meta?.trailerUrl, meta?.preview, meta?.previewUrl,
-        ...(Array.isArray(meta?.trailers) ? meta.trailers.flatMap(row => typeof row === 'string' ? [row] : [row?.url,row?.source,row?.video,row?.youtubeId,row?.key].filter(Boolean)) : [])
+        meta?.trailer, meta?.trailerUrl, meta?.trailer_url, meta?.preview, meta?.previewUrl,
+        meta?.youtubeTrailer, meta?.youtube_trailer, meta?.youtubeId, meta?.youtube_id,
+        ...(Array.isArray(meta?.trailers) ? meta.trailers.flatMap(row => typeof row === 'string' ? [row] : [row?.url,row?.source,row?.video,row?.youtubeId,row?.youtube_id,row?.key].filter(Boolean)) : []),
+        ...(Array.isArray(meta?.videos) ? meta.videos.filter(row => /trailer|teaser/i.test(String(row?.type||row?.name||row?.title||''))).flatMap(row => [row?.url,row?.source,row?.youtubeId,row?.youtube_id,row?.key].filter(Boolean)) : [])
       ].filter(Boolean).map(String);
       for (const raw of rows) {
         if (/^[A-Za-z0-9_-]{8,16}$/.test(raw)) return {kind:'youtube',id:raw};
@@ -6784,7 +6786,7 @@
       dismissDetailsTrailer();
       const visit=++detailsTrailerVisitToken;
       const candidate=trailerCandidate(meta);
-      if(!candidate||reducedMotionActive()) return;
+      if(!candidate) return;
       detailsTrailerTimer=setTimeout(async()=>{
         if(visit!==detailsTrailerVisitToken||document.getElementById('details-overlay')?.style.display!=='block')return;
         const stage=document.getElementById('detailsTrailerStage'),video=document.getElementById('detailsTrailerVideo'),frame=document.getElementById('detailsTrailerFrame');
@@ -6811,27 +6813,31 @@
           if(name&&!rows.some(x=>x.name===name&&x.role===job))rows.push({name:String(name),role:String(job||'')});
         });
       };
-      add(meta?.cast,'Cast');add(meta?.actors,'Cast');add(meta?.director,'Director');add(meta?.directors,'Director');add(meta?.writer,'Writer');add(meta?.writers,'Writer');add(meta?.crew,'Crew');
+      add(meta?.cast,'Cast');add(meta?.casts,'Cast');add(meta?.actors,'Cast');add(meta?.actor,'Cast');add(meta?.stars,'Cast');
+      add(meta?.director,'Director');add(meta?.directors,'Director');add(meta?.writer,'Writer');add(meta?.writers,'Writer');add(meta?.creator,'Creator');add(meta?.creators,'Creator');add(meta?.crew,'Crew');
+      if(Array.isArray(meta?.credits)){meta.credits.forEach(row=>add(row,row?.department||row?.known_for_department||'Cast & Crew'))}
       host.innerHTML='';
       rows.slice(0,18).forEach(row=>{const el=document.createElement('div');el.className='details-person';el.textContent=row.name;if(row.role){const small=document.createElement('small');small.textContent=row.role;el.appendChild(small)}host.appendChild(el)});
       section.hidden=!rows.length;
     }
 
-    function renderDetailsRelated(meta) {
+    async function renderDetailsRelated(meta) {
       const section=document.getElementById('detailsRelatedSection'),host=document.getElementById('detailsRelated');
       if(!section||!host)return;
-      const id=String(meta?.id||meta?.contentId||''), type=normalizedVodType(meta), genres=(Array.isArray(meta?.genres)?meta.genres:[]).map(x=>String(x).toLowerCase());
-      const score=item=>{
-        const ig=(Array.isArray(item?.genres)?item.genres:[]).map(x=>String(x).toLowerCase());
-        return ig.filter(g=>genres.includes(g)).length*10+(normalizedVodType(item)===type?2:0);
-      };
-      const candidates=currentItems.filter(x=>String(x?.id||'')!==id&&x?.poster&&normalizedVodType(x)).map(x=>({x,s:score(x)})).filter(r=>r.s>0).sort((a,b)=>b.s-a.s).slice(0,6).map(r=>r.x);
-      host.innerHTML='';
-      candidates.forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
-      section.hidden=!candidates.length;
+      const id=String(meta?.id||meta?.contentId||''),type=normalizedVodType(meta);
+      host.innerHTML='';section.hidden=true;
+      let candidates=[];
+      try{
+        const res=await fetch('/api/v1/vod/related/'+encodeURIComponent(type)+'/'+encodeURIComponent(id)+'?limit=12');
+        const body=await res.json();
+        if(res.ok&&Array.isArray(body.metas))candidates=body.metas;
+      }catch(_){}
+      if(!candidates.length)return;
+      candidates.slice(0,6).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
+      section.hidden=!host.children.length;
     }
 
-    function enrichDetails(meta) {
+    async function enrichDetails(meta) {
       renderDetailsPeople(meta);
       renderDetailsRelated(meta);
       scheduleDetailsTrailer(meta);
