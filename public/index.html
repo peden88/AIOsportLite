@@ -2008,7 +2008,7 @@
         gap:7px !important;
         align-items:stretch;
       }
-      .details-actions[data-details-type="series"] { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .details-actions[data-details-type="series"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .details-actions[data-details-type="movie"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .details-actions > button,
       .details-actions .season-control {
@@ -2038,6 +2038,38 @@
         font-size:.70rem;
       }
     }
+    @media (max-width: 700px) {
+      .details-actions[data-details-type="series"] .season-control {
+        display:flex !important;
+        align-items:stretch;
+        padding:0 !important;
+        border:0 !important;
+        border-radius:10px !important;
+        background:transparent !important;
+        box-shadow:none !important;
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+      }
+      .details-actions[data-details-type="series"] .season-select {
+        box-sizing:border-box;
+        min-height:42px !important;
+        height:100% !important;
+        padding:9px 30px 9px 12px !important;
+        border:1px solid rgba(255,255,255,.09) !important;
+        border-radius:10px !important;
+        background:#1a2129 !important;
+        color:#f1f3f4 !important;
+        font:700 .70rem/1.12 'Inter',sans-serif !important;
+        text-align:center;
+        text-align-last:center;
+        box-shadow:none !important;
+      }
+      .details-actions[data-details-type="series"] .season-select:focus {
+        background:#273039 !important;
+        border-color:rgba(255,255,255,.22) !important;
+      }
+    }
+
     .episode-skeleton {
       flex:0 0 min(76vw,270px); border-radius:14px; overflow:hidden;
       border:1px solid rgba(255,255,255,.06); background:rgba(20,25,31,.55);
@@ -5247,6 +5279,81 @@
       });
     }
 
+    function chooseSeriesDownloadEpisode(meta, videos, season) {
+      const selectedSeason = Number(season);
+      const episodes = (Array.isArray(videos) ? videos : [])
+        .filter(video => video?.id && (Number(video.season) || 0) === selectedSeason)
+        .sort((a,b) => (Number(a.episode) || 0) - (Number(b.episode) || 0));
+      if (!episodes.length) return Promise.resolve(null);
+
+      return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'download-picker-overlay';
+        overlay.innerHTML =
+          '<section class="download-picker-sheet" role="dialog" aria-modal="true" aria-label="Choose episode to download">' +
+            '<div class="download-picker-head"><div><h3>Choose episode</h3><p></p></div>' +
+            '<button type="button" class="download-picker-close" aria-label="Close">×</button></div>' +
+            '<div class="download-picker-list"></div>' +
+          '</section>';
+        const seasonName = selectedSeason > 0 ? ('Season ' + selectedSeason) : 'Specials';
+        overlay.querySelector('.download-picker-head p').textContent =
+          (meta?.name || 'Series') + ' · ' + seasonName;
+        const list = overlay.querySelector('.download-picker-list');
+        let settled = false;
+        const finish = value => {
+          if (settled) return;
+          settled = true;
+          overlay.remove();
+          resolve(value);
+        };
+        overlay.querySelector('.download-picker-close').onclick = () => finish(null);
+        overlay.addEventListener('click', event => { if (event.target === overlay) finish(null); });
+        episodes.forEach((video,index) => {
+          const ep = Number(video.episode) || index + 1;
+          const code = selectedSeason > 0
+            ? ('S' + String(selectedSeason).padStart(2,'0') + 'E' + String(ep).padStart(2,'0'))
+            : ('E' + String(ep).padStart(2,'0'));
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'download-option';
+          button.innerHTML =
+            '<span class="download-option-size"></span>' +
+            '<span class="download-option-meta"><span class="download-option-tags"></span>' +
+            '<span class="download-option-label"></span></span>' +
+            '<span class="download-option-arrow">›</span>';
+          button.querySelector('.download-option-size').textContent = code;
+          button.querySelector('.download-option-tags').textContent =
+            video.title || video.name || ('Episode ' + ep);
+          button.querySelector('.download-option-label').textContent =
+            String(video.overview || video.description || '').trim();
+          button.onclick = () => finish(video);
+          list.appendChild(button);
+        });
+        document.body.appendChild(overlay);
+        overlay.querySelector('.download-option')?.focus();
+      });
+    }
+
+    function configureSeriesDownloadAction(meta, videos) {
+      const actions = document.getElementById('detailsActions');
+      const seasonControl = document.getElementById('seasonControl');
+      const seasonSelect = document.getElementById('seasonSelect');
+      if (!actions || !seasonControl || !seasonSelect) return;
+      let button = document.getElementById('detailsSeriesDownload');
+      if (!button) {
+        button = document.createElement('button');
+        button.type = 'button';
+        button.id = 'detailsSeriesDownload';
+        button.textContent = 'Download';
+        actions.insertBefore(button, seasonControl);
+      }
+      button.onclick = async () => {
+        const season = Number(seasonSelect.value || currentDetailsSeason || 0);
+        const video = await chooseSeriesDownloadEpisode(currentDetailsMeta || meta, videos, season);
+        if (video) await downloadVod(currentDetailsMeta || meta, video);
+      };
+    }
+
     async function downloadVod(meta, video = null) {
       const isEpisode = !!video;
       const id = isEpisode ? video.id : meta.id;
@@ -5890,6 +5997,8 @@
           option.textContent = season > 0 ? ('Season ' + season) : 'Specials';
           seasonSelect.appendChild(option);
         }
+
+        configureSeriesDownloadAction(currentDetailsMeta, videos);
 
         const renderSeason = season => {
           list.innerHTML = '';
