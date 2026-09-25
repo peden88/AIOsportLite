@@ -6828,7 +6828,7 @@
 
     function selectDetailsTab(name) {
       const tabs=[...document.querySelectorAll('#detailsInfoTabs [data-details-tab]')];
-      const available=tabs.filter(tab=>{const panel=document.querySelector('[data-details-panel="'+tab.dataset.detailsTab+'"]');return panel&&!panel.dataset.empty});
+      const available=tabs.filter(tab=>{const panel=document.querySelector('[data-details-panel="'+tab.dataset.detailsTab+'"]');return panel&&panel.dataset.empty!=='true'});
       if(!available.length){document.getElementById('detailsInfoTabs').hidden=true;return}
       document.getElementById('detailsInfoTabs').hidden=false;
       if(!available.some(tab=>tab.dataset.detailsTab===name))name=available[0].dataset.detailsTab;
@@ -6861,7 +6861,7 @@
           target.push({name:String(name),role:String(job||''),photo:safeImageUrl(photo)||''});
         });
       };
-      add(meta?.creator,'Creator',leading);add(meta?.creators,'Creator',leading);add(meta?.director,'Director',leading);add(meta?.directors,'Director',leading);add(meta?.writer,'Writer',leading);add(meta?.writers,'Writer',leading);
+      add(meta?.creatorMembers,'Creator',leading);add(meta?.creator,'Creator',leading);add(meta?.creators,'Creator',leading);add(meta?.director,'Director',leading);add(meta?.directors,'Director',leading);add(meta?.writer,'Writer',leading);add(meta?.writers,'Writer',leading);
       add(meta?.castMembers,'Cast',cast);add(meta?.cast,'Cast',cast);add(meta?.casts,'Cast',cast);add(meta?.actors,'Cast',cast);add(meta?.stars,'Cast',cast);
       if(Array.isArray(meta?.credits))meta.credits.forEach(row=>add(row,row?.department||row?.known_for_department||'Cast',/creator|director|writer/i.test(String(row?.job||row?.role||''))?leading:cast));
       host.innerHTML='';
