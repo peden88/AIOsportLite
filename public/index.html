@@ -791,8 +791,8 @@
         line-height:1.2;
       }
       .header-search::placeholder {
-        font-size:clamp(12px,3.45vw,15px);
-        letter-spacing:-.02em;
+        font-size:clamp(10px,2.75vw,12px);
+        letter-spacing:-.035em;
       }
       .header-search-wrap .header-search { padding-right:42px; }
       .clear-search-btn { right:5px; width:32px; height:32px; }
@@ -2325,13 +2325,13 @@
         pointer-events:none;
       }
       #player-overlay.is-vod .player-hud-actions > * { display:none !important; }
-      #player-overlay.is-vod #playerTryAnother {
+      #player-overlay.is-vod #playerTryAnother,
+      #player-overlay.is-vod #playerFullscreen {
         display:inline-flex !important;
         align-items:center;
         justify-content:center;
-        min-width:190px;
         min-height:50px;
-        padding:13px 22px !important;
+        padding:13px 20px !important;
         border:1px solid rgba(255,255,255,.20) !important;
         border-radius:15px !important;
         background:#273039 !important;
@@ -2339,6 +2339,12 @@
         box-shadow:0 10px 28px rgba(0,0,0,.34) !important;
         font:800 .86rem/1 'Inter',sans-serif !important;
         pointer-events:auto;
+      }
+      #player-overlay.is-vod #playerTryAnother {
+        display:inline-flex !important;
+        align-items:center;
+        justify-content:center;
+        min-width:180px;
       }
     }
 
@@ -2670,7 +2676,7 @@
         <div>Finding the best stream</div>
       </div>
       <div id="playback-message"><strong>Unable to start playback</strong><span>There are no working streams for this event right now.</span></div>
-      <video id="video" controls autoplay></video>
+      <video id="video" controls autoplay playsinline webkit-playsinline></video>
       <div id="playerHud" class="player-hud">
         <button type="button" id="playerHudToggle" class="player-hud-toggle" aria-label="Hide playback details" title="Hide playback details">−</button>
         <div class="player-hud-main">
@@ -4245,7 +4251,34 @@
       document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
       document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
       document.getElementById('playerPip').onclick=async()=>{try{if(document.pictureInPictureElement)await document.exitPictureInPicture();else if(video.requestPictureInPicture)await video.requestPictureInPicture()}catch(_){}};
-      document.getElementById('playerFullscreen').onclick=()=>{const host=document.getElementById('video-container');if(document.fullscreenElement)document.exitFullscreen?.();else host.requestFullscreen?.()};
+      const enterPlayerFullscreen = async () => {
+        const host = document.getElementById('video-container');
+        try {
+          if (document.fullscreenElement) {
+            await document.exitFullscreen?.();
+            return;
+          }
+          if (host?.requestFullscreen) {
+            await host.requestFullscreen();
+            return;
+          }
+          // iPhone Safari exposes fullscreen on the media element rather than
+          // arbitrary containers. Only call it after this explicit user action.
+          if (video?.webkitEnterFullscreen) video.webkitEnterFullscreen();
+        } catch (_) {}
+      };
+      document.getElementById('playerFullscreen').onclick=enterPlayerFullscreen;
+      let playerLastTapAt = 0;
+      video.addEventListener('touchend', event => {
+        const now = Date.now();
+        if (now - playerLastTapAt < 320) {
+          event.preventDefault();
+          playerLastTapAt = 0;
+          enterPlayerFullscreen();
+        } else {
+          playerLastTapAt = now;
+        }
+      }, { passive:false });
       document.getElementById('playerSubtitleSelect').onchange=e=>{[...(video.textTracks||[])].forEach((t,i)=>t.mode=i===Number(e.target.value)?'showing':'disabled')};
       document.getElementById('playerAudioSelect').onchange=e=>{if(hls&&Number(e.target.value)>=0)hls.audioTrack=Number(e.target.value)};
       document.getElementById('playerQualitySelect').onchange=e=>{if(hls)hls.currentLevel=Number(e.target.value)};
