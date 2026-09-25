@@ -1359,6 +1359,16 @@ app.get('/api/v1/vod/skip/:imdbId/:season/:episode', requirePage, async (req, re
   }
 });
 
+app.get('/api/v1/vod/enrichment/:type/:id', requirePage, async (req, res) => {
+  try {
+    res.setHeader('Cache-Control','private, max-age=600');
+    res.json(await vodGateway.enrichment(req.params.type, req.params.id));
+  } catch (err) {
+    console.error('[app-vod] enrichment failed:', err.message);
+    res.status(err.statusCode || 502).json({ error:'Title enrichment is unavailable.' });
+  }
+});
+
 app.get('/api/v1/vod/related/:type/:id', requirePage, async (req, res) => {
   try {
     res.setHeader('Cache-Control','private, max-age=900');
