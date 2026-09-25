@@ -2974,6 +2974,57 @@
     font-weight:800 !important;
   }
 }
+
+/* Mobile details alignment pass — match the marked safe areas. */
+@media(max-width:650px) {
+  .details-copy {
+    width:calc(100% + 10px) !important;
+    max-width:none !important;
+    margin-right:-10px !important;
+  }
+  .details-copy p {
+    display:block !important;
+    width:100% !important;
+    max-width:none !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+    padding-left:0 !important;
+    padding-right:0 !important;
+    box-sizing:border-box !important;
+  }
+  .details-actions {
+    width:calc(100% + 10px) !important;
+    max-width:none !important;
+    margin-right:-10px !important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+    column-gap:10px !important;
+    row-gap:10px !important;
+  }
+  .details-actions > button,
+  .details-actions .season-control {
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    height:58px !important;
+    min-height:58px !important;
+    box-sizing:border-box !important;
+  }
+  .details-actions > button,
+  .details-actions .season-select {
+    font-size:.82rem !important;
+    font-weight:800 !important;
+    line-height:1 !important;
+  }
+  .details-actions .season-control { padding:4px !important; }
+  .details-actions .season-select {
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    height:50px !important;
+    padding-top:0 !important;
+    padding-bottom:0 !important;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
