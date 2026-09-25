@@ -2907,6 +2907,34 @@
     z-index:170 !important;
   }
 }
+
+/* Mobile details width/readability pass */
+@media(max-width:650px) {
+  #details-overlay { padding-left:6px !important; padding-right:6px !important; }
+  .details-shell {
+    width:calc(100vw - 12px) !important;
+    max-width:none !important;
+    padding-left:max(16px,env(safe-area-inset-left)) !important;
+    padding-right:max(16px,env(safe-area-inset-right)) !important;
+  }
+  .details-meta {
+    flex-wrap:nowrap !important;
+    gap:5px !important;
+    width:100%;
+  }
+  .details-meta span {
+    flex:0 1 auto;
+    min-width:0;
+    padding:4px 6px;
+    font-size:clamp(.67rem,3.05vw,.78rem);
+    white-space:nowrap;
+  }
+  .details-copy p {
+    width:100%;
+    max-width:none !important;
+    text-wrap:pretty;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
