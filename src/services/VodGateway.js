@@ -389,7 +389,7 @@ async function tmdbResolve(type,ids){
 }
 async function tmdbBundle(type,tmdbId){
   const token=String(process.env.TMDB_API_READ_ACCESS_TOKEN||process.env.TMDB_BEARER_TOKEN||'').trim(),apiKey=String(process.env.TMDB_API_KEY||'').trim();if(!tmdbId||(!token&&!apiKey))return null;
-  const media=type==='movie'?'movie':'tv',headers=token?{Authorization:'Bearer '+token}:{},qs=(apiKey?'api_key='+encodeURIComponent(apiKey)+'&':'')+'append_to_response=credits,videos,recommendations,similar,external_ids&language=en-US';
+  const media=type==='movie'?'movie':'tv',headers=token?{Authorization:'Bearer '+token}:{},qs=(apiKey?'api_key='+encodeURIComponent(apiKey)+'&':'')+'append_to_response=credits,videos,recommendations,similar,external_ids,release_dates,content_ratings&language=en-US';
   const key='tmdb:'+media+':'+tmdbId,c=cached(key);if(c)return c;
   try{return putCache(key,await publicJson('https://api.themoviedb.org/3/'+media+'/'+tmdbId+'?'+qs,{headers}))}catch(_){return null}
 }
@@ -410,7 +410,10 @@ async function tvdbFallback(type,ids){
   }catch(_){return null}
 }
 function tvdbPeople(body){
-  const out=[];for(const row of (Array.isArray(body?.characters)?body.characters:[])){const p=row?.people?.[0]||row?.person||row?.people||{};const name=p?.name||row?.personName||row?.name;if(!name)continue;out.push({name:String(name),character:String(row?.name||row?.role||'Cast'),photo:String(row?.image||p?.image||p?.image_url||'')})}return out;
+  const out=[];for(const row of (Array.isArray(body?.characters)?body.characters:[])){const p=Array.isArray(row?.people)?row.people[0]:(row?.person||row?.people||{});const name=p?.name||row?.personName||row?.person_name||row?.name;if(!name)continue;out.push({name:String(name),character:String(row?.name||row?.role||row?.type||'Cast'),photo:String(row?.image||row?.image_url||p?.image||p?.image_url||'')})}return out;
+}
+function mergePeople(primary,fallback){
+  const map=new Map();for(const row of [...(primary||[]),...(fallback||[])]){if(!row?.name)continue;const key=String(row.name).toLowerCase();const old=map.get(key);if(!old)map.set(key,{...row});else map.set(key,{...old,character:old.character&&old.character!=='Cast'?old.character:row.character||old.character,photo:old.photo||row.photo||'',tmdbId:old.tmdbId||row.tmdbId||null})}return [...map.values()];
 }
 async function mdbListMeta(imdbId){
   const apiKey=String(process.env.MDBLIST_API_KEY||process.env.MDBLIST_APIKEY||'').trim();if(!apiKey||!imdbId)return null;
@@ -448,10 +451,11 @@ async function enrichment(type,id){
   const trailers=(tmdb?.videos?.results||[]).filter(x=>x?.site==='YouTube'&&['Trailer','Teaser'].includes(String(x.type||''))).sort((a,b)=>(b.official===true)-(a.official===true)).map(x=>({name:x.name||x.type,type:x.type,lang:x.iso_639_1||'',youtubeId:x.key,official:x.official===true}));
   const ratings=mdbRatings(mdb);const addRating=(source,value)=>{const n=Number(value);if(Number.isFinite(n)&&n>0&&!ratings.some(x=>x.source===source))ratings.push({source,value:n})};
   addRating('IMDb',merged.imdbRating||merged.imdb_rating);addRating('TMDB',tmdb?.vote_average||merged.tmdbRating||merged.tmdb_rating||merged.rating);
+  const certification=(()=>{const rows=safeType==='movie'?tmdb?.release_dates?.results:tmdb?.content_ratings?.results;const gb=(rows||[]).find(x=>x.iso_3166_1==='GB')||(rows||[]).find(x=>x.iso_3166_1==='US');if(!gb)return '';if(safeType==='movie')return String(gb.release_dates?.find(x=>x.certification)?.certification||'');return String(gb.rating||'')})();
   // Trakt-free Nuvio-style recommendation path: TMDB Recommendations first,
   // then TMDB Similar, with AIOMetadata/Cinemeta retained for title metadata.
   const related=mergeTmdbRelated(tmdb,safeType);
-  return {meta:{...cine,...base,tmdbId:tmdbId||mergedIds.tmdb,castMembers:cast.length?cast:(tvdbCast.length?tvdbCast:(base.castMembers||cine.castMembers)),creatorMembers:creators.length?creators:(base.creatorMembers||cine.creatorMembers),trailers:trailers.length?trailers:(merged.trailers||merged.trailerStreams||base.trailers),ratings},related,source:{related:related.length?'tmdb-recommendations-similar':'none',ratings:mdb?'mdblist+tmdb':'tmdb',people:tmdb?'tmdb':(tvdbCast.length?'tvdb':'aiometadata'),trailers:trailers.length?'tmdb':'aiometadata'}};
+  return {meta:{...cine,...base,tmdbId:tmdbId||mergedIds.tmdb,castMembers:mergePeople(cast,tvdbCast).length?mergePeople(cast,tvdbCast):(base.castMembers||cine.castMembers),creatorMembers:creators.length?creators:(base.creatorMembers||cine.creatorMembers),certification:certification||merged.certification||merged.ageRating||'',trailers:trailers.length?trailers:(merged.trailers||merged.trailerStreams||base.trailers),ratings},related,source:{related:related.length?'tmdb-recommendations-similar':'none',ratings:mdb?'mdblist+tmdb':'tmdb',people:tmdb?'tmdb':(tvdbCast.length?'tvdb':'aiometadata'),trailers:trailers.length?'tmdb':'aiometadata'}};
 }
 async function related(type,id,options={}){
   const bundle=await enrichment(type,id),limit=Math.max(1,Math.min(24,Number(options.limit)||20));
