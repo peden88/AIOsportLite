@@ -2763,8 +2763,10 @@
          viewport. Anchor this action immediately above it rather than to the
          transport cluster. */
       #player-overlay.is-vod #playerTryAnother {
+        /* Sit directly on the top edge of Safari's bottom address-bar safe zone. */
         bottom:max(14px,env(safe-area-inset-bottom)) !important;
-        transform:translate(-50%,-82px) !important;
+        transform:translate(-50%,-58px) !important;
+        margin-bottom:0 !important;
       }
     }
 
