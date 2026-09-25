@@ -2421,19 +2421,77 @@
         font-size:.64rem;
         line-height:1;
       }
+      /* Overlay transport cluster on the lower part of the video itself. */
       #player-overlay.is-vod .player-hud-actions {
-        display:grid !important;
-        grid-template-columns:auto 52px 68px 52px auto;
-        align-items:center !important;
-        justify-content:center !important;
-        gap:10px !important;
-        max-width:calc(100vw - 18px) !important;
+        position:fixed !important;
+        inset:0 !important;
+        display:block !important;
+        width:100vw !important;
+        height:100dvh !important;
+        max-width:none !important;
+        pointer-events:none !important;
       }
-      #player-overlay.is-vod #playerTryAnother { grid-column:1 / -1; justify-self:center; }
-      #player-overlay.is-vod #playerBack10 { grid-column:2; grid-row:2; }
-      #player-overlay.is-vod #playerPlayPause { grid-column:3; grid-row:2; }
-      #player-overlay.is-vod #playerForward10 { grid-column:4; grid-row:2; }
-      #player-overlay.is-vod #playerFullscreen { grid-column:1 / -1; grid-row:3; justify-self:center; }
+      #player-overlay.is-vod #playerBack10,
+      #player-overlay.is-vod #playerPlayPause,
+      #player-overlay.is-vod #playerForward10 {
+        position:fixed !important;
+        top:64dvh !important;
+        transform:translateY(-50%);
+        z-index:146;
+      }
+      #player-overlay.is-vod #playerBack10 { left:calc(50% - 88px) !important; }
+      #player-overlay.is-vod #playerPlayPause { left:50% !important; transform:translate(-50%,-50%); }
+      #player-overlay.is-vod #playerForward10 { left:calc(50% + 36px) !important; }
+      #player-overlay.is-vod #playerFullscreen {
+        position:fixed !important;
+        right:22px !important;
+        top:calc(64dvh + 58px) !important;
+        z-index:146;
+        box-sizing:border-box;
+        width:46px !important;
+        min-width:46px !important;
+        height:46px !important;
+        min-height:46px !important;
+        padding:0 !important;
+        border-radius:50% !important;
+        background:rgba(38,41,45,.72) !important;
+        backdrop-filter:blur(14px) !important;
+        -webkit-backdrop-filter:blur(14px) !important;
+      }
+      #player-overlay.is-vod #playerFullscreen > span {
+        position:relative;
+        display:block;
+        width:20px;
+        height:20px;
+      }
+      #player-overlay.is-vod #playerFullscreen > span::before,
+      #player-overlay.is-vod #playerFullscreen > span::after {
+        content:'';
+        position:absolute;
+        inset:0;
+        background:
+          linear-gradient(#fff,#fff) left top/7px 2px no-repeat,
+          linear-gradient(#fff,#fff) left top/2px 7px no-repeat,
+          linear-gradient(#fff,#fff) right top/7px 2px no-repeat,
+          linear-gradient(#fff,#fff) right top/2px 7px no-repeat,
+          linear-gradient(#fff,#fff) left bottom/7px 2px no-repeat,
+          linear-gradient(#fff,#fff) left bottom/2px 7px no-repeat,
+          linear-gradient(#fff,#fff) right bottom/7px 2px no-repeat,
+          linear-gradient(#fff,#fff) right bottom/2px 7px no-repeat;
+        border-radius:1px;
+      }
+      /* Keep stream switching separate, low and clear of transport controls. */
+      #player-overlay.is-vod #playerTryAnother {
+        position:fixed !important;
+        left:50% !important;
+        bottom:max(66px,calc(env(safe-area-inset-bottom) + 54px)) !important;
+        transform:translateX(-50%);
+        z-index:146;
+        min-width:190px !important;
+        background:#1c2228 !important;
+        border-color:rgba(255,255,255,.16) !important;
+        box-shadow:0 10px 30px rgba(0,0,0,.46) !important;
+      }
     }
 
     /* Shared rendered action object: identical geometry for posters and episodes. */
@@ -2822,7 +2880,7 @@
           <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip" aria-label="Back 10 seconds"><span class="transport-skip-glyph">↶</span><span class="transport-skip-number">10</span></button>
           <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip" aria-label="Forward 10 seconds"><span class="transport-skip-glyph">↷</span><span class="transport-skip-number">10</span></button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
-          <button type="button" id="playerFullscreen" class="player-hud-btn">Fullscreen</button>
+          <button type="button" id="playerFullscreen" class="player-hud-btn player-fullscreen-object" aria-label="Fullscreen"><span aria-hidden="true"></span></button>
           <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
           <button type="button" id="playerSettings" class="player-hud-btn player-hud-primary">⚙ Settings</button>
           <button type="button" id="playerSwitchSource" class="player-hud-btn">Switch source</button>
