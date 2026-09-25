@@ -3180,6 +3180,48 @@
     z-index:180 !important;
   }
 }
+
+/* Live mobile transport parity: use the exact VOD transport geometry/assets. */
+@media(max-width:650px), (hover:none) and (pointer:coarse) {
+  #player-overlay.is-live #playerPlayPause {
+    display:flex !important;
+    position:fixed !important;
+    top:72dvh !important;
+    left:50% !important;
+    width:92px !important;
+    min-width:92px !important;
+    height:92px !important;
+    min-height:92px !important;
+    transform:translate(-50%,-50%) !important;
+    border-radius:50% !important;
+    background:linear-gradient(180deg,#252525 0%,#1e1e1e 100%) !important;
+    border:1px solid rgba(255,255,255,.20) !important;
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.10),0 3px 8px rgba(0,0,0,.32) !important;
+    z-index:155 !important;
+  }
+  #player-overlay.is-live #playerPlayPause .transport-main-icon {
+    width:38px !important;
+    height:48px !important;
+  }
+
+  #player-overlay.is-live #playerFullscreen {
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+    position:fixed !important;
+    right:22px !important;
+    top:calc(72dvh + 58px) !important;
+    left:auto !important;
+    bottom:auto !important;
+    box-sizing:border-box !important;
+    width:46px !important;
+    min-width:46px !important;
+    height:46px !important;
+    min-height:46px !important;
+    z-index:156 !important;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
