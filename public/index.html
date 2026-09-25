@@ -3068,6 +3068,42 @@
     line-height:1 !important;
   }
 }
+
+/* Live mobile player parity with VOD: same inline transport shell, without seeking. */
+@media(max-width:650px), (hover:none) and (pointer:coarse) {
+  #player-overlay.is-live #playerBack10,
+  #player-overlay.is-live #playerForward10 { display:none !important; }
+
+  #player-overlay.is-live #playerPlayPause {
+    display:flex !important;
+    position:fixed !important;
+    top:72dvh !important;
+    left:50% !important;
+    width:92px !important;
+    min-width:92px !important;
+    height:92px !important;
+    min-height:92px !important;
+    transform:translate(-50%,-50%) !important;
+    border-radius:50% !important;
+    z-index:155 !important;
+  }
+
+  #player-overlay.is-live #playerFullscreen {
+    display:flex !important;
+  }
+
+  #player-overlay.is-live #playerTryAnother {
+    display:flex !important;
+    position:fixed !important;
+    left:50% !important;
+    right:auto !important;
+    top:auto !important;
+    bottom:calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    transform:translateX(-50%) !important;
+    margin:0 !important;
+    z-index:170 !important;
+  }
+}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4620,11 +4656,15 @@
       }
 
       const isVodPlayback = !['sport_event','live_channel','sport'].includes(String(contentType || ''));
-      document.getElementById('player-overlay')?.classList.toggle('is-vod', isVodPlayback);
+      const playerOverlay = document.getElementById('player-overlay');
+      playerOverlay?.classList.toggle('is-vod', isVodPlayback);
+      playerOverlay?.classList.toggle('is-live', !isVodPlayback);
+      const tryAnotherButton = document.getElementById('playerTryAnother');
+      if (tryAnotherButton) tryAnotherButton.textContent = isVodPlayback ? 'Try another stream' : 'Try another live source';
       const playbackVideo = document.getElementById('video');
       if (playbackVideo) {
         const compactTouch = window.matchMedia?.('(max-width:650px), (hover:none) and (pointer:coarse)')?.matches === true;
-        playbackVideo.controls = !(isVodPlayback && compactTouch);
+        playbackVideo.controls = !compactTouch;
       }
 
       const isEpisode = contentType === 'episode' || String(meta?.contentType || '').toLowerCase() === 'series';
