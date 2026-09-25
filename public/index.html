@@ -2852,6 +2852,23 @@
         z-index:160 !important;
       }
     }
+
+    @media(max-width:650px), (hover:none) and (pointer:coarse) {
+      #player-overlay.is-vod #playerTryAnother {
+        position:fixed !important;
+        left:50% !important;
+        right:auto !important;
+        top:auto !important;
+        bottom:104px !important;
+        transform:translateX(-50%) !important;
+        margin:0 !important;
+        z-index:170 !important;
+      }
+      #player-overlay.is-vod .transport-skip-svg .skip-arrow {
+        fill:#fff !important;
+        stroke:none !important;
+      }
+    }
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3047,9 +3064,9 @@
         <div class="player-hud-actions">
           <button type="button" id="playerMinimize" class="player-hud-btn">Minimize</button>
           <button type="button" id="playerTryAnother" class="player-hud-btn">Try another stream</button>
-          <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip back" aria-label="Back 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><circle class="skip-circle" cx="32" cy="34" r="20"/><path class="skip-gap" d="M25 15.3 A20 20 0 0 1 39 15.3"/><path class="skip-arrow" d="M25 7 L14 16 L27 21 Z"/><text x="32" y="42">10</text></svg></button>
+          <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip back" aria-label="Back 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><circle class="skip-circle" cx="32" cy="34" r="20"/><path class="skip-gap" d="M25 14.8 A20 20 0 0 1 39 14.8"/><path class="skip-arrow" d="M32 8 L19 14 L32 20 Z"/><text x="32" y="42">10</text></svg></button>
           <button type="button" id="playerPlayPause" class="player-hud-btn player-transport-main" aria-label="Pause"><span class="transport-main-icon pause" aria-hidden="true"></span></button>
-          <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip forward" aria-label="Forward 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><circle class="skip-circle" cx="32" cy="34" r="20"/><path class="skip-gap" d="M25 15.3 A20 20 0 0 1 39 15.3"/><path class="skip-arrow" d="M39 7 L50 16 L37 21 Z"/><text x="32" y="42">10</text></svg></button>
+          <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip forward" aria-label="Forward 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><circle class="skip-circle" cx="32" cy="34" r="20"/><path class="skip-gap" d="M25 14.8 A20 20 0 0 1 39 14.8"/><path class="skip-arrow" d="M32 8 L45 14 L32 20 Z"/><text x="32" y="42">10</text></svg></button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn player-fullscreen-object" aria-label="Fullscreen"><span aria-hidden="true"></span></button>
           <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
