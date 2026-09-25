@@ -6871,7 +6871,8 @@
 
     function renderDetailsRatings(meta){
       const section=document.getElementById('detailsRatingsSection'),host=document.getElementById('detailsRatings');if(!section||!host)return;host.innerHTML='';
-      const rows=[];const push=(label,value)=>{if(value!==undefined&&value!==null&&String(value).trim()!=='')rows.push([label,String(value)])};
+      const rows=[];const push=(label,value)=>{if(value!==undefined&&value!==null&&String(value).trim()!==''&&Number(value)>0)rows.push([label,String(Math.round(Number(value)*10)/10)])};
+      if(Array.isArray(meta?.ratings))meta.ratings.forEach(row=>push(row?.source,row?.value));
       push('IMDb',meta?.imdbRating||meta?.imdb_rating);push('TMDB',meta?.tmdbRating||meta?.tmdb_rating||meta?.rating);push('Metacritic',meta?.metacriticRating||meta?.metacritic);push('Rotten Tomatoes',meta?.tomatoesRating||meta?.rottenTomatoes);
       const unique=[];rows.forEach(r=>{if(!unique.some(x=>x[0]===r[0]&&x[1]===r[1]))unique.push(r)});
       unique.forEach(([label,value])=>{const card=document.createElement('div');card.className='details-rating-card';const strong=document.createElement('strong');strong.textContent=value;const small=document.createElement('small');small.textContent=label;card.append(strong,small);host.appendChild(card)});
@@ -6902,7 +6903,23 @@
     }
 
     async function enrichDetails(meta) {
+      const visitId=String(meta?.id||meta?.contentId||'');
       renderDetailsPeople(meta);renderDetailsRatings(meta);renderDetailsTrailers(meta);renderDetailsRelated(meta);
+      if(!visitId)return;
+      try{
+        const type=normalizedVodType(meta),res=await fetch('/api/v1/vod/enrichment/'+encodeURIComponent(type)+'/'+encodeURIComponent(visitId));
+        if(!res.ok)return;const bundle=await res.json();
+        if(String(currentDetailsMeta?.id||currentDetailsMeta?.contentId||'')!==visitId)return;
+        const enriched={...meta,...(bundle.meta||{})};
+        currentDetailsMeta={...currentDetailsMeta,...enriched};
+        renderDetailsPeople(enriched);renderDetailsRatings(enriched);renderDetailsTrailers(enriched);
+        const section=document.getElementById('detailsRelatedSection'),host=document.getElementById('detailsRelated');
+        if(section&&host&&Array.isArray(bundle.related)&&bundle.related.length){
+          host.innerHTML='';
+          bundle.related.slice(0,20).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
+          setPanelAvailability(section,true);refreshDetailsTabs();
+        }
+      }catch(_){}
     }
 
     function prepareDetailsShell(preview, type) {
