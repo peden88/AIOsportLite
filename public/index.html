@@ -3250,24 +3250,48 @@
     align-items:center !important;
     justify-content:center !important;
     position:fixed !important;
-    top:calc(72dvh + 60px) !important;
     right:22px !important;
     left:auto !important;
+    top:calc(72dvh + 60px) !important;
     bottom:auto !important;
+    z-index:146 !important;
+    box-sizing:border-box !important;
     width:46px !important;
     min-width:46px !important;
     height:46px !important;
     min-height:46px !important;
     padding:0 !important;
     border:1px solid rgba(255,255,255,.20) !important;
-    border-radius:15px !important;
-    background:#273039 !important;
+    border-radius:50% !important;
+    background:rgba(38,41,45,.72) !important;
     color:#f5f7f8 !important;
     box-shadow:0 10px 28px rgba(0,0,0,.34) !important;
+    backdrop-filter:blur(14px) !important;
+    -webkit-backdrop-filter:blur(14px) !important;
     pointer-events:auto !important;
-    z-index:146 !important;
   }
-}
+  #player-overlay.is-live #playerFullscreen > span {
+    position:relative !important;
+    display:block !important;
+    width:20px !important;
+    height:20px !important;
+  }
+  #player-overlay.is-live #playerFullscreen > span::before,
+  #player-overlay.is-live #playerFullscreen > span::after {
+    content:'' !important;
+    position:absolute !important;
+    inset:0 !important;
+    background:
+      linear-gradient(#fff,#fff) left top/7px 2px no-repeat,
+      linear-gradient(#fff,#fff) left top/2px 7px no-repeat,
+      linear-gradient(#fff,#fff) right top/7px 2px no-repeat,
+      linear-gradient(#fff,#fff) right top/2px 7px no-repeat,
+      linear-gradient(#fff,#fff) left bottom/7px 2px no-repeat,
+      linear-gradient(#fff,#fff) left bottom/2px 7px no-repeat,
+      linear-gradient(#fff,#fff) right bottom/7px 2px no-repeat,
+      linear-gradient(#fff,#fff) right bottom/2px 7px no-repeat !important;
+    border-radius:1px !important;
+  }}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
