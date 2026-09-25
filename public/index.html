@@ -785,7 +785,17 @@
       header { padding:4px 8px 2px; }
       .header-row { gap:8px; }
       .brand img { width: 42px; height: 42px; }
-      .header-search { padding: 10px 13px; font-size: 14px; }
+      .header-search {
+        padding:10px 42px 10px 12px;
+        font-size:16px;
+        line-height:1.2;
+      }
+      .header-search::placeholder {
+        font-size:clamp(12px,3.45vw,15px);
+        letter-spacing:-.02em;
+      }
+      .header-search-wrap .header-search { padding-right:42px; }
+      .clear-search-btn { right:5px; width:32px; height:32px; }
       main { padding: 14px 12px 32px; }
       .control-bar { gap:0; margin:0; min-height:0; height:0; justify-content:center; overflow:hidden; }
       header { margin-top:0; }
@@ -2439,7 +2449,7 @@
     }
     @media(pointer:coarse) {
       .clear-search-btn { width:34px; height:34px; }
-      .header-search-wrap .header-search { padding-right:48px; }
+      .header-search-wrap .header-search { padding-right:42px; }
     }
     @media(max-width:650px) {
       .details-copy p { text-wrap:pretty; }
