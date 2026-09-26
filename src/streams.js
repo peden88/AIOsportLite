@@ -312,7 +312,7 @@ async function verifyStreams(streams, cacheKey, m3u8Parser, resolveCache, opts =
 
   const checkedStreams = await mapLimit(streams, VERIFY_CONCURRENCY, (async (s) => {
     // We only pre-flight check direct streams (m3u8 urls). Web player links are kept blindly.
-    if (!s.url || s.url.includes('/watch?')) return s;
+    if (!s.url || s.url.includes('/watch?') || s.url.includes('cdnlivetv.tv') || s.url.includes('cdnlivetv.is') || s._source === 'cdnlive') return s;
 
     // Which provider is answering for this row, for the tally.
     const source = tallySource(s, cacheKey, opts);
