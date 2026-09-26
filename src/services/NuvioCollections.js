@@ -23,14 +23,29 @@ async function resolveAddonSource(s){
   const client=configuredAddonClient();
   if(!client)return [];
   const descriptors=await client.catalogDescriptors();
-  const exact=descriptors.find(d=>d.id===s.id&&d.type===s.type);
-  if(!exact)return [];
+  let exact=descriptors.find(d=>d.id===s.id&&d.type===s.type);
+  // Nuvio collection exports often keep their own catalog ids (for example
+  // trakt.recommendations.movies) while AIOMetadata exposes the same catalog
+  // behind a generated/prefixed id. Resolve conservatively by suffix/name when
+  // an exact id is absent, but never cross media types.
+  if(!exact){
+    const sid=String(s.id||'').toLowerCase(), title=String(s.title||'').toLowerCase();
+    const candidates=descriptors.filter(d=>d.type===s.type);
+    exact=candidates.find(d=>String(d.id).toLowerCase().endsWith(sid))
+      || candidates.find(d=>String(d.name||'').toLowerCase()===title);
+  }
+  if(!exact){
+    console.warn('[collections] AIOMetadata catalog not found:',s.type,s.id,s.title);
+    return [];
+  }
   const extras={};
-  // Nuvio's `genre` is frequently a display label (Movies, Series, Up Next,
-  // etc.), not a Stremio catalog extra. Only forward it when the manifest says
-  // this exact catalog supports that exact genre value.
   if(s.genre&&Array.isArray(exact.genres)&&exact.genres.some(g=>String(g).toLowerCase()===String(s.genre).toLowerCase()))extras.genre=s.genre;
-  const body=await client.catalog(s.type,s.id,extras);
+  // Required extras cannot be fabricated from a display-only Nuvio source.
+  if(Array.isArray(exact.requiredExtras)&&exact.requiredExtras.some(x=>!Object.prototype.hasOwnProperty.call(extras,x))){
+    console.warn('[collections] AIOMetadata catalog requires unsupported extras:',exact.id,exact.requiredExtras);
+    return [];
+  }
+  const body=await client.catalog(s.type,exact.id,extras);
   return Array.isArray(body.metas)?body.metas:(Array.isArray(body.metasDetailed)?body.metasDetailed:[]);
 }
 
