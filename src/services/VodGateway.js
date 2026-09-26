@@ -455,7 +455,7 @@ async function enrichment(type,id){
   // Trakt-free Nuvio-style recommendation path: TMDB Recommendations first,
   // then TMDB Similar, with AIOMetadata/Cinemeta retained for title metadata.
   const related=mergeTmdbRelated(tmdb,safeType);
-  return {meta:{...cine,...base,tmdbId:tmdbId||mergedIds.tmdb,castMembers:mergePeople(cast,tvdbCast).length?mergePeople(cast,tvdbCast):(base.castMembers||cine.castMembers),creatorMembers:creators.length?creators:(base.creatorMembers||cine.creatorMembers),certification:certification||merged.certification||merged.ageRating||'',trailers:trailers.length?trailers:(merged.trailers||merged.trailerStreams||base.trailers),ratings},related,source:{related:related.length?'tmdb-recommendations-similar':'none',ratings:mdb?'mdblist+tmdb':'tmdb',people:tmdb?'tmdb':(tvdbCast.length?'tvdb':'aiometadata'),trailers:trailers.length?'tmdb':'aiometadata'}};
+  return {meta:{...cine,...base,imdbId:mergedIds.imdb||tmdb?.external_ids?.imdb_id||'',tmdbId:tmdbId||mergedIds.tmdb,castMembers:mergePeople(cast,tvdbCast).length?mergePeople(cast,tvdbCast):(base.castMembers||cine.castMembers),creatorMembers:creators.length?creators:(base.creatorMembers||cine.creatorMembers),certification:certification||merged.certification||merged.ageRating||'',trailers:trailers.length?trailers:(merged.trailers||merged.trailerStreams||base.trailers),ratings},related,source:{related:related.length?'tmdb-recommendations-similar':'none',ratings:mdb?'mdblist+tmdb':'tmdb',people:tmdb?'tmdb':(tvdbCast.length?'tvdb':'aiometadata'),trailers:trailers.length?'tmdb':'aiometadata'}};
 }
 async function related(type,id,options={}){
   const bundle=await enrichment(type,id),limit=Math.max(1,Math.min(24,Number(options.limit)||20));
