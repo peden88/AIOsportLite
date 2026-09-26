@@ -1313,6 +1313,23 @@ app.get('/collections-assets/thumb/:name',requirePage,async(req,res)=>{
     return res.type('image/webp').sendFile(output);
   }catch(err){console.error('[collections] thumbnail failed:',name,err.message);return res.sendStatus(404);}
 });
+const collectionPosterDir=path.join(collectionsAssetsDir,'.posters');
+try{fs.mkdirSync(collectionPosterDir,{recursive:true});}catch(_){}
+app.get('/collections-poster',requirePage,async(req,res)=>{
+  const raw=String(req.query.url||'');
+  let url;try{url=new URL(raw);}catch(_){return res.sendStatus(400);}
+  if(url.protocol!=='https:'||!['image.tmdb.org','images.metahub.space','m.media-amazon.com'].includes(url.hostname))return res.sendStatus(400);
+  const key=require('crypto').createHash('sha256').update(url.toString()).digest('hex')+'.webp',output=path.join(collectionPosterDir,key);
+  try{
+    if(!fs.existsSync(output)){
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);timer.unref?.();
+      const r=await fetch(url,{signal:controller.signal});clearTimeout(timer);if(!r.ok)throw new Error('HTTP '+r.status);
+      const buf=Buffer.from(await r.arrayBuffer());if(buf.length>12*1024*1024)throw new Error('image too large');
+      await sharp(buf).resize({width:360,height:540,fit:'cover',withoutEnlargement:true}).webp({quality:76,effort:4}).toFile(output);
+    }
+    res.set('Cache-Control','private, max-age=2592000, immutable');return res.type('image/webp').sendFile(output);
+  }catch(err){console.warn('[collections] poster proxy failed:',err.message);return res.redirect(302,url.toString());}
+});
 app.use('/collections-assets', requirePage, express.static(collectionsAssetsDir, {
   fallthrough:false,
   dotfiles:'deny',
