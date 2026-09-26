@@ -497,6 +497,7 @@
     .details-tab-panel{min-height:178px;padding-top:12px}.details-tab-panel[hidden]{display:none!important}
     .details-people{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;padding:3px 18px 8px 2px;scroll-padding-inline:2px 18px;scrollbar-width:none}.details-people::-webkit-scrollbar{display:none}
     .details-person{flex:0 0 116px;width:116px;scroll-snap-align:start;color:#eef2f5;font-size:.73rem;line-height:1.2;background:transparent;border:0;padding:0}
+    .details-person-link{font:inherit;color:inherit;text-align:left;cursor:pointer}.details-person-link:hover,.details-person-link:focus-visible{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);transform:translateY(-1px)}
     .details-person-photo{width:76px;height:76px;border-radius:50%;object-fit:cover;background:#252b31;border:1px solid rgba(255,255,255,.10);display:grid;place-items:center;margin-bottom:8px;font:800 1.2rem/1 'Outfit',sans-serif}
     .details-person strong{display:block;max-width:112px;font-weight:750}.details-person small{display:block;margin-top:4px;max-width:112px;color:rgba(225,232,238,.55);font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .details-related{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;padding:2px 18px 8px 2px;scrollbar-width:none}.details-related::-webkit-scrollbar{display:none}
@@ -7002,6 +7003,21 @@
       if(!section)return;section.dataset.empty=hasContent?'false':'true';
     }
 
+    async function searchForPerson(name){
+      const term=String(name||'').trim();if(!term)return;
+      const details=document.getElementById('details-overlay');
+      if(details&&details.style.display==='block'){
+        await closeDetailsWithSharedTransition();
+        closeDetails({restoreFocus:false,persist:false});
+      }
+      await loadMode('vod',{push:false});
+      const input=document.getElementById('searchInput');if(input){input.value=term;input.focus();}
+      setSearchType('',{rerun:false});
+      await applySearch(term,{persist:false});
+      persistUiState({push:true});
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+
     function renderDetailsPeople(meta) {
       const section=document.getElementById('detailsPeopleSection'),host=document.getElementById('detailsPeople');if(!section||!host)return;
       const leading=[],cast=[],seen=new Set();
@@ -7018,7 +7034,7 @@
       add(meta?.castMembers,'Cast',cast);add(meta?.cast,'Cast',cast);add(meta?.casts,'Cast',cast);add(meta?.actors,'Cast',cast);add(meta?.stars,'Cast',cast);
       if(Array.isArray(meta?.credits))meta.credits.forEach(row=>add(row,row?.department||row?.known_for_department||'Cast',/creator|director|writer/i.test(String(row?.job||row?.role||''))?leading:cast));
       host.innerHTML='';
-      [...leading,...cast].slice(0,30).forEach(row=>{const el=document.createElement('div');el.className='details-person';let face;if(row.photo){face=document.createElement('img');face.src=row.photo;face.alt='';face.loading='lazy'}else{face=document.createElement('div');face.textContent=row.name.trim().charAt(0).toUpperCase()||'?'}face.className='details-person-photo';const strong=document.createElement('strong');strong.textContent=row.name;el.append(face,strong);if(row.role){const small=document.createElement('small');small.textContent=row.role;el.appendChild(small)}host.appendChild(el)});
+      [...leading,...cast].slice(0,30).forEach(row=>{const el=document.createElement('button');el.type='button';el.className='details-person details-person-link';el.title='Search for '+row.name;el.setAttribute('aria-label','Search titles related to '+row.name);el.onclick=()=>searchForPerson(row.name);let face;if(row.photo){face=document.createElement('img');face.src=row.photo;face.alt='';face.loading='lazy'}else{face=document.createElement('div');face.textContent=row.name.trim().charAt(0).toUpperCase()||'?'}face.className='details-person-photo';const strong=document.createElement('strong');strong.textContent=row.name;el.append(face,strong);if(row.role){const small=document.createElement('small');small.textContent=row.role;el.appendChild(small)}host.appendChild(el)});
       setPanelAvailability(section,!!host.children.length);refreshDetailsTabs();
     }
 
