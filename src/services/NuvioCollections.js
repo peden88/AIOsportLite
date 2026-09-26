@@ -10,7 +10,7 @@ const TTL_MS = Math.max(5_000, Number(process.env.COLLECTIONS_TTL_MS) || 30_000)
 let cache = null;
 
 function text(v,max=500){ return String(v||'').trim().slice(0,max); }
-function image(v){ const s=text(v,2000); if(!s)return ''; try{const u=new URL(s);return ['http:','https:'].includes(u.protocol)?u.toString():''}catch(_){return ''} }
+function image(v){ const s=text(v,2000); if(!s)return ''; if(/^\/collections-assets\/[A-Za-z0-9._\/-]+$/.test(s)&&!s.includes('..'))return s; try{const u=new URL(s);return ['http:','https:'].includes(u.protocol)?u.toString():''}catch(_){return ''} }
 function source(s){
   if(!s||typeof s!=='object') return null;
   const provider=text(s.provider,40).toLowerCase();
@@ -102,7 +102,7 @@ async function resolveFolder(folderId){
   if(!folder)throw new UpstreamServiceError('Collection folder not found.',{statusCode:404,code:'COLLECTION_FOLDER_NOT_FOUND'});
   const settled=await Promise.allSettled((folder.sources||[]).map(async s=>{
     if(s.provider==='addon'&&s.id&&['movie','series'].includes(s.type)){
-      const body=await vod.catalog(s.type,s.id,{});
+      const body=await vod.catalog(s.type,s.id,s.genre&&s.genre.toLowerCase()!=='all'?{genre:s.genre}:{});
       return Array.isArray(body.metas)?body.metas:(Array.isArray(body.metasDetailed)?body.metasDetailed:[]);
     }
     if(s.provider==='tmdb')return resolveTmdbSource(s);
@@ -110,6 +110,7 @@ async function resolveFolder(folderId){
   }));
   const metas=[],seen=new Set();
   for(const row of settled){if(row.status!=='fulfilled')continue;for(const meta of row.value){const k=String(meta.type||'movie')+'|'+String(meta.id||'');if(!meta.id||seen.has(k))continue;seen.add(k);metas.push(meta);}}
+  if(!metas.length&&settled.some(x=>x.status==='rejected')){const first=settled.find(x=>x.status==='rejected');throw first.reason;}
   return {metas};
 }
 async function rawFile(){return JSON.parse(await fs.readFile(FILE,'utf8'));}
