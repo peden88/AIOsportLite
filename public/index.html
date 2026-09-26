@@ -3625,6 +3625,7 @@
     let longPressTimer = null;
     let heroRenderToken = 0;
     let searchType = '';
+    let peopleSearchOnly = false;
     let currentDetailsEpisodeId = '';
     let currentDetailsSeason = null;
     let detailsBackdropToken = 0;
@@ -5810,7 +5811,10 @@
         // Keep AIOMetadata's searchable catalogs separate, in manifest order, as
         // Nuvio does. This prevents broad franchise searches from being flattened
         // into a single lossy result set before Movie/Series presentation.
-        const catalogRows = Array.isArray(data.catalogs) ? data.catalogs : [];
+        const allCatalogRows = Array.isArray(data.catalogs) ? data.catalogs : [];
+        const catalogRows = peopleSearchOnly
+          ? allCatalogRows.filter(row => /people\s*search/i.test(String(row?.catalogName || row?.name || '')))
+          : allCatalogRows;
         const results = catalogRows.length
           ? catalogRows.flatMap(row => (row.metas || []).map(meta => ({
               ...meta,
@@ -5845,6 +5849,7 @@
     async function clearSearchUi({ restoreCatalog = true } = {}) {
       clearTimeout(searchTimer);
       searchInput.value = '';
+      peopleSearchOnly = false;
       setSearchType('', { rerun:false });
       setSearchContextVisible(false);
       syncClearSearchButton();
@@ -5858,6 +5863,7 @@
     syncClearSearchButton();
 
     searchInput.addEventListener('input', e => {
+      peopleSearchOnly = false;
       syncClearSearchButton();
       const raw = e.target.value;
       clearTimeout(searchTimer);
@@ -7007,6 +7013,7 @@
     async function searchForPerson(name){
       detailsNavigationStack.length=0;
       const term=String(name||'').trim();if(!term)return;
+      peopleSearchOnly=true;
       const details=document.getElementById('details-overlay');
       if(details&&details.style.display==='block'){
         await closeDetailsWithSharedTransition();
@@ -7095,7 +7102,7 @@
         const section=document.getElementById('detailsRelatedSection'),host=document.getElementById('detailsRelated');
         if(section&&host&&Array.isArray(bundle.related)&&bundle.related.length){
           host.innerHTML='';
-          bundle.related.slice(0,20).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
+          bundle.related.slice(0,20).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});if(currentDetailsMeta)detailsNavigationStack.push({...currentDetailsMeta});normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
           setPanelAvailability(section,true);refreshDetailsTabs();
         }
       }catch(_){}
