@@ -3337,7 +3337,7 @@
   .collections-back{display:inline-flex;align-items:center;gap:7px;margin:0 0 18px;padding:8px 13px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.07);color:var(--text);font-weight:700;cursor:pointer}
   @media(max-width:700px){.collection-folder-row{gap:10px}.collection-folder-card{flex-basis:21vw}.collection-folder-card.landscape{flex-basis:32.2vw}.collection-folder-row.poster-row{grid-auto-columns:21vw;grid-template-rows:repeat(2,auto)}.collection-folder-row.landscape-row{grid-auto-columns:32.2vw;grid-template-rows:repeat(2,auto)}.collection-section{margin-bottom:6px}}
   .grid.collection-results-grid{grid-template-columns:repeat(auto-fill,minmax(min(132px,38vw),1fr));align-items:start}
-  .grid.collection-results-grid .collections-back{grid-column:1/-1;justify-self:start}
+  .grid.collection-results-grid .collections-back{grid-column:1/-1;justify-self:start}.grid.collection-results-grid>.collections-back+*{grid-column:auto!important}
   @media(max-width:700px){.grid.collection-results-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 8px}.grid.collection-results-grid .vod-card{min-width:0}}
 
 </style>
@@ -5542,7 +5542,7 @@
             showGridSkeleton({posterMode:true});
             while(allMetas.length<targetCount&&!finished)allMetas.push(...await fetchPage());
             currentItems=allMetas.slice();renderGrid(currentItems);const host=grid();host.classList.add('collection-results-grid');
-            const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();host.prepend(back);
+            const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();host.prepend(back);requestAnimationFrame(()=>{[...host.querySelectorAll('.vod-card')].slice(0,3).forEach(card=>{card.style.gridColumn='auto';card.style.gridRow='auto';});});
             const sentinel=document.createElement('div');sentinel.className='collection-page-sentinel';sentinel.style.cssText='grid-column:1/-1;height:1px';host.appendChild(sentinel);
             const persist=()=>{try{sessionStorage.setItem(key,JSON.stringify({count:allMetas.length,y:window.scrollY,at:Date.now()}))}catch(_){}};
             let saveTimer;window.addEventListener('scroll',()=>{clearTimeout(saveTimer);saveTimer=setTimeout(persist,120)},{passive:true});
