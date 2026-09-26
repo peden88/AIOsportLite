@@ -4075,7 +4075,7 @@
       }
       nav.dataset.ready = '1';
 
-      const sportsEnabled = !!bootstrap?.services?.sports?.enabled;
+      const sportsEnabled = !!bootstrap?.services?.sports?.enabled && currentUserIsAdmin;
       const vodEnabled = !!bootstrap?.services?.vod?.enabled;
       const continueEnabled = !!(vodEnabled && bootstrap?.accountUser);
       const libraryEnabled = continueEnabled;
@@ -5330,6 +5330,7 @@
         try {
           const account = await (await fetch('/api/v1/account')).json();
           bootstrap.accountUser = account && account.user ? account.user : null;
+          currentUserIsAdmin = !!(bootstrap.accountUser && bootstrap.accountUser.role === 'admin');
           if (bootstrap.accountUser) {
             const progressResponse = await fetch('/api/v1/progress', { cache: 'no-store' });
             if (progressResponse.ok) {
@@ -5345,10 +5346,11 @@
           }
         } catch (_) {
           bootstrap.accountUser = null;
+          currentUserIsAdmin = false;
           sharedProgressItems = [];
         }
         buildModes();
-        const sports = bootstrap.services && bootstrap.services.sports && bootstrap.services.sports.enabled;
+        const sports = bootstrap.services && bootstrap.services.sports && bootstrap.services.sports.enabled && currentUserIsAdmin;
         const vod = bootstrap.services && bootstrap.services.vod && bootstrap.services.vod.enabled;
         const snapshot = savedUiState();
         const requestedMode = snapshot?.mode;
@@ -5397,7 +5399,7 @@
         host.appendChild(btn);
       };
 
-      if (bootstrap.services?.sports?.enabled) add('sports', 'Live');
+      if (bootstrap.services?.sports?.enabled && currentUserIsAdmin) add('sports', 'Live');
       if (bootstrap.services?.vod?.enabled) add('vod', 'VOD');
       if (bootstrap.services?.vod?.enabled && bootstrap.accountUser) {
         add('continue', 'Continue Watching');
@@ -5407,6 +5409,11 @@
     }
 
     async function loadMode(mode, { snapshot = null, push = true } = {}) {
+      if (mode === 'sports' && !currentUserIsAdmin) {
+        mode = bootstrap?.services?.vod?.enabled ? 'vod' : '';
+        snapshot = null;
+        if (!mode) { setGridState('No content services are enabled.'); return; }
+      }
       if (document.getElementById('player-overlay')?.classList.contains('mini')) {
         playerReturnToDetails = false;
       }
