@@ -3391,6 +3391,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path><path d="M4 7.5a7 7 0 0 0 0 9"></path></svg>
       <span>Live</span>
     </button>
+    <button type="button" data-mobile-mode="collections" aria-label="Collections">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="7" rx="1"></rect><rect x="13" y="4" width="8" height="7" rx="1"></rect><rect x="3" y="13" width="8" height="7" rx="1"></rect><rect x="13" y="13" width="8" height="7" rx="1"></rect></svg>
+      <span>Collections</span>
+    </button>
     <button type="button" data-mobile-mode="vod" aria-label="VOD">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m10 9 5 3-5 3z"></path></svg>
       <span>VOD</span>
@@ -4083,6 +4087,7 @@
 
       const visibility = {
         sports:sportsEnabled,
+        collections:vodEnabled && !currentUserIsAdmin,
         vod:vodEnabled,
         continue:continueEnabled,
         library:libraryEnabled
@@ -5324,7 +5329,7 @@
       search.placeholder = mode === 'sports'
         ? 'Search live…'
         : 'Search all movies and series…';
-      setVodPlayerControlsVisible(mode === 'vod' || mode === 'continue' || mode === 'library');
+      setVodPlayerControlsVisible(mode === 'vod' || mode === 'collections' || mode === 'continue' || mode === 'library');
       const filters = document.getElementById('searchFilters');
       if (filters) filters.style.display = (mode === 'vod' || mode === 'library') ? 'flex' : 'none';
       if (!search.value.trim()) setSearchContextVisible(false);
@@ -5365,9 +5370,11 @@
           ? !!(vod && bootstrap.accountUser)
           : requestedMode === 'vod'
             ? !!vod
-            : requestedMode === 'sports'
-              ? !!sports
-              : false;
+            : requestedMode === 'collections'
+              ? !!(vod && !currentUserIsAdmin)
+              : requestedMode === 'sports'
+                ? !!sports
+                : false;
         const initialMode = validMode
           ? requestedMode
           : (sports ? 'sports' : (vod ? 'vod' : ''));
@@ -5436,6 +5443,8 @@
 
       if (mode === 'sports') {
         await loadSportsTabs(snapshot);
+      } else if (mode === 'collections') {
+        await loadCollections();
       } else if (mode === 'continue') {
         await loadContinueWatching({ push:false });
       } else if (mode === 'library') {
@@ -5471,6 +5480,58 @@
         console.error(err);
         tabs().innerHTML = '<div style="color:var(--accent);">Failed to load sports catalogs.</div>';
         setGridState('Could not load the Live catalog list.', true, () => loadSportsTabs());
+      }
+    }
+
+    async function loadCollections() {
+      setCatalogRailVisible(true);
+      tabs().innerHTML = '';
+      try {
+        const response = await fetch('/api/v1/collections', { cache:'no-store' });
+        if (!response.ok) throw new Error('collections unavailable');
+        const data = await response.json();
+        const collections = Array.isArray(data.collections) ? data.collections : [];
+        if (!collections.length) { setGridState('No collections are available yet.'); return; }
+
+        const openCollection = async (collection, tab) => {
+          setActiveTab(tab);
+          showGridSkeleton({ posterMode:true });
+          const catalogs = Array.isArray(collection.catalogs) ? collection.catalogs : [];
+          const settled = await Promise.allSettled(catalogs.slice(0,12).map(async cat => {
+            const url='/api/v1/collections/catalog/'+encodeURIComponent(cat.type)+'/'+encodeURIComponent(cat.id);
+            const r=await fetch(url);
+            if(!r.ok) throw new Error('catalog failed');
+            return {cat,body:await r.json()};
+          }));
+          const metas=[], seen=new Set();
+          for(const row of settled){
+            if(row.status!=='fulfilled') continue;
+            const body=row.value.body;
+            const list=Array.isArray(body.metas)?body.metas:(Array.isArray(body.metasDetailed)?body.metasDetailed:[]);
+            for(const meta of list){
+              const key=String(meta?.type||row.value.cat.type)+'|'+String(meta?.id||'');
+              if(!meta?.id||seen.has(key)) continue;
+              seen.add(key); metas.push({...meta,type:meta.type||row.value.cat.type});
+            }
+          }
+          currentItems=metas;
+          renderGrid(metas);
+        };
+
+        let first=null;
+        for(const collection of collections){
+          const tab=document.createElement('div');
+          tab.className='tab';
+          tab.textContent=collection.name||'Collection';
+          tab.title=collection.description||'';
+          tab.onclick=()=>openCollection(collection,tab);
+          tabs().appendChild(tab);
+          if(!first) first={collection,tab};
+        }
+        if(first) await openCollection(first.collection,first.tab);
+      } catch(err) {
+        console.error(err);
+        setGridState('Could not load Collections.', true, () => loadCollections());
       }
     }
 
