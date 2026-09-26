@@ -311,6 +311,14 @@ app.get('/', requirePage, (req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
+// Client-side title routes use the same SPA document. Without this fallback a
+// refresh asks Express for a literal /title/... resource and returns "Cannot
+// GET", so shareable/deep-linked Details pages only work after in-app
+// navigation. Keep the route deliberately narrow so API/static 404s stay real.
+app.get('/title/:type(movie|series)/:id', requirePage, (req, res) => {
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
+
 app.get('/login', (req, res) => {
   if (isAuthed(req)) return res.redirect('/');
   res.sendFile(path.join(publicDir, 'login.html'));
