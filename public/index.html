@@ -1917,6 +1917,7 @@
     }
 
     .mobile-bottom-nav { display:none; }
+    .mobile-bottom-nav[data-booting="true"] { visibility:hidden !important; opacity:0 !important; pointer-events:none !important; }
 
     @media(max-width:650px) {
       body {
@@ -3385,7 +3386,7 @@
     <div class="grid" id="grid"></div>
   </main>
 
-  <nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="Primary navigation">
+  <nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="Primary navigation" data-booting="true">
     <button type="button" data-mobile-mode="sports" aria-label="Live">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path><path d="M4 7.5a7 7 0 0 0 0 9"></path></svg>
       <span>Live</span>
@@ -4136,6 +4137,7 @@
         setTimeout(updateMobileBottomNavState, 0)
       );
       search?.addEventListener('input', updateMobileBottomNavState);
+      nav.removeAttribute('data-booting');
       updateMobileBottomNavState();
     }
 
