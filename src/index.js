@@ -1296,6 +1296,15 @@ function vodExtraFromQuery(query) {
   return out;
 }
 
+const collectionsAssetsDir = path.resolve(String(process.env.NUVIO_COLLECTIONS_ASSETS_DIR || '/data/collections-assets'));
+app.use('/collections-assets', requirePage, express.static(collectionsAssetsDir, {
+  fallthrough:false,
+  dotfiles:'deny',
+  index:false,
+  maxAge:'1d',
+  immutable:false
+}));
+
 app.get('/api/v1/collections', requirePage, async (req, res) => {
   try { res.json(await nuvioCollections.manifest()); }
   catch (err) {
