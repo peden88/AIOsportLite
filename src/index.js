@@ -1338,7 +1338,15 @@ app.get('/api/v1/collections/catalog/:type/:catalogId', requirePage, async (req,
 });
 
 app.get('/api/v1/collections/folder/:folderId', requirePage, async (req,res)=>{
-  try{res.set('Cache-Control','private, max-age=3600, stale-while-revalidate=21600');res.json(await nuvioCollections.resolveFolder(req.params.folderId));}
+  try{
+    const result=await nuvioCollections.resolveFolder(req.params.folderId);
+    const all=Array.isArray(result.metas)?result.metas:[];
+    const offset=Math.max(0,Number.parseInt(req.query.offset,10)||0);
+    const limit=Math.max(12,Math.min(60,Number.parseInt(req.query.limit,10)||30));
+    const metas=all.slice(offset,offset+limit);
+    res.set('Cache-Control','private, max-age=3600, stale-while-revalidate=21600');
+    res.json({metas,offset,limit,total:all.length,hasMore:offset+metas.length<all.length});
+  }
   catch(err){console.error('[collections] folder failed:',err.message);res.status(err.statusCode||502).json({error:err.message,code:err.code||'COLLECTION_FOLDER_FAILED'});}
 });
 app.post('/api/v1/admin/collections/warm',async(req,res)=>{
