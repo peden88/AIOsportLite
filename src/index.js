@@ -1306,7 +1306,7 @@ app.use('/collections-assets', requirePage, express.static(collectionsAssetsDir,
 }));
 
 app.get('/api/v1/collections', requirePage, async (req, res) => {
-  try { res.json(await nuvioCollections.manifest()); }
+  try { const data=await nuvioCollections.manifest(); res.json({...data,collections:data.collections.filter(c=>!c.hidden)}); }
   catch (err) {
     console.error('[collections] manifest failed:', err.message);
     res.status(err.statusCode || 502).json({ error:'Collections are unavailable.', code:err.code || 'COLLECTIONS_ERROR' });
@@ -1324,6 +1324,11 @@ app.get('/api/v1/collections/catalog/:type/:catalogId', requirePage, async (req,
 app.get('/api/v1/collections/folder/:folderId', requirePage, async (req,res)=>{
   try{res.json(await nuvioCollections.resolveFolder(req.params.folderId));}
   catch(err){console.error('[collections] folder failed:',err.message);res.status(err.statusCode||502).json({error:err.message,code:err.code||'COLLECTION_FOLDER_FAILED'});}
+});
+
+app.get('/api/v1/admin/collections', async (req,res)=>{
+  if(!requireAdmin(req,res))return;
+  try{res.json(await nuvioCollections.manifest());}catch(err){res.status(err.statusCode||502).json({error:'Collections are unavailable.'});}
 });
 
 app.put('/api/v1/admin/collections/order', express.json({limit:'64kb'}), async (req,res)=>{
