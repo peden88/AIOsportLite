@@ -50,6 +50,10 @@ class WatchFootyProvider extends BaseProvider {
             status = 'live';
           } else if (item.status === 'post' || item.status === 'post-final' || item.status === 'postponed' || item.status === 'cancelled') {
             continue; // Skip ended matches
+          } else if (item.status === 'pre') {
+            // Preserve WatchFooty's explicit pre-kickoff state so a delayed
+            // fixture does not become "live" merely because its scheduled time passed.
+            status = 'pre';
           }
 
           const matchTime = item.timestamp ? parseTimezone(item.timestamp, 'UTC') : Date.now();
@@ -86,15 +90,26 @@ class WatchFootyProvider extends BaseProvider {
 
   async resolveStream(sourceId, matchCategory, matchTitle) {
     const streams = [];
+    let skipped = 0;
     try {
       const data = await this.fetchMatchDetails.fire(sourceId);
       const match = Array.isArray(data) ? data[0] : data;
       
       if (match && match.streams && Array.isArray(match.streams)) {
+        if (!WatchFootyProvider._deadVariants) WatchFootyProvider._deadVariants = new Map();
+        const dead = WatchFootyProvider._deadVariants;
+        const deadTtl = Number(process.env.WATCHFOOTY_DEAD_TTL_MS || 5 * 60 * 1000);
+        const now = Date.now();
+        if (dead.size > 200) for (const [key, expiry] of dead) if (expiry <= now) dead.delete(key);
         let idx = 0;
         for (const s of match.streams) {
           if (s.url) {
             const isDirect = s.url.includes('.m3u8') || s.url.includes('.mp4');
+            if (!isDirect) {
+              const expiry = dead.get(s.url);
+              if (expiry && expiry > now) { skipped++; idx++; continue; }
+              if (expiry) dead.delete(s.url);
+            }
             const entityParams = {
               name: `WatchFooty`,
               title: `WatchFooty Stream ${idx + 1}`,
@@ -169,17 +184,30 @@ class WatchFootyProvider extends BaseProvider {
                         console.log(`[WatchFootyProvider] Successfully extracted M3U8: ${redactUrl(m3u8Url)}`);
                         const proxyUrl = `${BASE_URL}${require('../manifestLink').manifestPath(m3u8Url, 'https://sportsembed.su/', 'https://sportsembed.su')}`;
                         entityParams.url = proxyUrl;
-                        entityParams.behaviorHints = { notWebReady: true };
+                        entityParams.behaviorHints = {
+                          notWebReady: true,
+                          proxyHeaders: { request: {
+                            'Referer': 'https://sportsembed.su/',
+                            'Origin': 'https://sportsembed.su',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+                          }}
+                        };
                         streams.push(new StreamEntity(entityParams));
+                        dead.delete(s.url);
                     }
                 } catch (e) {
                     console.error(`[WatchFootyProvider] Native extract failed for ${s.url}`, e.message);
-                    entityParams.externalUrl = `/watch?url=${encodeURIComponent(s.url)}&title=${encodeURIComponent(matchTitle || 'WatchFooty')}`;
+                    dead.set(s.url, Date.now() + deadTtl);
+                    entityParams.externalUrl = /youtube\.com|youtu\.be/i.test(s.url)
+                      ? s.url
+                      : `/watch?url=${encodeURIComponent(s.url)}&title=${encodeURIComponent(matchTitle || 'WatchFooty')}`;
                     streams.push(new StreamEntity(entityParams));
                 }
               }
             } else {
-              entityParams.externalUrl = `/watch?url=${encodeURIComponent(s.url)}&title=${encodeURIComponent(matchTitle || 'WatchFooty')}`;
+              entityParams.externalUrl = /youtube\.com|youtu\.be/i.test(s.url)
+                ? s.url
+                : `/watch?url=${encodeURIComponent(s.url)}&title=${encodeURIComponent(matchTitle || 'WatchFooty')}`;
               streams.push(new StreamEntity(entityParams));
             }
           }
@@ -189,6 +217,7 @@ class WatchFootyProvider extends BaseProvider {
     } catch (err) {
       console.error(`[${this.name}] resolveStream failed for ${sourceId}:`, err.message);
     }
+    if (skipped > 0) console.log(`[WatchFootyProvider] Skipped ${skipped} recently failed embed variant(s) for ${sourceId}`);
     return streams;
   }
 }
