@@ -5762,6 +5762,7 @@
     }
 
     async function applySearch(raw, { persist = true } = {}) {
+      clearCollectionDock();
       const clean = String(raw || '').trim();
       setSearchContextVisible(!!clean, clean ? ('Results for “' + clean + '”') : '');
 
