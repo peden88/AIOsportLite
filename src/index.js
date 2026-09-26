@@ -1322,7 +1322,7 @@ app.use('/collections-assets', requirePage, express.static(collectionsAssetsDir,
 }));
 
 app.get('/api/v1/collections', requirePage, async (req, res) => {
-  try { const data=await nuvioCollections.manifest(); res.json({...data,collections:data.collections.filter(c=>!c.hidden)}); }
+  try { const data=await nuvioCollections.manifest(); res.json({...data,collections:data.collections.filter(c=>!c.hidden).map(c=>({...c,folders:(c.folders||[]).filter(f=>!f.hidden)})).filter(c=>c.folders.length)}); }
   catch (err) {
     console.error('[collections] manifest failed:', err.message);
     res.status(err.statusCode || 502).json({ error:'Collections are unavailable.', code:err.code || 'COLLECTIONS_ERROR' });
