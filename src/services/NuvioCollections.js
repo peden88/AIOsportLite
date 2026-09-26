@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs/promises');
+const path = require('path');
 const { UpstreamServiceError } = require('./StremioServiceClient');
 const vod = require('./VodGateway');
 
@@ -57,5 +58,69 @@ async function manifest(force=false){
     throw new UpstreamServiceError('Could not load local Collections file.',{statusCode:502,code:'COLLECTIONS_FILE_UNAVAILABLE'});
   }
 }
+
 async function catalog(type,id,extra={}){ return vod.catalog(type,id,extra); }
-module.exports={manifest,catalog};
+
+function tmdbHeaders(){
+  const token=String(process.env.TMDB_API_READ_ACCESS_TOKEN||'').trim();
+  return token?{Authorization:'Bearer '+token,Accept:'application/json'}:{Accept:'application/json'};
+}
+async function tmdbGet(endpoint){
+  const key=String(process.env.TMDB_API_KEY||'').trim();
+  const token=String(process.env.TMDB_API_READ_ACCESS_TOKEN||'').trim();
+  if(!key&&!token) throw new UpstreamServiceError('TMDB credentials are not configured.',{statusCode:503,code:'TMDB_NOT_CONFIGURED'});
+  const u=new URL('https://api.themoviedb.org'+endpoint);
+  if(key&&!token)u.searchParams.set('api_key',key);
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);timer.unref?.();
+  try{
+    const r=await fetch(u,{headers:tmdbHeaders(),signal:controller.signal});
+    if(!r.ok)throw new Error('TMDB HTTP '+r.status);
+    return await r.json();
+  }catch(err){throw new UpstreamServiceError('Could not load TMDB collection.',{statusCode:502,code:'TMDB_COLLECTION_FAILED'});}
+  finally{clearTimeout(timer)}
+}
+function tmdbMeta(item,forcedType=''){
+  const type=String(item.media_type||forcedType||'movie').toLowerCase()==='tv'?'series':String(item.media_type||forcedType||'movie').toLowerCase();
+  if(!['movie','series'].includes(type)||!item.id)return null;
+  return {id:'tmdb:'+item.id,type,name:item.title||item.name||'',poster:item.poster_path?'https://image.tmdb.org/t/p/w500'+item.poster_path:'',background:item.backdrop_path?'https://image.tmdb.org/t/p/original'+item.backdrop_path:'',description:item.overview||'',releaseInfo:String(item.release_date||item.first_air_date||'').slice(0,4)};
+}
+async function resolveTmdbSource(s){
+  const kind=String(s.tmdbSourceType||'').toUpperCase(),id=encodeURIComponent(String(s.tmdbId||''));
+  if(!id)return [];
+  if(kind==='COLLECTION'){
+    const body=await tmdbGet('/3/collection/'+id);
+    return (body.parts||[]).map(x=>tmdbMeta(x,'movie')).filter(Boolean);
+  }
+  if(kind==='LIST'){
+    const body=await tmdbGet('/4/list/'+id+'?page=1');
+    return (body.results||[]).map(x=>tmdbMeta(x)).filter(Boolean);
+  }
+  return [];
+}
+async function resolveFolder(folderId){
+  const m=await manifest(), folder=m.collections.flatMap(c=>c.folders).find(f=>f.id===folderId);
+  if(!folder)throw new UpstreamServiceError('Collection folder not found.',{statusCode:404,code:'COLLECTION_FOLDER_NOT_FOUND'});
+  const settled=await Promise.allSettled((folder.sources||[]).map(async s=>{
+    if(s.provider==='addon'&&s.id&&['movie','series'].includes(s.type)){
+      const body=await vod.catalog(s.type,s.id,{});
+      return Array.isArray(body.metas)?body.metas:(Array.isArray(body.metasDetailed)?body.metasDetailed:[]);
+    }
+    if(s.provider==='tmdb')return resolveTmdbSource(s);
+    return [];
+  }));
+  const metas=[],seen=new Set();
+  for(const row of settled){if(row.status!=='fulfilled')continue;for(const meta of row.value){const k=String(meta.type||'movie')+'|'+String(meta.id||'');if(!meta.id||seen.has(k))continue;seen.add(k);metas.push(meta);}}
+  return {metas};
+}
+async function rawFile(){return JSON.parse(await fs.readFile(FILE,'utf8'));}
+async function saveOrder(order){
+  const raw=await rawFile(); if(!Array.isArray(raw))throw new Error('Invalid Collections file');
+  const colOrder=Array.isArray(order?.collectionIds)?order.collectionIds.map(String):[];
+  const rank=new Map(colOrder.map((id,i)=>[id,i]));
+  raw.sort((a,b)=>(rank.has(String(a.id))?rank.get(String(a.id)):99999)-(rank.has(String(b.id))?rank.get(String(b.id)):99999));
+  const folders=order&&typeof order.folders==='object'?order.folders:{};
+  for(const col of raw){const ids=Array.isArray(folders[col.id])?folders[col.id].map(String):[];if(!ids.length||!Array.isArray(col.folders))continue;const r=new Map(ids.map((id,i)=>[id,i]));col.folders.sort((a,b)=>(r.has(String(a.id))?r.get(String(a.id)):99999)-(r.has(String(b.id))?r.get(String(b.id)):99999));}
+  const tmp=FILE+'.tmp-'+process.pid;await fs.writeFile(tmp,JSON.stringify(raw,null,2)+'\n','utf8');await fs.rename(tmp,FILE);cache=null;return manifest(true);
+}
+module.exports={manifest,catalog,resolveFolder,saveOrder};
+
