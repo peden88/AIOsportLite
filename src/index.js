@@ -1325,7 +1325,7 @@ app.get('/collections-poster',requirePage,async(req,res)=>{
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);timer.unref?.();
       const r=await fetch(url,{signal:controller.signal});clearTimeout(timer);if(!r.ok)throw new Error('HTTP '+r.status);
       const buf=Buffer.from(await r.arrayBuffer());if(buf.length>12*1024*1024)throw new Error('image too large');
-      await sharp(buf).resize({width:360,height:540,fit:'cover',withoutEnlargement:true}).webp({quality:76,effort:4}).toFile(output);
+      await sharp(buf).resize({width:240,height:360,fit:'cover',withoutEnlargement:true}).webp({quality:76,effort:4}).toFile(output);
     }
     res.set('Cache-Control','private, max-age=2592000, immutable');return res.type('image/webp').sendFile(output);
   }catch(err){console.warn('[collections] poster proxy failed:',err.message);return res.redirect(302,url.toString());}
