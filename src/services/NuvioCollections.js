@@ -14,6 +14,8 @@ let addonClientCache = null;
 const folderCache = new Map();
 const folderInflight = new Map();
 const FOLDER_TTL_MS = Math.max(60_000, Number(process.env.COLLECTIONS_CONTENT_TTL_MS) || 6*60*60*1000);
+const FOLDER_CACHE_FILE = String(process.env.COLLECTIONS_CACHE_FILE || '/data/collections-content-cache.json').trim();
+let persistentLoaded=false, persistTimer=null;
 
 function configuredAddonClient(){
   const cfg=appServices._privateConfig();
@@ -187,6 +189,25 @@ async function resolveTmdbSource(s){
   }
   return [];
 }
+async function loadPersistentCache(){
+  if(persistentLoaded)return; persistentLoaded=true;
+  try{
+    const parsed=JSON.parse(await fs.readFile(FOLDER_CACHE_FILE,'utf8'));
+    for(const [key,row] of Object.entries(parsed?.folders||{})){
+      if(row&&Number(row.at)&&row.value&&Array.isArray(row.value.metas))folderCache.set(key,row);
+    }
+    console.log('[collections] restored',folderCache.size,'folders from persistent cache');
+  }catch(err){if(err.code!=='ENOENT')console.warn('[collections] persistent cache load failed:',err.message);}
+}
+function schedulePersistentSave(){
+  clearTimeout(persistTimer);persistTimer=setTimeout(async()=>{
+    try{
+      await fs.mkdir(path.dirname(FOLDER_CACHE_FILE),{recursive:true});
+      const folders=Object.fromEntries(folderCache);
+      await fs.writeFile(FOLDER_CACHE_FILE,JSON.stringify({version:1,savedAt:Date.now(),folders}),'utf8');
+    }catch(err){console.warn('[collections] persistent cache save failed:',err.message);}
+  },500);persistTimer.unref?.();
+}
 async function resolveFolderFresh(folderId){
   const m=await manifest(), folder=m.collections.flatMap(c=>c.folders).find(f=>f.id===folderId);
   if(!folder)throw new UpstreamServiceError('Collection folder not found.',{statusCode:404,code:'COLLECTION_FOLDER_NOT_FOUND'});
@@ -203,13 +224,17 @@ async function resolveFolderFresh(folderId){
   return {metas:metas.filter(releasedByToday)};
 }
 async function resolveFolder(folderId){
+  await loadPersistentCache();
   const key=String(folderId||''), now=Date.now(), hit=folderCache.get(key);
   if(hit&&now-hit.at<FOLDER_TTL_MS)return hit.value;
   if(folderInflight.has(key))return folderInflight.get(key);
-  const work=resolveFolderFresh(key).then(value=>{folderCache.set(key,{at:Date.now(),value});return value;}).finally(()=>folderInflight.delete(key));
+  const work=resolveFolderFresh(key).then(value=>{folderCache.set(key,{at:Date.now(),value});schedulePersistentSave();return value;})
+    .catch(err=>{if(hit?.value){console.warn('[collections] serving stale cached folder after refresh failure:',key,err.message);return hit.value;}throw err;})
+    .finally(()=>folderInflight.delete(key));
   folderInflight.set(key,work); return work;
 }
 async function warmAllFolders(){
+  await loadPersistentCache();
   const m=await manifest(), folders=m.collections.flatMap(c=>c.folders);
   let cursor=0, ok=0, failed=0;
   async function worker(){while(cursor<folders.length){const f=folders[cursor++];try{await resolveFolder(f.id);ok++;}catch(err){failed++;console.warn('[collections] warm failed:',f.id,err.message);}}}
@@ -234,7 +259,8 @@ async function saveOrder(order){
   }
   // Write in place: COLLECTIONS.json is commonly mounted as an individual Docker bind file,
   // where renaming a temporary file over the mount point fails with EBUSY.
-  await fs.writeFile(FILE,JSON.stringify(raw,null,2)+'\n','utf8');cache=null;folderCache.clear();return manifest(true);
+  await fs.writeFile(FILE,JSON.stringify(raw,null,2)+'\n','utf8');cache=null;folderCache.clear();persistentLoaded=true;await fs.rm(FOLDER_CACHE_FILE,{force:true}).catch(()=>{});return manifest(true);
 }
+setTimeout(()=>warmAllFolders().then(r=>console.log('[collections] startup warm complete:',r)).catch(e=>console.warn('[collections] startup warm failed:',e.message)),1500).unref?.();
 module.exports={manifest,catalog,resolveFolder,warmAllFolders,saveOrder};
 
