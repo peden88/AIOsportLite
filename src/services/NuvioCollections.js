@@ -4,10 +4,35 @@ const fs = require('fs/promises');
 const path = require('path');
 const { UpstreamServiceError } = require('./StremioServiceClient');
 const vod = require('./VodGateway');
+const appServices = require('./AppServiceRegistry');
+const { StremioServiceClient } = require('./StremioServiceClient');
 
 const FILE = String(process.env.NUVIO_COLLECTIONS_FILE || '/data/COLLECTIONS.json').trim();
 const TTL_MS = Math.max(5_000, Number(process.env.COLLECTIONS_TTL_MS) || 30_000);
 let cache = null;
+let addonClientCache = null;
+
+function configuredAddonClient(){
+  const cfg=appServices._privateConfig();
+  const url=String(cfg?.metadata?.manifestUrl||'').trim();
+  if(!url)return null;
+  if(!addonClientCache||addonClientCache.url!==url)addonClientCache={url,client:new StremioServiceClient(url,{serviceName:'AIOMetadata Collections'})};
+  return addonClientCache.client;
+}
+async function resolveAddonSource(s){
+  const client=configuredAddonClient();
+  if(!client)return [];
+  const descriptors=await client.catalogDescriptors();
+  const exact=descriptors.find(d=>d.id===s.id&&d.type===s.type);
+  if(!exact)return [];
+  const extras={};
+  // Nuvio's `genre` is frequently a display label (Movies, Series, Up Next,
+  // etc.), not a Stremio catalog extra. Only forward it when the manifest says
+  // this exact catalog supports that exact genre value.
+  if(s.genre&&Array.isArray(exact.genres)&&exact.genres.some(g=>String(g).toLowerCase()===String(s.genre).toLowerCase()))extras.genre=s.genre;
+  const body=await client.catalog(s.type,s.id,extras);
+  return Array.isArray(body.metas)?body.metas:(Array.isArray(body.metasDetailed)?body.metasDetailed:[]);
+}
 
 function text(v,max=500){ return String(v||'').trim().slice(0,max); }
 function image(v){ const s=text(v,2000); if(!s)return ''; if(/^\/collections-assets\/[A-Za-z0-9._\/-]+$/.test(s)&&!s.includes('..'))return s; try{const u=new URL(s);return ['http:','https:'].includes(u.protocol)?u.toString():''}catch(_){return ''} }
@@ -102,8 +127,7 @@ async function resolveFolder(folderId){
   if(!folder)throw new UpstreamServiceError('Collection folder not found.',{statusCode:404,code:'COLLECTION_FOLDER_NOT_FOUND'});
   const settled=await Promise.allSettled((folder.sources||[]).map(async s=>{
     if(s.provider==='addon'&&s.id&&['movie','series'].includes(s.type)){
-      const body=await vod.catalog(s.type,s.id,s.genre&&s.genre.toLowerCase()!=='all'?{genre:s.genre}:{});
-      return Array.isArray(body.metas)?body.metas:(Array.isArray(body.metasDetailed)?body.metasDetailed:[]);
+      return resolveAddonSource(s);
     }
     if(s.provider==='tmdb')return resolveTmdbSource(s);
     return [];
