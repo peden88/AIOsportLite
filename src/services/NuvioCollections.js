@@ -11,6 +11,9 @@ const FILE = String(process.env.NUVIO_COLLECTIONS_FILE || '/data/COLLECTIONS.jso
 const TTL_MS = Math.max(5_000, Number(process.env.COLLECTIONS_TTL_MS) || 30_000);
 let cache = null;
 let addonClientCache = null;
+const folderCache = new Map();
+const folderInflight = new Map();
+const FOLDER_TTL_MS = Math.max(60_000, Number(process.env.COLLECTIONS_CONTENT_TTL_MS) || 6*60*60*1000);
 
 function configuredAddonClient(){
   const cfg=appServices._privateConfig();
@@ -177,7 +180,7 @@ async function resolveTmdbSource(s){
   }
   return [];
 }
-async function resolveFolder(folderId){
+async function resolveFolderFresh(folderId){
   const m=await manifest(), folder=m.collections.flatMap(c=>c.folders).find(f=>f.id===folderId);
   if(!folder)throw new UpstreamServiceError('Collection folder not found.',{statusCode:404,code:'COLLECTION_FOLDER_NOT_FOUND'});
   const settled=await Promise.allSettled((folder.sources||[]).map(async s=>{
@@ -192,6 +195,20 @@ async function resolveFolder(folderId){
   if(!metas.length&&settled.some(x=>x.status==='rejected')){const first=settled.find(x=>x.status==='rejected');throw first.reason;}
   return {metas};
 }
+async function resolveFolder(folderId){
+  const key=String(folderId||''), now=Date.now(), hit=folderCache.get(key);
+  if(hit&&now-hit.at<FOLDER_TTL_MS)return hit.value;
+  if(folderInflight.has(key))return folderInflight.get(key);
+  const work=resolveFolderFresh(key).then(value=>{folderCache.set(key,{at:Date.now(),value});return value;}).finally(()=>folderInflight.delete(key));
+  folderInflight.set(key,work); return work;
+}
+async function warmAllFolders(){
+  const m=await manifest(), folders=m.collections.flatMap(c=>c.folders);
+  let cursor=0, ok=0, failed=0;
+  async function worker(){while(cursor<folders.length){const f=folders[cursor++];try{await resolveFolder(f.id);ok++;}catch(err){failed++;console.warn('[collections] warm failed:',f.id,err.message);}}}
+  await Promise.all(Array.from({length:4},()=>worker()));
+  return {folders:folders.length,cached:ok,failed};
+}
 async function rawFile(){return JSON.parse(await fs.readFile(FILE,'utf8'));}
 async function saveOrder(order){
   const raw=await rawFile(); if(!Array.isArray(raw))throw new Error('Invalid Collections file');
@@ -204,7 +221,7 @@ async function saveOrder(order){
   for(const col of raw){const ids=Array.isArray(folders[col.id])?folders[col.id].map(String):[];if(!ids.length||!Array.isArray(col.folders))continue;const r=new Map(ids.map((id,i)=>[id,i]));col.folders.sort((a,b)=>(r.has(String(a.id))?r.get(String(a.id)):99999)-(r.has(String(b.id))?r.get(String(b.id)):99999));}
   // Write in place: COLLECTIONS.json is commonly mounted as an individual Docker bind file,
   // where renaming a temporary file over the mount point fails with EBUSY.
-  await fs.writeFile(FILE,JSON.stringify(raw,null,2)+'\n','utf8');cache=null;return manifest(true);
+  await fs.writeFile(FILE,JSON.stringify(raw,null,2)+'\n','utf8');cache=null;folderCache.clear();return manifest(true);
 }
-module.exports={manifest,catalog,resolveFolder,saveOrder};
+module.exports={manifest,catalog,resolveFolder,warmAllFolders,saveOrder};
 
