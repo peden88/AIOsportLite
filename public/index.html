@@ -5606,7 +5606,10 @@
       }
     }
 
+    function clearCollectionDock(){ document.querySelectorAll('.collection-results-head').forEach(el=>el.remove()); }
+
     async function loadVodTabs(snapshot = null) {
+      clearCollectionDock();
       setCatalogRailVisible(true);
       try {
         const data = await (await fetch('/api/v1/vod/catalogs')).json();
@@ -5644,6 +5647,7 @@
     }
 
     async function loadLibrary({ push = true } = {}) {
+      clearCollectionDock();
       setCatalogRailVisible(false);
       currentCatalogState = { kind:'library', id:'library', type:'' };
       tabs().innerHTML = '';
@@ -5669,6 +5673,7 @@
     }
 
     async function loadContinueWatching({ push = true } = {}) {
+      clearCollectionDock();
       setCatalogRailVisible(false);
       currentCatalogState = { kind:'continue', id:'continue', type:'' };
       tabs().innerHTML = '';
