@@ -222,52 +222,57 @@ class CdnLiveProvider extends BaseProvider {
     }
 
     const { safeFetch } = require('../impitClient');
-    const playerRes = await safeFetch(playerUrl, {
-      headersTimeout: 15000, bodyTimeout: 15000,
-      headers: { 'User-Agent': UA, 'Referer': 'https://cdnlivetv.tv/' },
-      signal: AbortSignal.timeout(10000)
-    });
-    if (playerRes.status === 429) {
-      // Hammering a rate-limited host only extends the limit. Callers fall back
-      // to the web player, which the viewer opens from their own address.
-      this._benchedUntil = Date.now() + BENCH_AFTER_429_MS;
-      console.warn(`[${this.name}] player pages are rate-limiting this server; pausing lookups for ${BENCH_AFTER_429_MS / 60000} min`);
-      if (opts.strict) throw new Error('player page rate-limited');
-      return '';
-    }
-    if (!(playerRes.status >= 200 && playerRes.status < 300)) {
-      if (opts.strict) throw new Error(`player page responded ${playerRes.status}`);
-      return '';
-    }
+    const urls = [playerUrl];
+    if (playerUrl.includes('cdnlivetv.tv')) urls.push(playerUrl.replace('cdnlivetv.tv','cdnlivetv.is'));
+    else if (playerUrl.includes('cdnlivetv.is')) urls.push(playerUrl.replace('cdnlivetv.is','cdnlivetv.tv'));
 
-    const html = await playerRes.text();
-    const decoderMatch = html.match(/function\s+([a-zA-Z0-9_]+)\s*\([a-zA-Z0-9_]+\)\s*\{.+?atob/);
-    if (!decoderMatch) return '';
-    const decoderName = decoderMatch[1];
-    const concatMatch = html.match(new RegExp(`var\\s+([a-zA-Z0-9_]+)\\s*=\\s*${decoderName}\\([^;]+;`));
-    if (!concatMatch) return '';
+    for (const url of urls) {
+      try {
+        const origin = new URL(url).origin;
+        const playerRes = await safeFetch(url, {
+          headers: { 'User-Agent': UA, 'Referer': origin + '/' },
+          timeoutMs: 10000
+        });
+        if (playerRes.status === 429) {
+          this._benchedUntil = Date.now() + BENCH_AFTER_429_MS;
+          if (opts.strict) throw new Error('player page rate-limited');
+          continue;
+        }
+        if (!playerRes.ok) continue;
+        const html = await playerRes.text();
+        let m3u8Url = '';
 
-    const varRegex = new RegExp(`${decoderName}\\(([a-zA-Z0-9_]+)\\)`, 'g');
-    const vars = [];
-    let m;
-    while ((m = varRegex.exec(concatMatch[0])) !== null) vars.push(m[1]);
+        // Newer pages use literal atob("...") concatenation.
+        const concat = html.match(/var\s+[a-zA-Z0-9_]+\s*=\s*(atob\([^;]+;)/);
+        if (concat) {
+          const re=/atob\s*\(\s*["']([^"']+)["']\s*\)/g; let m;
+          while((m=re.exec(concat[1]))!==null){let b=m[1].replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';try{m3u8Url+=Buffer.from(b,'base64').toString('utf8')}catch(_){}}
+        }
 
-    let url = '';
-    for (const v of vars) {
-      const valMatch = html.match(new RegExp(`var\\s+${v}\\s*=\\s*'([^']+)'`));
-      if (valMatch && valMatch[1]) {
-        let b64 = valMatch[1].replace(/-/g, '+').replace(/_/g, '/');
-        while (b64.length % 4) b64 += '=';
-        try { url += Buffer.from(b64, 'base64').toString('utf8'); } catch (e) { /* skip fragment */ }
+        // Older pages call a decoder function with base64 variables.
+        if (!m3u8Url) {
+          const dm=html.match(/function\s+([a-zA-Z0-9_]+)\s*\([a-zA-Z0-9_]+\)\s*\{[\s\S]*?atob/);
+          if(dm){const name=dm[1],cm=html.match(new RegExp(`var\\s+([a-zA-Z0-9_]+)\\s*=\\s*${name}\\([^;]+;`));if(cm){const vr=new RegExp(`${name}\\(([a-zA-Z0-9_]+)\\)`,'g');let vm;while((vm=vr.exec(cm[0]))!==null){const val=html.match(new RegExp(`var\\s+${vm[1]}\\s*=\\s*['"]([^'"]+)['"]`));if(val){let b=val[1].replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';try{m3u8Url+=Buffer.from(b,'base64').toString('utf8')}catch(_){}}}}}
+        }
+
+        // Last-resort direct/escaped playlist URL.
+        if (!m3u8Url) {
+          const direct=html.match(/(https?:\\?\/\\?\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
+          if(direct)m3u8Url=direct[1].replace(/\\\//g,'/');
+        }
+        if (!m3u8Url || !m3u8Url.includes('.m3u8')) continue;
+
+        const exp=tokenExpiry(m3u8Url);
+        const expiresAt=exp?Math.min(exp-TOKEN_MARGIN_MS,Date.now()+DECODED_TTL_MS):Date.now()+DECODED_TTL_MS;
+        if(this._decoded.size>=DECODED_CACHE_MAX)this._decoded.delete(this._decoded.keys().next().value);
+        if(expiresAt>Date.now())this._decoded.set(playerUrl,{url:m3u8Url,expiresAt});
+        return m3u8Url;
+      } catch (e) {
+        if (opts.strict && /rate-limited/.test(e.message)) throw e;
       }
     }
-    if (url) {
-      const exp = tokenExpiry(url);
-      const expiresAt = exp ? Math.min(exp - TOKEN_MARGIN_MS, Date.now() + DECODED_TTL_MS) : Date.now() + DECODED_TTL_MS;
-      if (this._decoded.size >= DECODED_CACHE_MAX) this._decoded.delete(this._decoded.keys().next().value);
-      if (expiresAt > Date.now()) this._decoded.set(playerUrl, { url, expiresAt });
-    }
-    return url;
+    if (opts.strict) throw new Error('player did not decode');
+    return '';
   }
 
   /**
