@@ -1948,7 +1948,7 @@
         bottom:calc(8px + env(safe-area-inset-bottom, 0px));
         z-index:80;
         display:grid;
-        grid-template-columns:repeat(5,minmax(0,1fr));
+        grid-template-columns:repeat(var(--mobile-nav-columns,5),minmax(0,1fr));
         gap:4px;
         padding:6px;
         border:1px solid rgba(255,255,255,.09);
@@ -4124,6 +4124,11 @@
           }, reducedMotionActive() ? 0 : 180);
         });
       }
+
+      // Size the dock to the controls that are actually visible. This keeps
+      // non-admin users balanced at four equal items after Live is hidden.
+      const visibleNavItems = [...nav.querySelectorAll('button')].filter(button => !button.hidden).length;
+      nav.style.setProperty('--mobile-nav-columns', String(Math.max(1, visibleNavItems)));
 
       const search = document.getElementById('searchInput');
       search?.addEventListener('focus', updateMobileBottomNavState);
