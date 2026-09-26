@@ -135,7 +135,7 @@
   .admin-tabs{display:flex;gap:8px;margin-bottom:18px}.admin-tabs button.active{background:#34404b;border-color:rgba(255,255,255,.28)}
   .collection-editor{display:grid;gap:16px}.editor-collection{background:rgba(17,22,29,.84);border:1px solid var(--line);border-radius:16px;padding:14px}
   .editor-collection-head,.editor-folder{display:flex;align-items:center;gap:9px}.editor-collection-head{margin-bottom:10px;font-weight:700}.editor-folder{padding:8px 10px;border-top:1px solid var(--line)}
-  .editor-folder span,.editor-collection-head span{flex:1}.move-btn{padding:5px 9px}
+  .editor-folder span,.editor-collection-head span{flex:1}.move-btn{padding:5px 9px}.collapse-btn{padding:5px 10px;min-width:36px}.visibility-btn{padding:5px 10px;min-width:64px}.editor-collection.is-hidden{opacity:.58}.editor-collection.is-hidden .editor-collection-head span{text-decoration:line-through}.editor-folders[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -228,6 +228,7 @@
 <script>
 const $ = id => document.getElementById(id);
 let collectionEditorData=[];
+const collapsedCollections=new Set();
 function showAdminTab(which){
   $('overviewTab').hidden=which!=='overview'; $('collectionsTab').hidden=which!=='collections';
   $('overviewTabBtn').classList.toggle('active',which==='overview'); $('collectionsTabBtn').classList.toggle('active',which==='collections');
@@ -239,14 +240,17 @@ function moveIn(arr,index,delta){const to=index+delta;if(to<0||to>=arr.length)re
 function renderCollectionEditor(){
   const host=$('collectionEditor');host.innerHTML='';
   collectionEditorData.forEach((col,ci)=>{
-    const box=document.createElement('div');box.className='editor-collection';
+    const box=document.createElement('div');box.className='editor-collection'+(col.hidden?' is-hidden':'');
     const head=document.createElement('div');head.className='editor-collection-head';
+    const collapse=document.createElement('button');collapse.className='collapse-btn';collapse.textContent=collapsedCollections.has(col.id)?'▸':'▾';collapse.title=collapsedCollections.has(col.id)?'Expand':'Collapse';collapse.onclick=()=>{collapsedCollections.has(col.id)?collapsedCollections.delete(col.id):collapsedCollections.add(col.id);renderCollectionEditor()};head.append(collapse);
     const name=document.createElement('span');name.textContent=col.name||col.id;head.append(name);
+    const visibility=document.createElement('button');visibility.className='visibility-btn';visibility.textContent=col.hidden?'Show':'Hide';visibility.title=col.hidden?'Show on Collections page':'Hide from Collections page';visibility.onclick=()=>{col.hidden=!col.hidden;renderCollectionEditor()};head.append(visibility);
     [['↑',-1],['↓',1]].forEach(([label,d])=>{const b=document.createElement('button');b.className='move-btn';b.textContent=label;b.onclick=()=>moveIn(collectionEditorData,ci,d);head.append(b)});box.append(head);
-    (col.folders||[]).forEach((folder,fi)=>{const row=document.createElement('div');row.className='editor-folder';const n=document.createElement('span');n.textContent=folder.name||folder.id;row.append(n);[['↑',-1],['↓',1]].forEach(([label,d])=>{const b=document.createElement('button');b.className='move-btn';b.textContent=label;b.onclick=()=>moveIn(col.folders,fi,d);row.append(b)});box.append(row)});host.append(box);
+    const folders=document.createElement('div');folders.className='editor-folders';folders.hidden=collapsedCollections.has(col.id);
+    (col.folders||[]).forEach((folder,fi)=>{const row=document.createElement('div');row.className='editor-folder';const n=document.createElement('span');n.textContent=folder.name||folder.id;row.append(n);[['↑',-1],['↓',1]].forEach(([label,d])=>{const b=document.createElement('button');b.className='move-btn';b.textContent=label;b.onclick=()=>moveIn(col.folders,fi,d);row.append(b)});folders.append(row)});box.append(folders);host.append(box);
   });
 }
-async function loadCollectionEditor(){try{const r=await fetch('/api/v1/collections',{cache:'no-store'});const d=await r.json();collectionEditorData=Array.isArray(d.collections)?d.collections:[];renderCollectionEditor();}catch(e){flash('Could not load Collections: '+e.message,true)}}
+async function loadCollectionEditor(){try{const r=await fetch('/api/v1/admin/collections',{cache:'no-store',headers:auth()});const d=await r.json();collectionEditorData=Array.isArray(d.collections)?d.collections:[];renderCollectionEditor();}catch(e){flash('Could not load Collections: '+e.message,true)}}
 
 const bytes = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB'
   : n >= 1024 ? Math.round(n / 1024) + ' KB' : (n || 0) + ' B';
@@ -452,7 +456,7 @@ async function act(path, label) {
   refresh();
 }
 
-$('saveCollectionOrder').onclick=async()=>{try{const payload={collectionIds:collectionEditorData.map(c=>c.id),folders:Object.fromEntries(collectionEditorData.map(c=>[c.id,(c.folders||[]).map(f=>f.id)]))};const r=await fetch('/api/v1/admin/collections/order',{method:'PUT',headers:{...auth(),'content-type':'application/json'},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Save failed');flash('Collections order saved.');await loadCollectionEditor();}catch(e){flash(e.message,true)}};
+$('saveCollectionOrder').onclick=async()=>{try{const payload={collectionIds:collectionEditorData.map(c=>c.id),visibility:Object.fromEntries(collectionEditorData.map(c=>[c.id,!c.hidden])),folders:Object.fromEntries(collectionEditorData.map(c=>[c.id,(c.folders||[]).map(f=>f.id)]))};const r=await fetch('/api/v1/admin/collections/order',{method:'PUT',headers:{...auth(),'content-type':'application/json'},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Save failed');flash('Collections order saved.');await loadCollectionEditor();}catch(e){flash(e.message,true)}};
 
 $('activeStreams').addEventListener('click', async event => {
   const button = event.target.closest('.stop-stream');
