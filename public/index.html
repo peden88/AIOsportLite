@@ -5514,6 +5514,7 @@
     }
 
     async function loadCollections() {
+      document.querySelectorAll('.collection-results-head').forEach(el=>el.remove());
       setCatalogRailVisible(false);
       tabs().innerHTML = '';
       try {
@@ -5528,6 +5529,7 @@
         host.innerHTML='';
 
         const openFolder=async(folder,restore=null)=>{
+          document.querySelectorAll('.collection-results-head').forEach(el=>el.remove());
           const pageSize=30, endpoint='/api/v1/collections/folder/'+encodeURIComponent(folder.id);
           let offset=0,loading=false,finished=false,observer=null,allMetas=[],renderStart=0;
           const key='collections-folder:'+folder.id;
