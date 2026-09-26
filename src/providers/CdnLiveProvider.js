@@ -172,33 +172,24 @@ class CdnLiveProvider extends BaseProvider {
     try {
       const data = await this.fetchMain.fire();
       const sportsData = data?.['cdn-live-tv'] || {};
-
-      // CDNLive mostly provides Football/Soccer
-      const soccerEvents = sportsData['Soccer'] || sportsData['Football'] || [];
-
-      if (Array.isArray(soccerEvents)) {
-        for (const item of soccerEvents) {
-          const matchId = item.gameID || `${item.homeTeam}-vs-${item.awayTeam}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-          const title = `${item.homeTeam || ''} vs ${item.awayTeam || ''}`;
-
-          let status = 'upcoming';
-          if (item.status === 'live' || item.status === 'in') status = 'live';
-
-          const matchTime = item.start ? parseTimezone(item.start, 'UTC') : Date.now();
-
-          matches.push(new MatchEntity({
-            id: `cdn_${matchId}`,
-            title: title,
-            category: 'football',
-            status: status,
-            timestamp: matchTime,
-            sources: [{ source: 'cdnlive', id: matchId }]
-          }));
+      const sportMapping = {
+        Soccer:'football', Football:'football', Basketball:'basketball', NBA:'basketball',
+        NFL:'american_football', NCAA:'american_football', Baseball:'baseball', MLB:'baseball',
+        Hockey:'hockey', NHL:'hockey', Motorsport:'motorsport', Tennis:'tennis', Golf:'golf',
+        UFC:'mma', WWE:'mma', MMA:'mma', Cricket:'cricket', Darts:'darts', Rugby:'rugby'
+      };
+      for (const [sportKey,category] of Object.entries(sportMapping)) {
+        const events=sportsData[sportKey]; if(!Array.isArray(events))continue;
+        for(const item of events){
+          if(!Array.isArray(item.channels)||!item.channels.length)continue;
+          const matchId=item.gameID||`${item.homeTeam}-vs-${item.awayTeam}`.toLowerCase().replace(/[^a-z0-9-]/g,'-');
+          const title=`${item.homeTeam||''} vs ${item.awayTeam||''}`;
+          const status=(item.status==='live'||item.status==='in')?'live':'upcoming';
+          const matchTime=item.start?parseTimezone(item.start,'UTC'):Date.now();
+          matches.push(new MatchEntity({id:`cdn_${matchId}`,title,category,status,timestamp:matchTime,sources:[{source:'cdnlive',id:matchId}]}));
         }
       }
-    } catch (err) {
-      console.error(`[${this.name}] Failed to get matches:`, err.message);
-    }
+    } catch(err){console.error(`[${this.name}] Failed to get matches:`,err.message)}
     return matches;
   }
 
