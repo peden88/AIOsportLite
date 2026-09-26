@@ -1338,8 +1338,13 @@ app.get('/api/v1/collections/catalog/:type/:catalogId', requirePage, async (req,
 });
 
 app.get('/api/v1/collections/folder/:folderId', requirePage, async (req,res)=>{
-  try{res.json(await nuvioCollections.resolveFolder(req.params.folderId));}
+  try{res.set('Cache-Control','private, max-age=3600, stale-while-revalidate=21600');res.json(await nuvioCollections.resolveFolder(req.params.folderId));}
   catch(err){console.error('[collections] folder failed:',err.message);res.status(err.statusCode||502).json({error:err.message,code:err.code||'COLLECTION_FOLDER_FAILED'});}
+});
+app.post('/api/v1/admin/collections/warm',async(req,res)=>{
+  if(!requireAdmin(req,res))return;
+  try{res.json(await nuvioCollections.warmAllFolders());}
+  catch(err){console.error('[collections] warm failed:',err.message);res.status(500).json({error:'Could not warm Collections cache.'});}
 });
 
 app.get('/api/v1/admin/collections', async (req,res)=>{
