@@ -54,7 +54,8 @@ function image(v){ const s=text(v,2000); if(!s)return ''; if(/^\/collections-ass
 function source(s){
   if(!s||typeof s!=='object') return null;
   const provider=text(s.provider,40).toLowerCase();
-  const type=text(s.type||s.mediaType,40).toLowerCase();
+  const rawType=text(s.type||s.mediaType,40).toLowerCase();
+  const type=rawType==='tv'?'series':rawType;
   return {
     provider,
     type:type==='movie'||type==='series'?type:'',
@@ -125,8 +126,38 @@ function tmdbMeta(item,forcedType=''){
   if(!['movie','series'].includes(type)||!item.id)return null;
   return {id:'tmdb:'+item.id,type,name:item.title||item.name||'',poster:item.poster_path?'https://image.tmdb.org/t/p/w500'+item.poster_path:'',background:item.backdrop_path?'https://image.tmdb.org/t/p/original'+item.backdrop_path:'',description:item.overview||'',releaseInfo:String(item.release_date||item.first_air_date||'').slice(0,4)};
 }
+function tmdbDiscoverParams(s,page){
+  const f=s.filters||{}, p=new URLSearchParams();
+  p.set('page',String(page)); p.set('sort_by',s.sortBy||f.sortBy||'popularity.desc');
+  const map=[
+    ['withGenres','with_genres'],['withoutGenres','without_genres'],['withNetworks','with_networks'],
+    ['withKeywords','with_keywords'],['withOriginalLanguage','with_original_language'],
+    ['voteCountGte','vote_count.gte'],['releaseDateGte','release_date.gte'],['releaseDateLte','release_date.lte']
+  ];
+  for(const [from,to] of map){if(f[from]!=null&&f[from]!=='')p.set(to,String(f[from]).replace(/,/g,','));}
+  // Preserve snake_case fields exported by Nuvio when their camelCase alias is absent.
+  for(const key of ['with_genres','without_genres','with_networks','with_keywords','with_original_language','vote_count.gte']){
+    if(f[key]!=null&&f[key]!==''&&!p.has(key))p.set(key,String(f[key]));
+  }
+  if(f.year){
+    if(s.type==='movie')p.set('primary_release_year',String(f.year));
+    else p.set('first_air_date_year',String(f.year));
+  }
+  return p;
+}
 async function resolveTmdbSource(s){
   const kind=String(s.tmdbSourceType||'').toUpperCase(),id=encodeURIComponent(String(s.tmdbId||''));
+  if(kind==='DISCOVER'||kind==='COMPANY'){
+    const media=s.type==='series'?'tv':'movie';
+    const fetchPage=async page=>{
+      const p=tmdbDiscoverParams(s,page);
+      if(kind==='COMPANY'&&id)p.set('with_companies',String(s.tmdbId));
+      return tmdbGet('/3/discover/'+media+'?'+p.toString());
+    };
+    const first=await fetchPage(1), pages=Math.max(1,Math.min(5,Number(first.total_pages)||1)), bodies=[first];
+    if(pages>1)bodies.push(...await Promise.all(Array.from({length:pages-1},(_,i)=>fetchPage(i+2))));
+    return bodies.flatMap(x=>x.results||[]).map(x=>tmdbMeta(x,media)).filter(Boolean);
+  }
   if(!id)return [];
   if(kind==='COLLECTION'){
     const body=await tmdbGet('/3/collection/'+id);
