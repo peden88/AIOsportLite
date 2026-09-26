@@ -509,7 +509,7 @@
     .details-related-card.is-visited img{opacity:.58}.details-related-card.is-visited span::after{content:'  ✓';opacity:.62}
     .details-person-link{position:relative;min-height:116px;border-radius:12px;-webkit-tap-highlight-color:transparent}.details-person-link::after{content:'⌕';position:absolute;right:28px;top:54px;width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:rgba(7,10,14,.78);border:1px solid rgba(255,255,255,.13);font-size:.68rem;opacity:0;transform:scale(.85);transition:.16s}.details-person-link:hover::after,.details-person-link:focus-visible::after,.details-person-link:active::after{opacity:1;transform:scale(1)}
     .details-empty{padding:18px 4px;color:rgba(235,241,245,.54);font:650 .76rem/1.4 'Inter',sans-serif}
-    #detailsCloseButton{position:relative;z-index:6;float:right;display:block;width:auto;max-width:min(48vw,360px);min-height:42px;margin:0 0 12px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#151b22;border:1px solid rgba(255,255,255,.10);color:#fff;opacity:1!important;visibility:visible!important}@media(max-width:650px){#detailsCloseButton{max-width:calc(100% - 24px);min-height:40px;margin:0 0 12px 10px;padding:9px 12px;font-size:.78rem;line-height:1.15;background:rgba(21,27,34,.94);box-shadow:0 4px 14px rgba(0,0,0,.22)}}
+    .details-nav-row{position:relative;z-index:6;display:flex;justify-content:flex-end;align-items:center;width:100%;min-height:42px;margin:0 0 14px;padding:0}#detailsCloseButton{position:static;float:none;display:block;width:auto;max-width:min(70vw,520px);min-height:42px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#151b22;border:1px solid rgba(255,255,255,.10);color:#fff;opacity:1!important;visibility:visible!important}@media(max-width:650px){.details-nav-row{min-height:40px;margin-bottom:14px}#detailsCloseButton{max-width:100%;min-height:40px;margin:0;padding:9px 12px;font-size:.78rem;line-height:1.15;background:rgba(21,27,34,.94);box-shadow:0 4px 14px rgba(0,0,0,.22)}}
     .details-info-tab,.details-person-link,.details-rating-card,.details-related-card,.details-trailer-card{touch-action:manipulation}
     @media(pointer:coarse){.details-info-tab{min-height:44px;padding:10px 15px}.details-rating-card{min-height:76px}.details-person-link{padding:4px}.details-related-card,.details-trailer-card{padding-bottom:8px}}
     @media(prefers-reduced-motion:reduce){.details-skeleton::after{animation:none!important}.details-content-enter{animation:none!important}.details-related-card img,.details-person-link,.details-rating-card{transition:none!important}}
@@ -3474,7 +3474,9 @@
         <span class="details-trailer-badge">Trailer · muted</span>
         <button type="button" id="detailsTrailerDismiss" class="details-trailer-dismiss" aria-label="Dismiss trailer">Dismiss</button>
       </div>
-      <button type="button" id="detailsCloseButton" class="details-close" onclick="closeDetailsFromUi()">Close</button>
+      <div class="details-nav-row">
+        <button type="button" id="detailsCloseButton" class="details-close" onclick="closeDetailsFromUi()">Close</button>
+      </div>
       <div class="details-head">
         <img id="detailsPoster" class="details-poster" alt="">
         <div id="detailsHeroAction" class="details-hero-action" hidden>
@@ -7250,8 +7252,6 @@
       const heroPlay = document.getElementById('detailsMoviePlay');
       document.body.classList.add('details-open');
       overlay.style.display = 'block';
-      const detailsCloseButton=document.getElementById('detailsCloseButton'),detailsShell=overlay.querySelector('.details-shell');
-      if(detailsCloseButton&&detailsShell&&detailsCloseButton.parentElement!==detailsShell)detailsShell.insertBefore(detailsCloseButton,detailsShell.firstChild);
       overlay.classList.remove('details-fading');
       if (!reducedMotionActive()) {
         overlay.classList.remove('details-entering');
