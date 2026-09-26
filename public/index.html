@@ -3322,7 +3322,7 @@
   .collection-heading{font-family:'Outfit',sans-serif;font-size:clamp(18px,2vw,26px);font-weight:750;margin:0 0 12px;padding:0 4px;color:var(--text)}
   .collection-folder-row{display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;padding:4px 4px 12px;scroll-snap-type:x proximity;scrollbar-width:none}
   .collection-folder-row::-webkit-scrollbar{display:none}
-  .collection-folder-card{position:relative;flex:0 0 clamp(138px,17vw,230px);aspect-ratio:2/3;border:1px solid rgba(255,255,255,.16);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.06);padding:0;scroll-snap-align:start;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+  .collection-folder-card{position:relative;flex:0 0 clamp(69px,8.5vw,115px);aspect-ratio:2/3;border:1px solid rgba(255,255,255,.16);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.06);padding:0;scroll-snap-align:start;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
   .collection-folder-card.landscape{flex-basis:clamp(210px,25vw,340px);aspect-ratio:16/9}
   .collection-folder-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
   .collection-folder-card .focus-art{opacity:0;transition:opacity .18s ease}
@@ -3331,7 +3331,7 @@
   .collection-folder-title{position:absolute;left:0;right:0;bottom:0;padding:28px 12px 10px;background:linear-gradient(transparent,rgba(0,0,0,.88));font:700 15px/1.15 'Outfit',sans-serif;color:white;text-align:left}
   .collection-folder-card.hide-title .collection-folder-title{display:none}
   .collections-back{display:inline-flex;align-items:center;gap:7px;margin:0 0 18px;padding:8px 13px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.07);color:var(--text);font-weight:700;cursor:pointer}
-  @media(max-width:700px){.collection-folder-row{gap:10px}.collection-folder-card{flex-basis:42vw}.collection-folder-card.landscape{flex-basis:66vw}.collection-section{margin-bottom:20px}}
+  @media(max-width:700px){.collection-folder-row{gap:10px}.collection-folder-card{flex-basis:21vw}.collection-folder-card.landscape{flex-basis:66vw}.collection-section{margin-bottom:20px}}
 
 </style>
   <link rel="manifest" href="/app.webmanifest">
@@ -5516,25 +5516,17 @@
         host.innerHTML='';
 
         const openFolder=async(folder)=>{
-          const addon=(folder.sources||[]).filter(s=>s.provider==='addon'&&s.id&&['movie','series'].includes(s.type));
-          if(!addon.length){
-            setGridState('This collection uses a source type that AIOPlay does not resolve yet.');
-            const back=document.createElement('button'); back.className='collections-back'; back.textContent='‹ Collections'; back.onclick=()=>loadCollections(); host.prepend(back); return;
-          }
           showGridSkeleton({posterMode:true});
-          const settled=await Promise.allSettled(addon.map(async s=>{
-            const url='/api/v1/collections/catalog/'+encodeURIComponent(s.type)+'/'+encodeURIComponent(s.id);
-            const r=await fetch(url,{cache:'no-store'}); if(!r.ok)throw new Error('catalog failed');
-            return {source:s,body:await r.json()};
-          }));
-          const metas=[],seen=new Set();
-          for(const row of settled){
-            if(row.status!=='fulfilled')continue;
-            const list=Array.isArray(row.value.body.metas)?row.value.body.metas:(Array.isArray(row.value.body.metasDetailed)?row.value.body.metasDetailed:[]);
-            for(const meta of list){const type=meta?.type||row.value.source.type,key=type+'|'+String(meta?.id||'');if(!meta?.id||seen.has(key))continue;seen.add(key);metas.push({...meta,type});}
+          try{
+            const r=await fetch('/api/v1/collections/folder/'+encodeURIComponent(folder.id),{cache:'no-store'});
+            const body=await r.json().catch(()=>({})); if(!r.ok)throw new Error(body.error||'collection failed');
+            const metas=Array.isArray(body.metas)?body.metas:[];
+            currentItems=metas; renderGrid(metas);
+            const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();grid().prepend(back);
+          }catch(err){
+            console.error(err);setGridState(err.message||'Could not load this collection.',true,()=>openFolder(folder));
+            const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();grid().prepend(back);
           }
-          currentItems=metas; renderGrid(metas);
-          const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();grid().prepend(back);
         };
 
         for(const collection of collections){
