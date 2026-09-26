@@ -3323,7 +3323,9 @@
   .collection-folder-row{display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;padding:4px 4px 12px;scroll-snap-type:x proximity;scrollbar-width:none}
   .collection-folder-row::-webkit-scrollbar{display:none}
   .collection-folder-card{position:relative;flex:0 0 clamp(69px,8.5vw,115px);aspect-ratio:2/3;border:1px solid rgba(255,255,255,.16);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.06);padding:0;scroll-snap-align:start;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
-  .collection-folder-card.landscape{flex-basis:clamp(210px,25vw,340px);aspect-ratio:16/9}
+  .collection-folder-card.landscape{flex-basis:clamp(158px,18.75vw,255px);aspect-ratio:16/9}
+  .collection-folder-row.poster-row{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);grid-auto-columns:clamp(69px,8.5vw,115px);justify-content:start}
+  .collection-folder-row.poster-row .collection-folder-card{width:100%;flex:none}
   .collection-folder-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
   .collection-folder-card .focus-art{opacity:0;transition:opacity .18s ease}
   .collection-folder-card:hover .focus-art,.collection-folder-card:focus .focus-art{opacity:1}
@@ -3331,7 +3333,10 @@
   .collection-folder-title{position:absolute;left:0;right:0;bottom:0;padding:28px 12px 10px;background:linear-gradient(transparent,rgba(0,0,0,.88));font:700 15px/1.15 'Outfit',sans-serif;color:white;text-align:left}
   .collection-folder-card.hide-title .collection-folder-title{display:none}
   .collections-back{display:inline-flex;align-items:center;gap:7px;margin:0 0 18px;padding:8px 13px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.07);color:var(--text);font-weight:700;cursor:pointer}
-  @media(max-width:700px){.collection-folder-row{gap:10px}.collection-folder-card{flex-basis:21vw}.collection-folder-card.landscape{flex-basis:66vw}.collection-section{margin-bottom:20px}}
+  @media(max-width:700px){.collection-folder-row{gap:10px}.collection-folder-card{flex-basis:21vw}.collection-folder-card.landscape{flex-basis:49.5vw}.collection-folder-row.poster-row{grid-auto-columns:21vw;grid-template-rows:repeat(2,auto)}.collection-section{margin-bottom:20px}}
+  .grid.collection-results-grid{grid-template-columns:repeat(auto-fill,minmax(min(132px,38vw),1fr));align-items:start}
+  .grid.collection-results-grid .collections-back{grid-column:1/-1;justify-self:start}
+  @media(max-width:700px){.grid.collection-results-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px}.grid.collection-results-grid .vod-card{min-width:0}}
 
 </style>
   <link rel="manifest" href="/app.webmanifest">
@@ -4117,10 +4122,15 @@
           document.body.classList.remove('mobile-header-collapsed');
 
           if (currentMode === mode) {
-            window.scrollTo({
-              top:0,
-              behavior:reducedMotionActive() ? 'auto' : 'smooth'
-            });
+            if(mode==='collections'&&grid()?.classList.contains('collection-results-grid')){
+              await loadCollections();
+              window.scrollTo({top:0,behavior:'auto'});
+            }else{
+              window.scrollTo({
+                top:0,
+                behavior:reducedMotionActive() ? 'auto' : 'smooth'
+              });
+            }
             updateMobileBottomNavState();
             return;
           }
@@ -5521,7 +5531,7 @@
             const r=await fetch('/api/v1/collections/folder/'+encodeURIComponent(folder.id),{cache:'no-store'});
             const body=await r.json().catch(()=>({})); if(!r.ok)throw new Error(body.error||'collection failed');
             const metas=Array.isArray(body.metas)?body.metas:[];
-            currentItems=metas; renderGrid(metas);
+            currentItems=metas; renderGrid(metas); grid().classList.add('collection-results-grid');
             const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();grid().prepend(back);
           }catch(err){
             console.error(err);setGridState(err.message||'Could not load this collection.',true,()=>openFolder(folder));
@@ -5532,8 +5542,11 @@
         for(const collection of collections){
           const section=document.createElement('section');section.className='collection-section';
           const heading=document.createElement('h2');heading.className='collection-heading';heading.textContent=collection.name||'Collection';
-          const row=document.createElement('div');row.className='collection-folder-row';
-          for(const folder of collection.folders||[]){
+          const row=document.createElement('div');
+          const folders=collection.folders||[];
+          const allPoster=folders.length>0&&folders.every(f=>f.tileShape!=='LANDSCAPE');
+          row.className='collection-folder-row'+(allPoster?' poster-row':'');
+          for(const folder of folders){
             const card=document.createElement('button');card.type='button';card.className='collection-folder-card '+(folder.tileShape==='LANDSCAPE'?'landscape':'poster')+(folder.hideTitle?' hide-title':'');card.title=folder.name||'';
             const art=folder.coverImageUrl||folder.heroBackdropUrl;
             const collectionThumb=url=>{if(!url||!url.startsWith('/collections-assets/'))return url;const name=url.slice('/collections-assets/'.length);return name&&!name.includes('/')?'/collections-assets/thumb/'+encodeURIComponent(name):url;};
