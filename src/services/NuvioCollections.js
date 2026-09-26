@@ -127,7 +127,14 @@ async function tmdbGet(endpoint){
 function tmdbMeta(item,forcedType=''){
   const type=String(item.media_type||forcedType||'movie').toLowerCase()==='tv'?'series':String(item.media_type||forcedType||'movie').toLowerCase();
   if(!['movie','series'].includes(type)||!item.id)return null;
-  return {id:'tmdb:'+item.id,type,name:item.title||item.name||'',poster:item.poster_path?'https://image.tmdb.org/t/p/w500'+item.poster_path:'',background:item.backdrop_path?'https://image.tmdb.org/t/p/original'+item.backdrop_path:'',description:item.overview||'',releaseInfo:String(item.release_date||item.first_air_date||'').slice(0,4)};
+  const releaseDate=String(item.release_date||item.first_air_date||'').slice(0,10);
+  return {id:'tmdb:'+item.id,type,name:item.title||item.name||'',poster:item.poster_path?'https://image.tmdb.org/t/p/w500'+item.poster_path:'',background:item.backdrop_path?'https://image.tmdb.org/t/p/original'+item.backdrop_path:'',description:item.overview||'',releaseInfo:releaseDate.slice(0,4),releaseDate};
+}
+function releasedByToday(meta){
+  const d=String(meta?.releaseDate||meta?.release_date||meta?.first_air_date||'').slice(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return true;
+  const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), day=String(now.getDate()).padStart(2,'0');
+  return d<=`${y}-${m}-${day}`;
 }
 function tmdbDiscoverParams(s,page){
   const f=s.filters||{}, p=new URLSearchParams();
@@ -193,7 +200,7 @@ async function resolveFolderFresh(folderId){
   const metas=[],seen=new Set();
   for(const row of settled){if(row.status!=='fulfilled')continue;for(const meta of row.value){const k=String(meta.type||'movie')+'|'+String(meta.id||'');if(!meta.id||seen.has(k))continue;seen.add(k);metas.push(meta);}}
   if(!metas.length&&settled.some(x=>x.status==='rejected')){const first=settled.find(x=>x.status==='rejected');throw first.reason;}
-  return {metas};
+  return {metas:metas.filter(releasedByToday)};
 }
 async function resolveFolder(folderId){
   const key=String(folderId||''), now=Date.now(), hit=folderCache.get(key);
