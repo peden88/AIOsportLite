@@ -4479,6 +4479,33 @@
       return 'Continue on AIOPlay';
     }
 
+    function parseTitleDeepLink(pathname=location.pathname){
+      const match=String(pathname||'').match(/^\/title\/(movie|series)\/([^/?#]+)\/?$/i);
+      if(!match)return null;
+      try{return {type:match[1].toLowerCase(),id:decodeURIComponent(match[2])}}catch(_){return null}
+    }
+    function titleDeepLinkUrl(meta=currentDetailsMeta){
+      const type=normalizedVodType(meta),id=String(meta?.id||meta?.contentId||'').trim();
+      return type&&id?'/title/'+encodeURIComponent(type)+'/'+encodeURIComponent(id):'/';
+    }
+    function historyUrlForSnapshot(snapshot){
+      return snapshot?.overlay==='details'&&currentDetailsMeta?titleDeepLinkUrl(currentDetailsMeta):'/';
+    }
+    async function openTitleDeepLink(link,{replace=true}={}){
+      if(!link||!bootstrap?.services?.vod?.enabled)return false;
+      if(currentMode!=='vod')await loadMode('vod',{push:false});
+      const preview={id:link.id,contentId:link.id,type:link.type,name:link.type==='series'?'Series':'Movie'};
+      const wasRestoring=restoringUiState;restoringUiState=true;
+      try{
+        if(link.type==='series')await openSeries(preview,null);else await openMovie(preview,null);
+      }catch(err){console.error('Could not open title deep link',err);return false}
+      finally{restoringUiState=wasRestoring}
+      const snapshot={...currentUiSnapshot(),overlay:'details'};
+      try{history[replace?'replaceState':'pushState']({aioplay:snapshot},'',titleDeepLinkUrl(currentDetailsMeta||preview))}catch(_){}
+      try{localStorage.setItem(UI_STATE_KEY,JSON.stringify(snapshot))}catch(_){}
+      return true;
+    }
+
     function currentUiSnapshot() {
       return {
         mode: currentMode,
@@ -4502,7 +4529,7 @@
       const snapshot = { ...currentUiSnapshot(), overlay };
       try { localStorage.setItem(UI_STATE_KEY, JSON.stringify(snapshot)); } catch (_) {}
       const method = push ? 'pushState' : 'replaceState';
-      try { history[method]({ aioplay: snapshot }, '', location.href); } catch (_) {}
+      try { history[method]({ aioplay: snapshot }, '', historyUrlForSnapshot(snapshot)); } catch (_) {}
     }
 
     function savedUiState() {
@@ -5424,8 +5451,9 @@
         buildModes();
         const sports = bootstrap.services && bootstrap.services.sports && bootstrap.services.sports.enabled && currentUserIsAdmin;
         const vod = bootstrap.services && bootstrap.services.vod && bootstrap.services.vod.enabled;
-        const snapshot = savedUiState();
-        const requestedMode = snapshot?.mode;
+        const deepLink=parseTitleDeepLink();
+        const snapshot = deepLink ? null : savedUiState();
+        const requestedMode = deepLink ? 'vod' : snapshot?.mode;
         const validMode = (requestedMode === 'continue' || requestedMode === 'library')
           ? !!(vod && bootstrap.accountUser)
           : requestedMode === 'vod'
@@ -5450,7 +5478,11 @@
           }
           restoreGridPosition(snapshot);
           restoringUiState = false;
-          persistUiState();
+          if(deepLink){
+            await openTitleDeepLink(deepLink,{replace:true});
+          }else{
+            persistUiState();
+          }
         } else {
           setGridState('No content services are enabled.');
         }
@@ -7293,6 +7325,7 @@
 
       const meta = await loadMetaFor({ ...preview, type:'movie' }) || preview;
       currentDetailsMeta = { ...preview, ...meta, type:'movie' };
+      if(!restoringUiState&&document.getElementById('details-overlay')?.style.display==='block')persistUiState();
       prefetchMetaArtwork(currentDetailsMeta);
       perfEnd(perf);
       document.getElementById('detailsTitle').textContent = currentDetailsMeta.name || preview.name || 'Movie';
@@ -7358,6 +7391,7 @@
           vodMetaCache.set(cacheKey, meta);
         }
         currentDetailsMeta = { ...preview, ...meta, type:'series' };
+        if(!restoringUiState&&document.getElementById('details-overlay')?.style.display==='block')persistUiState();
         prefetchMetaArtwork(currentDetailsMeta);
         finishEpisodeSkeleton(list);
         perfEnd(perf);
@@ -8311,7 +8345,15 @@
     });
 
     window.addEventListener('popstate', async event => {
-      const snapshot = event.state?.aioplay || savedUiState();
+      const urlDeepLink=parseTitleDeepLink();
+      const snapshot = event.state?.aioplay || (urlDeepLink?null:savedUiState());
+      if(urlDeepLink && (!snapshot || snapshot.overlay!=='details' || String(snapshot.detailsId||'')!==urlDeepLink.id)){
+        restoringUiState=true;hideQuickActions();
+        const activePlayer=document.getElementById('player-overlay');
+        if(activePlayer?.style.display==='flex'&&!activePlayer.classList.contains('mini'))await closePlayer(true,{returnToOrigin:false});
+        await openTitleDeepLink(urlDeepLink,{replace:true});
+        restoringUiState=false;return;
+      }
       restoringUiState = true;
       hideQuickActions();
 
