@@ -165,17 +165,41 @@ async function safeFetch(url, opts = {}) {
   // agent's 20 s connect timeout governs instead and the budget is ignored.
   // Measured: a blackholed address cost 24.6 s under headersTimeout alone.
   // A signal covers connect, headers and body alike.
-  const left = remaining();
-  const budget = AbortSignal.timeout(left);
-  const res = await undiciRequest(url, {
-    method,
-    headers,
-    body,
-    signal: signal ? AbortSignal.any([signal, budget]) : budget,
-    headersTimeout: left,
-    bodyTimeout: left,
-    dispatcher: dispatcher || _undiciAgent,
-  });
+  let currentUrl = url;
+  let currentMethod = method;
+  let currentHeaders = headers;
+  let currentBody = body;
+  let res;
+  const MAX_REDIRECT_HOPS = 5;
+  for (let hop = 0; ; hop++) {
+    const left = remaining();
+    const budget = AbortSignal.timeout(left);
+    res = await undiciRequest(currentUrl, {
+      method: currentMethod,
+      headers: currentHeaders,
+      body: currentBody,
+      signal: signal ? AbortSignal.any([signal, budget]) : budget,
+      headersTimeout: left,
+      bodyTimeout: left,
+      dispatcher: dispatcher || _undiciAgent,
+    });
+    const isRedirect = [301,302,303,307,308].includes(res.statusCode);
+    if (redirect === 'manual' || !isRedirect || hop >= MAX_REDIRECT_HOPS) break;
+    const location = Array.isArray(res.headers.location) ? res.headers.location[0] : res.headers.location;
+    if (!location) break;
+    let next;
+    try { next = new URL(location, currentUrl); } catch (_) { break; }
+    if (!['http:','https:'].includes(next.protocol)) break;
+    try { await res.body.dump(); } catch (_) {}
+    if (currentMethod !== 'HEAD' && ![307,308].includes(res.statusCode)) {
+      currentMethod = 'GET'; currentBody = undefined;
+      if (currentHeaders && currentHeaders.constructor === Object) {
+        currentHeaders = { ...currentHeaders };
+        delete currentHeaders['content-length']; delete currentHeaders['Content-Length'];
+      }
+    }
+    currentUrl = next.toString();
+  }
   const textData = maxBytes
     ? await readCapped(res.body, maxBytes, res.headers['content-length'])
     : await res.body.text();
