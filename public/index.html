@@ -5536,8 +5536,12 @@
           for(const folder of collection.folders||[]){
             const card=document.createElement('button');card.type='button';card.className='collection-folder-card '+(folder.tileShape==='LANDSCAPE'?'landscape':'poster')+(folder.hideTitle?' hide-title':'');card.title=folder.name||'';
             const art=folder.coverImageUrl||folder.heroBackdropUrl;
-            if(art){const img=document.createElement('img');img.src=art;img.alt=folder.hideTitle?'':(folder.name||'');img.loading='lazy';card.appendChild(img);}
-            if(folder.focusGifEnabled&&folder.focusGifUrl){const gif=document.createElement('img');gif.src=folder.focusGifUrl;gif.alt='';gif.loading='lazy';gif.className='focus-art';card.appendChild(gif);}
+            const collectionThumb=url=>{if(!url||!url.startsWith('/collections-assets/'))return url;const name=url.slice('/collections-assets/'.length);return name&&!name.includes('/')?'/collections-assets/thumb/'+encodeURIComponent(name):url;};
+            if(art){const img=document.createElement('img');img.src=collectionThumb(art);img.alt=folder.hideTitle?'':(folder.name||'');img.loading=host.children.length?'lazy':'eager';img.decoding='async';if(!host.children.length)img.fetchPriority='high';card.appendChild(img);}
+            if(folder.focusGifEnabled&&folder.focusGifUrl){
+              const loadFocus=()=>{if(card.querySelector('.focus-art'))return;const gif=document.createElement('img');gif.src=folder.focusGifUrl;gif.alt='';gif.decoding='async';gif.className='focus-art';card.appendChild(gif);};
+              card.addEventListener('pointerenter',loadFocus,{once:true});card.addEventListener('focus',loadFocus,{once:true});
+            }
             const title=document.createElement('span');title.className='collection-folder-title';title.textContent=folder.name||'';card.appendChild(title);
             card.onclick=()=>openFolder(folder);
             card.onkeydown=e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){const sibling=e.key==='ArrowLeft'?card.previousElementSibling:card.nextElementSibling;if(sibling){e.preventDefault();sibling.focus();sibling.scrollIntoView({inline:'nearest',block:'nearest',behavior:'smooth'});}}};
