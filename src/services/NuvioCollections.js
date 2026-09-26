@@ -58,6 +58,7 @@ function normalize(raw){
   return {name:'Collections',collections:raw.slice(0,100).map((col,ci)=>({
     id:text(col.id||('collection-'+ci),160),
     name:text(col.title||col.name||('Collection '+(ci+1))),
+    hidden:col.hidden===true,
     pinToTop:!!col.pinToTop, showAllTab:!!col.showAllTab,
     viewMode:text(col.viewMode||'FOLLOW_LAYOUT',40),
     focusGlowEnabled:col.focusGlowEnabled!==false,
@@ -143,9 +144,13 @@ async function saveOrder(order){
   const colOrder=Array.isArray(order?.collectionIds)?order.collectionIds.map(String):[];
   const rank=new Map(colOrder.map((id,i)=>[id,i]));
   raw.sort((a,b)=>(rank.has(String(a.id))?rank.get(String(a.id)):99999)-(rank.has(String(b.id))?rank.get(String(b.id)):99999));
+  const visibility=order&&typeof order.visibility==='object'?order.visibility:{};
+  for(const col of raw){if(Object.prototype.hasOwnProperty.call(visibility,String(col.id)))col.hidden=!visibility[String(col.id)];}
   const folders=order&&typeof order.folders==='object'?order.folders:{};
   for(const col of raw){const ids=Array.isArray(folders[col.id])?folders[col.id].map(String):[];if(!ids.length||!Array.isArray(col.folders))continue;const r=new Map(ids.map((id,i)=>[id,i]));col.folders.sort((a,b)=>(r.has(String(a.id))?r.get(String(a.id)):99999)-(r.has(String(b.id))?r.get(String(b.id)):99999));}
-  const tmp=FILE+'.tmp-'+process.pid;await fs.writeFile(tmp,JSON.stringify(raw,null,2)+'\n','utf8');await fs.rename(tmp,FILE);cache=null;return manifest(true);
+  // Write in place: COLLECTIONS.json is commonly mounted as an individual Docker bind file,
+  // where renaming a temporary file over the mount point fails with EBUSY.
+  await fs.writeFile(FILE,JSON.stringify(raw,null,2)+'\n','utf8');cache=null;return manifest(true);
 }
 module.exports={manifest,catalog,resolveFolder,saveOrder};
 
