@@ -318,12 +318,15 @@ class CdnLiveProvider extends BaseProvider {
     try {
       const data = await this.fetchMain.fire();
       const sportsData = data?.['cdn-live-tv'] || {};
-      const soccerEvents = sportsData['Soccer'] || sportsData['Football'] || [];
-
-      const item = soccerEvents.find(e =>
-        (e.gameID === sourceId) ||
-        (`${e.homeTeam}-vs-${e.awayTeam}`.toLowerCase().replace(/[^a-z0-9-]/g, '-') === sourceId)
-      );
+      let item = null;
+      for (const events of Object.values(sportsData)) {
+        if (!Array.isArray(events)) continue;
+        item = events.find(e =>
+          (e.gameID === sourceId) ||
+          (`${e.homeTeam}-vs-${e.awayTeam}`.toLowerCase().replace(/[^a-z0-9-]/g, '-') === sourceId)
+        );
+        if (item) break;
+      }
 
       if (item && Array.isArray(item.channels)) {
         for (const [idx, ch] of item.channels.entries()) {
