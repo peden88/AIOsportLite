@@ -46,6 +46,7 @@ const aioPlayProgress = require('./services/AioPlayProgress');
 const aioPlayLibrary = require('./services/AioPlayLibrary');
 const aioPlayWatchState = require('./services/AioPlayWatchState');
 const vodGateway = require('./services/VodGateway');
+const nuvioCollections = require('./services/NuvioCollections');
 const hlsTransmux = require('./services/HlsTransmux');
 const skipMetadata = require('./services/SkipMetadata');
 
@@ -1294,6 +1295,22 @@ function vodExtraFromQuery(query) {
   }
   return out;
 }
+
+app.get('/api/v1/collections', requirePage, async (req, res) => {
+  try { res.json(await nuvioCollections.manifest()); }
+  catch (err) {
+    console.error('[collections] manifest failed:', err.message);
+    res.status(err.statusCode || 502).json({ error:'Collections are unavailable.', code:err.code || 'COLLECTIONS_ERROR' });
+  }
+});
+
+app.get('/api/v1/collections/catalog/:type/:catalogId', requirePage, async (req, res) => {
+  try { res.json(await nuvioCollections.catalog(req.params.type, req.params.catalogId, vodExtraFromQuery(req.query))); }
+  catch (err) {
+    console.error('[collections] catalog failed:', err.message);
+    res.status(err.statusCode || 502).json({ error:'Could not load collection catalog.' });
+  }
+});
 
 app.get('/api/v1/vod/catalogs', requirePage, async (req, res) => {
   try {
