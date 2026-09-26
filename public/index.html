@@ -503,7 +503,16 @@
     .details-related{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;padding:2px 18px 8px 2px;scrollbar-width:none}.details-related::-webkit-scrollbar{display:none}
     .details-related-card{flex:0 0 196px;width:196px;min-width:196px;scroll-snap-align:start;border:0;background:transparent;color:#fff;text-align:left;cursor:pointer;padding:0}.details-related-card img{display:block;width:196px;height:110px;aspect-ratio:16/9;object-fit:cover;border-radius:10px;border:2px solid transparent;box-shadow:0 8px 22px rgba(0,0,0,.26);transition:transform .18s,border-color .18s}.details-related-card:hover img,.details-related-card:focus-visible img{transform:translateY(-3px);border-color:var(--accent)}.details-related-card span{display:block;width:196px;margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 .72rem/1.2 'Inter',sans-serif}
     .details-trailers{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 18px 8px 2px;scrollbar-width:none}.details-trailers::-webkit-scrollbar{display:none}.details-trailer-card{flex:0 0 196px;width:196px;scroll-snap-align:start;border:0;background:transparent;color:#fff;text-align:left;padding:0}.details-trailer-card img{width:196px;height:110px;object-fit:cover;border-radius:10px;display:block}.details-trailer-card span{display:block;margin-top:7px;font:700 .72rem/1.2 'Inter',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .details-ratings{display:flex;gap:10px;flex-wrap:wrap}.details-rating-card{min-width:112px;padding:14px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(12,16,21,.58);color:inherit;text-align:left}.details-rating-card.is-link{cursor:pointer;position:relative;padding-right:34px}.details-rating-card.is-link::after{content:'↗';position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:1rem;font-weight:800;opacity:.78}.details-rating-card.is-link:hover,.details-rating-card.is-link:focus-visible{outline:none;border-color:rgba(255,255,255,.34);background:rgba(28,35,44,.82);transform:translateY(-1px)}.details-rating-card strong{display:block;font:800 1.15rem/1 'Outfit',sans-serif}.details-rating-card small{display:block;margin-top:6px;color:rgba(225,232,238,.55)}
+    .details-ratings{display:flex;gap:10px;flex-wrap:wrap}.details-rating-card{min-width:112px;min-height:68px;padding:14px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(12,16,21,.58);color:inherit;text-align:left;transition:opacity .18s ease,transform .18s ease,background .18s ease}.details-rating-card.is-link{cursor:pointer;position:relative;padding-right:34px}.details-rating-card.is-link::after{content:'↗';position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:1rem;font-weight:800;opacity:.78}.details-rating-card.is-link:hover,.details-rating-card.is-link:focus-visible{outline:none;border-color:rgba(255,255,255,.34);background:rgba(28,35,44,.82);transform:translateY(-1px)}.details-rating-card strong{display:block;font:800 1.15rem/1 'Outfit',sans-serif}.details-rating-card small{display:block;margin-top:6px;color:rgba(225,232,238,.55)}
+    .details-content-enter{animation:detailsContentEnter .22s ease both}
+    @keyframes detailsContentEnter{from{opacity:.18;transform:translateY(3px)}to{opacity:1;transform:none}}
+    .details-related-card.is-visited img{opacity:.58}.details-related-card.is-visited span::after{content:'  ✓';opacity:.62}
+    .details-person-link{position:relative;min-height:116px;border-radius:12px;-webkit-tap-highlight-color:transparent}.details-person-link::after{content:'⌕';position:absolute;right:28px;top:54px;width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:rgba(7,10,14,.78);border:1px solid rgba(255,255,255,.13);font-size:.68rem;opacity:0;transform:scale(.85);transition:.16s}.details-person-link:hover::after,.details-person-link:focus-visible::after,.details-person-link:active::after{opacity:1;transform:scale(1)}
+    .details-empty{padding:18px 4px;color:rgba(235,241,245,.54);font:650 .76rem/1.4 'Inter',sans-serif}
+    #detailsCloseButton{position:sticky;top:0;z-index:8;float:right;max-width:min(48vw,360px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:42px;box-shadow:0 7px 22px rgba(0,0,0,.18);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+    .details-info-tab,.details-person-link,.details-rating-card,.details-related-card,.details-trailer-card{touch-action:manipulation}
+    @media(pointer:coarse){.details-info-tab{min-height:44px;padding:10px 15px}.details-rating-card{min-height:76px}.details-person-link{padding:4px}.details-related-card,.details-trailer-card{padding-bottom:8px}}
+    @media(prefers-reduced-motion:reduce){.details-skeleton::after{animation:none!important}.details-content-enter{animation:none!important}.details-related-card img,.details-person-link,.details-rating-card{transition:none!important}}
     @media(max-width:650px){.details-secondary{margin-top:18px}.details-related-card,.details-trailer-card{flex-basis:168px;width:168px;min-width:168px}.details-related-card img,.details-trailer-card img{width:168px;height:95px}.details-related-card span{width:168px}.details-trailer-badge{left:14px;bottom:14px}.details-trailer-dismiss{right:14px;bottom:12px}}
     @media(prefers-reduced-motion:reduce){.details-trailer-stage{transition:none!important}}
     .details-head {
@@ -3515,10 +3524,10 @@
           <button type="button" class="details-info-tab" data-details-tab="related">More Like This</button>
           <button type="button" class="details-info-tab" data-details-tab="trailers">Trailers</button>
         </nav>
-        <section class="details-tab-panel" id="detailsPeopleSection" data-details-panel="people" hidden><div class="details-people" id="detailsPeople"></div></section>
-        <section class="details-tab-panel" id="detailsRatingsSection" data-details-panel="ratings" hidden><div class="details-ratings" id="detailsRatings"></div></section>
-        <section class="details-tab-panel" id="detailsRelatedSection" data-details-panel="related" hidden><div class="details-related" id="detailsRelated"></div></section>
-        <section class="details-tab-panel" id="detailsTrailersSection" data-details-panel="trailers" hidden><div class="details-trailers" id="detailsTrailers"></div></section>
+        <section class="details-tab-panel" id="detailsPeopleSection" aria-live="polite" data-details-panel="people" hidden><div class="details-people" id="detailsPeople"></div></section>
+        <section class="details-tab-panel" id="detailsRatingsSection" aria-live="polite" data-details-panel="ratings" hidden><div class="details-ratings" id="detailsRatings"></div></section>
+        <section class="details-tab-panel" id="detailsRelatedSection" aria-live="polite" data-details-panel="related" hidden><div class="details-related" id="detailsRelated"></div></section>
+        <section class="details-tab-panel" id="detailsTrailersSection" aria-live="polite" data-details-panel="trailers" hidden><div class="details-trailers" id="detailsTrailers"></div></section>
       </div>
     </div>
   </div>
@@ -7119,6 +7128,19 @@
       setPanelAvailability(section,!!host.children.length);refreshDetailsTabs();
     }
 
+    const visitedRelatedTitles=new Set();
+    function detailsContentArrived(host){if(!host)return;host.classList.remove('details-content-enter');void host.offsetWidth;host.classList.add('details-content-enter')}
+    function ratingDisplay(label,value){
+      const n=Number(value);if(!Number.isFinite(n))return String(value||'');
+      const key=String(label||'').toLowerCase().replace(/[^a-z]/g,'');
+      if(key==='rottentomatoes'||key==='metacritic')return Math.round(n)+(n<=10?'0':'')+'%';
+      if(key==='imdb'||key==='tmdb'||key==='letterboxd')return (Math.round(n*10)/10)+'/10';
+      return String(Math.round(n*10)/10);
+    }
+    function trailerDescriptor(item,i){
+      const raw=String(item?.type||item?.name||'').trim(),kind=/teaser/i.test(raw)?'Teaser':/featurette|behind/i.test(raw)?'Featurette':/clip/i.test(raw)?'Clip':/trailer/i.test(raw)?'Official Trailer':('Trailer '+(i+1));
+      const seconds=Number(item?.duration||item?.runtime||item?.durationSeconds||0);return seconds>0?kind+' · '+Math.floor(seconds/60)+':'+String(Math.round(seconds%60)).padStart(2,'0'):kind;
+    }
     function renderDetailsRatings(meta){
       const section=document.getElementById('detailsRatingsSection'),host=document.getElementById('detailsRatings');if(!section||!host)return;host.innerHTML='';
       const rows=[];const push=(label,value)=>{if(value!==undefined&&value!==null&&String(value).trim()!==''&&Number(value)>0)rows.push([label,String(Math.round(Number(value)*10)/10)])};
@@ -7127,16 +7149,16 @@
       const unique=[];rows.forEach(r=>{if(!unique.some(x=>x[0]===r[0]&&x[1]===r[1]))unique.push(r)});
       const rawId=String(meta?.id||meta?.contentId||'');const imdbId=String(meta?.imdbId||meta?.imdb_id||rawId.match(/tt\d+/i)?.[0]||'');const tmdbId=Number(meta?.tmdbId||meta?.tmdb_id||rawId.match(/tmdb:(\d+)/i)?.[1]||0)||null;const media=normalizedVodType(meta)==='series'?'tv':'movie';
       const reviewUrl=label=>{const key=String(label||'').toLowerCase().replace(/[^a-z]/g,'');if(key==='imdb'&&imdbId)return 'https://www.imdb.com/title/'+encodeURIComponent(imdbId)+'/reviews/';if(key==='tmdb'&&tmdbId)return 'https://www.themoviedb.org/'+media+'/'+encodeURIComponent(tmdbId)+'/reviews';return ''};
-      unique.forEach(([label,value])=>{const url=reviewUrl(label),card=document.createElement(url?'button':'div');if(url){card.type='button';card.className='details-rating-card is-link';card.title='Open '+label+' reviews';card.setAttribute('aria-label','Open '+label+' reviews');card.onclick=event=>{event.preventDefault();event.stopPropagation();window.open(url,'_blank','noopener,noreferrer')}}else card.className='details-rating-card';const brand=document.createElement('span');brand.className='details-rating-brand';brand.dataset.brand=String(label||'').toLowerCase().replace(/[^a-z]/g,'');brand.textContent=String(label||'').replace('Rotten Tomatoes','RT').replace('Metacritic','MC').replace('Letterboxd','LB').slice(0,6);const strong=document.createElement('strong');strong.textContent=value;const small=document.createElement('small');small.textContent=label;card.append(brand,strong,small);host.appendChild(card)});
-      setPanelAvailability(section,!!host.children.length);refreshDetailsTabs();
+      unique.forEach(([label,value])=>{const url=reviewUrl(label),card=document.createElement(url?'button':'div');if(url){card.type='button';card.className='details-rating-card is-link';card.title='Open '+label+' reviews';card.setAttribute('aria-label','Open '+label+' reviews');card.onclick=event=>{event.preventDefault();event.stopPropagation();window.open(url,'_blank','noopener,noreferrer')}}else card.className='details-rating-card';const brand=document.createElement('span');brand.className='details-rating-brand';brand.dataset.brand=String(label||'').toLowerCase().replace(/[^a-z]/g,'');brand.textContent=String(label||'').replace('Rotten Tomatoes','RT').replace('Metacritic','MC').replace('Letterboxd','LB').slice(0,6);const strong=document.createElement('strong');strong.textContent=ratingDisplay(label,value);const small=document.createElement('small');small.textContent=label;card.append(brand,strong,small);host.appendChild(card)});
+      setPanelAvailability(section,!!host.children.length);detailsContentArrived(host);refreshDetailsTabs();
     }
 
     async function renderDetailsRelated(meta) {
       const section=document.getElementById('detailsRelatedSection'),host=document.getElementById('detailsRelated');if(!section||!host)return;
       const id=String(meta?.id||meta?.contentId||''),type=normalizedVodType(meta);host.innerHTML='';showDetailsSkeleton(host,'wide',4);setPanelAvailability(section,true);refreshDetailsTabs();
       let candidates=[];try{const res=await fetch('/api/v1/vod/related/'+encodeURIComponent(type)+'/'+encodeURIComponent(id)+'?limit=18');const body=await res.json();if(res.ok&&Array.isArray(body.metas))candidates=body.metas}catch(_){}
-      host.innerHTML='';candidates.slice(0,18).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});pushDetailsHistory();normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
-      setPanelAvailability(section,!!candidates.length);refreshDetailsTabs();
+      host.innerHTML='';candidates.slice(0,18).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const relatedKey=normalizedVodType(item)+':'+String(item?.id||item?.contentId||'');if(visitedRelatedTitles.has(relatedKey))b.classList.add('is-visited');const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});visitedRelatedTitles.add(relatedKey);b.classList.add('is-visited');pushDetailsHistory();normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
+      setPanelAvailability(section,!!candidates.length);detailsContentArrived(host);refreshDetailsTabs();
     }
 
     function playSelectedDetailsTrailer(item){
@@ -7153,8 +7175,8 @@
     function renderDetailsTrailers(meta){
       const section=document.getElementById('detailsTrailersSection'),host=document.getElementById('detailsTrailers');if(!section||!host)return;host.innerHTML='';
       const items=detailsTrailerItems(meta);
-      items.forEach((item,i)=>{const b=document.createElement('button');b.type='button';b.className='details-trailer-card'+(item.kind==='youtube'?' is-external':'');const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=item.kind==='youtube'?'https://img.youtube.com/vi/'+encodeURIComponent(item.id)+'/hqdefault.jpg':safeImageUrl(meta?.background||meta?.poster)||'';const label=document.createElement('span');label.textContent=item.name||('Trailer '+(i+1));b.append(img,label);b.onclick=()=>playSelectedDetailsTrailer(item);host.appendChild(b)});
-      setPanelAvailability(section,!!host.children.length);refreshDetailsTabs();
+      items.forEach((item,i)=>{const b=document.createElement('button');b.type='button';b.className='details-trailer-card'+(item.kind==='youtube'?' is-external':'');const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=item.kind==='youtube'?'https://img.youtube.com/vi/'+encodeURIComponent(item.id)+'/hqdefault.jpg':safeImageUrl(meta?.background||meta?.poster)||'';const label=document.createElement('span');label.textContent=trailerDescriptor(item,i);b.append(img,label);b.onclick=()=>playSelectedDetailsTrailer(item);host.appendChild(b)});
+      setPanelAvailability(section,!!host.children.length);detailsContentArrived(host);refreshDetailsTabs();
     }
 
     async function enrichDetails(meta) {
@@ -7175,8 +7197,8 @@
         const section=document.getElementById('detailsRelatedSection'),host=document.getElementById('detailsRelated');
         if(section&&host&&Array.isArray(bundle.related)&&bundle.related.length){
           host.innerHTML='';
-          bundle.related.slice(0,20).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});pushDetailsHistory();normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
-          setPanelAvailability(section,true);refreshDetailsTabs();
+          bundle.related.slice(0,20).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const relatedKey=normalizedVodType(item)+':'+String(item?.id||item?.contentId||'');if(visitedRelatedTitles.has(relatedKey))b.classList.add('is-visited');const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});visitedRelatedTitles.add(relatedKey);b.classList.add('is-visited');pushDetailsHistory();normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
+          setPanelAvailability(section,true);detailsContentArrived(host);refreshDetailsTabs();
         }
       }catch(_){
         ['detailsPeopleSection','detailsRatingsSection','detailsTrailersSection'].forEach(id=>{const section=document.getElementById(id),host=section?.querySelector('.details-people,.details-ratings,.details-trailers');if(host&&host.querySelector('.details-skeleton')){host.innerHTML='';setPanelAvailability(section,false)}});refreshDetailsTabs();
@@ -7185,6 +7207,8 @@
 
     function prepareDetailsShell(preview, type) {
       const overlay = document.getElementById('details-overlay');
+      const shell=document.querySelector('#details-overlay .details-shell'),wasOpen=overlay?.style.display==='block';
+      if(wasOpen&&shell&&!reducedMotionActive()){shell.classList.remove('details-content-enter');void shell.offsetWidth;shell.classList.add('details-content-enter')}
       const list = document.getElementById('episodeList');
       const seasonControl = document.getElementById('seasonControl');
       const seasonSelect = document.getElementById('seasonSelect');
