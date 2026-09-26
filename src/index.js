@@ -29,6 +29,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const child_process = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 
 const { builder } = require('./manifest');
 const crypto = require('crypto');
@@ -1297,12 +1298,27 @@ function vodExtraFromQuery(query) {
 }
 
 const collectionsAssetsDir = path.resolve(String(process.env.NUVIO_COLLECTIONS_ASSETS_DIR || '/data/collections-assets'));
+const collectionsThumbDir=path.join(collectionsAssetsDir,'.thumbs');
+try{fs.mkdirSync(collectionsThumbDir,{recursive:true});}catch(_){}
+app.get('/collections-assets/thumb/:name',requirePage,async(req,res)=>{
+  const name=String(req.params.name||'');
+  if(!/^[A-Za-z0-9._-]+$/.test(name))return res.sendStatus(400);
+  const source=path.join(collectionsAssetsDir,name);
+  const output=path.join(collectionsThumbDir,name+'.webp');
+  try{
+    if(!fs.existsSync(output)){
+      await sharp(source,{animated:false}).resize({width:640,height:640,fit:'inside',withoutEnlargement:true}).webp({quality:76,effort:4}).toFile(output);
+    }
+    res.set('Cache-Control','private, max-age=2592000, immutable');
+    return res.type('image/webp').sendFile(output);
+  }catch(err){console.error('[collections] thumbnail failed:',name,err.message);return res.sendStatus(404);}
+});
 app.use('/collections-assets', requirePage, express.static(collectionsAssetsDir, {
   fallthrough:false,
   dotfiles:'deny',
   index:false,
-  maxAge:'1d',
-  immutable:false
+  maxAge:'30d',
+  immutable:true
 }));
 
 app.get('/api/v1/collections', requirePage, async (req, res) => {
