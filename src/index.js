@@ -1312,6 +1312,17 @@ app.get('/api/v1/collections/catalog/:type/:catalogId', requirePage, async (req,
   }
 });
 
+app.get('/api/v1/collections/folder/:folderId', requirePage, async (req,res)=>{
+  try{res.json(await nuvioCollections.resolveFolder(req.params.folderId));}
+  catch(err){console.error('[collections] folder failed:',err.message);res.status(err.statusCode||502).json({error:err.message,code:err.code||'COLLECTION_FOLDER_FAILED'});}
+});
+
+app.put('/api/v1/admin/collections/order', express.json({limit:'64kb'}), async (req,res)=>{
+  if(!requireAdmin(req,res))return;
+  try{res.json({saved:true,collections:(await nuvioCollections.saveOrder(req.body||{})).collections});}
+  catch(err){console.error('[collections] save order failed:',err.message);res.status(500).json({error:'Could not save Collections order. Ensure the local JSON mount is writable.'});}
+});
+
 app.get('/api/v1/vod/catalogs', requirePage, async (req, res) => {
   try {
     res.json(await vodGateway.catalogs());
