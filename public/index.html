@@ -509,7 +509,7 @@
     .details-related-card.is-visited img{opacity:.58}.details-related-card.is-visited span::after{content:'  ✓';opacity:.62}
     .details-person-link{position:relative;min-height:116px;border-radius:12px;-webkit-tap-highlight-color:transparent}.details-person-link::after{content:'⌕';position:absolute;right:28px;top:54px;width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:rgba(7,10,14,.78);border:1px solid rgba(255,255,255,.13);font-size:.68rem;opacity:0;transform:scale(.85);transition:.16s}.details-person-link:hover::after,.details-person-link:focus-visible::after,.details-person-link:active::after{opacity:1;transform:scale(1)}
     .details-empty{padding:18px 4px;color:rgba(235,241,245,.54);font:650 .76rem/1.4 'Inter',sans-serif}
-    #detailsCloseButton{position:fixed!important;top:calc(44px + env(safe-area-inset-top,0px));right:max(32px,calc((100vw - min(1320px,calc(100vw - 72px)))/2 + 24px));z-index:97;max-width:min(48vw,360px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:42px;box-shadow:0 7px 22px rgba(0,0,0,.28);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}@media(max-width:650px){#detailsCloseButton{top:calc(18px + env(safe-area-inset-top,0px));right:32px;max-width:calc(100vw - 84px)}}
+    #detailsCloseButton{position:static;float:right;max-width:min(48vw,360px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:42px}
     .details-info-tab,.details-person-link,.details-rating-card,.details-related-card,.details-trailer-card{touch-action:manipulation}
     @media(pointer:coarse){.details-info-tab{min-height:44px;padding:10px 15px}.details-rating-card{min-height:76px}.details-person-link{padding:4px}.details-related-card,.details-trailer-card{padding-bottom:8px}}
     @media(prefers-reduced-motion:reduce){.details-skeleton::after{animation:none!important}.details-content-enter{animation:none!important}.details-related-card img,.details-person-link,.details-rating-card{transition:none!important}}
@@ -7237,11 +7237,6 @@
       }
     }
 
-    function ensureDetailsCloseButtonViewportLayer(){
-      const overlay=document.getElementById('details-overlay'),button=document.getElementById('detailsCloseButton');
-      if(overlay&&button&&button.parentElement!==overlay)overlay.appendChild(button);
-    }
-
     function prepareDetailsShell(preview, type) {
       const overlay = document.getElementById('details-overlay');
       const shell=document.querySelector('#details-overlay .details-shell'),wasOpen=overlay?.style.display==='block';
@@ -7255,7 +7250,8 @@
       const heroPlay = document.getElementById('detailsMoviePlay');
       document.body.classList.add('details-open');
       overlay.style.display = 'block';
-      ensureDetailsCloseButtonViewportLayer();
+      const detailsCloseButton=document.getElementById('detailsCloseButton'),detailsShell=overlay.querySelector('.details-shell');
+      if(detailsCloseButton&&detailsShell&&detailsCloseButton.parentElement!==detailsShell)detailsShell.insertBefore(detailsCloseButton,detailsShell.firstChild);
       overlay.classList.remove('details-fading');
       if (!reducedMotionActive()) {
         overlay.classList.remove('details-entering');
