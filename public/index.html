@@ -5527,54 +5527,45 @@
         host.className='grid collections-browser';
         host.innerHTML='';
 
-        const openFolder=async(folder)=>{
-          showGridSkeleton({posterMode:true});
-          const pageSize=30; let offset=0, loading=false, finished=false, observer=null;
-          const endpoint='/api/v1/collections/folder/'+encodeURIComponent(folder.id);
-          const loadPage=async(first=false)=>{
-            if(loading||finished)return; loading=true;
-            try{
-              const r=await fetch(endpoint+'?offset='+offset+'&limit='+pageSize);
-              const body=await r.json().catch(()=>({})); if(!r.ok)throw new Error(body.error||'collection failed');
-              const metas=Array.isArray(body.metas)?body.metas:[];
-              if(first){
-                currentItems=metas.slice(); renderGrid(currentItems); grid().classList.add('collection-results-grid');
-                const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();grid().prepend(back);
-              }else if(metas.length){
-                currentItems.push(...metas);
-                // Render only the newly arrived page; avoid rebuilding hundreds
-                // of existing cards, which caused visible scroll jumps on iOS.
-                const scratch=document.createElement('div'); const live=grid();
-                const existing=currentItems.slice(0,-metas.length); currentItems=metas; renderGrid(metas);
-                const fresh=[...grid().children]; currentItems=existing.concat(metas);
-                // renderGrid targets the live grid, so restore by moving the new
-                // cards after preserving the old DOM captured before this call.
-                fresh.forEach(el=>scratch.appendChild(el));
-                live.innerHTML=''; existing.forEach(()=>{});
-              }
-              offset+=metas.length; finished=!body.hasMore||!metas.length;
-            }finally{loading=false;}
+        const openFolder=async(folder,restore=null)=>{
+          const pageSize=30, endpoint='/api/v1/collections/folder/'+encodeURIComponent(folder.id);
+          let offset=0,loading=false,finished=false,observer=null,allMetas=[],renderStart=0;
+          const key='collections-folder:'+folder.id;
+          const saved=restore||(()=>{try{return JSON.parse(sessionStorage.getItem(key)||'null')}catch(_){return null}})();
+          const targetCount=Math.max(pageSize,Math.min(300,Number(saved?.count)||pageSize));
+          const fetchPage=async()=>{
+            const r=await fetch(endpoint+'?offset='+offset+'&limit='+pageSize);const body=await r.json().catch(()=>({}));
+            if(!r.ok)throw new Error(body.error||'collection failed');const metas=Array.isArray(body.metas)?body.metas:[];
+            offset+=metas.length;finished=!body.hasMore||!metas.length;return metas;
           };
           try{
-            await loadPage(true);
-            const sentinel=document.createElement('div');sentinel.className='collection-page-sentinel';sentinel.style.cssText='grid-column:1/-1;height:1px';
-            grid().appendChild(sentinel);
+            showGridSkeleton({posterMode:true});
+            while(allMetas.length<targetCount&&!finished)allMetas.push(...await fetchPage());
+            currentItems=allMetas.slice();renderGrid(currentItems);const host=grid();host.classList.add('collection-results-grid');
+            const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();host.prepend(back);
+            const sentinel=document.createElement('div');sentinel.className='collection-page-sentinel';sentinel.style.cssText='grid-column:1/-1;height:1px';host.appendChild(sentinel);
+            const persist=()=>{try{sessionStorage.setItem(key,JSON.stringify({count:allMetas.length,y:window.scrollY,at:Date.now()}))}catch(_){}};
+            let saveTimer;window.addEventListener('scroll',()=>{clearTimeout(saveTimer);saveTimer=setTimeout(persist,120)},{passive:true});
+            if(saved?.y)requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,Number(saved.y)||0)));
+            const trim=()=>{
+              const cards=[...host.querySelectorAll('.vod-card')];if(cards.length<=120)return;
+              const vh=innerHeight,near=cards.filter(x=>{const r=x.getBoundingClientRect();return r.bottom>-2*vh&&r.top<3*vh});
+              cards.forEach(x=>{x.style.contentVisibility=near.includes(x)?'visible':'auto';x.style.containIntrinsicSize='220px 330px';});
+            };
             observer=new IntersectionObserver(async entries=>{
-              if(!entries.some(e=>e.isIntersecting)||finished)return;
-              // Use the existing renderer then append its generated cards while
-              // retaining the current scroll DOM.
-              if(loading)return; loading=true;
+              if(!entries.some(e=>e.isIntersecting)||finished||loading)return;loading=true;
               try{
-                const r=await fetch(endpoint+'?offset='+offset+'&limit='+pageSize);const body=await r.json().catch(()=>({}));
-                if(!r.ok)throw new Error(body.error||'collection failed');
-                const metas=Array.isArray(body.metas)?body.metas:[];const host=grid();
-                const keep=[...host.children];currentItems.push(...metas);renderGrid(metas);
-                const added=[...host.children];host.innerHTML='';keep.filter(x=>x!==sentinel).forEach(x=>host.appendChild(x));added.forEach(x=>host.appendChild(x));host.appendChild(sentinel);
-                offset+=metas.length;finished=!body.hasMore||!metas.length;if(finished){observer.disconnect();sentinel.remove();}
-              }catch(err){console.error(err);observer.disconnect();sentinel.remove();}
-              finally{loading=false;}
-            },{rootMargin:'800px 0px'});
-            observer.observe(sentinel);
+                const metas=await fetchPage();if(!metas.length)return;allMetas.push(...metas);
+                // Build only the new page in the live renderer, then restore old nodes.
+                const keep=[...host.children].filter(x=>x!==sentinel);currentItems=metas;renderGrid(metas);const added=[...host.children];
+                host.innerHTML='';keep.forEach(x=>host.appendChild(x));added.forEach(x=>host.appendChild(x));host.appendChild(sentinel);
+                currentItems=allMetas.slice();persist();trim();
+                // Decode the first few images of the next page early.
+                [...added].slice(0,8).forEach(card=>card.querySelector('img')?.decode?.().catch(()=>{}));
+                if(finished){observer.disconnect();sentinel.remove();}
+              }catch(err){console.error(err);observer.disconnect();sentinel.remove();}finally{loading=false;}
+            },{rootMargin:'1400px 0px'});
+            observer.observe(sentinel);trim();
           }catch(err){
             console.error(err);setGridState(err.message||'Could not load this collection.',true,()=>openFolder(folder));
             const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();grid().prepend(back);
@@ -6089,7 +6080,8 @@
             { loading:eager ? 'eager' : 'lazy', fetchPriority:priority }
           ));
         } else {
-          posterBox.appendChild(makeImage(meta.poster || meta.background, 'poster', meta.name || ''));
+          const rawPoster=meta.poster||meta.background;const collectionPoster=(grid().classList.contains('collection-results-grid')&&rawPoster)?'/collections-poster?url='+encodeURIComponent(rawPoster):rawPoster;
+          posterBox.appendChild(makeImage(collectionPoster, 'poster', meta.name || '', {loading:metaIndex<8?'eager':'lazy',fetchPriority:metaIndex<4?'high':undefined}));
         }
 
         if (currentMode === 'sports' && meta.logo && meta.logo !== meta.poster) {
