@@ -133,8 +133,16 @@ async function resolveTmdbSource(s){
     return (body.parts||[]).map(x=>tmdbMeta(x,'movie')).filter(Boolean);
   }
   if(kind==='LIST'){
-    const body=await tmdbGet('/4/list/'+id+'?page=1');
-    return (body.results||[]).map(x=>tmdbMeta(x)).filter(Boolean);
+    // TMDB v4 lists are paginated. Fetch a useful discovery window instead of
+    // silently stopping at the first page (which can be as small as 10 items).
+    const first=await tmdbGet('/4/list/'+id+'?page=1');
+    const pages=Math.max(1,Math.min(5,Number(first.total_pages)||1));
+    const bodies=[first];
+    if(pages>1){
+      const rest=await Promise.all(Array.from({length:pages-1},(_,i)=>tmdbGet('/4/list/'+id+'?page='+(i+2))));
+      bodies.push(...rest);
+    }
+    return bodies.flatMap(body=>body.results||[]).map(x=>tmdbMeta(x)).filter(Boolean);
   }
   return [];
 }
