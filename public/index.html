@@ -5899,7 +5899,8 @@
     });
     searchInput.addEventListener('focus', () => {
       if (searchInput.value.trim()) {
-        setSearchContextVisible(true, 'Results for “' + searchInput.value.trim() + '”');
+        setSearchContextVisible(true, peopleSearchOnly&&currentPersonSearch?'Titles featuring '+currentPersonSearch.name:'Results for “' + searchInput.value.trim() + '”');
+        renderPersonSearchHeader();
       }
     });
     searchInput.addEventListener('keydown', event => {
@@ -7036,8 +7037,9 @@
 
     function renderPersonSearchHeader(results=[]){
       const host=document.getElementById('personSearchHeader');if(!host)return;
-      if(!peopleSearchOnly||!currentPersonSearch){host.hidden=true;return}
-      host.hidden=false;
+      const filters=document.getElementById('searchFilters'),recent=document.getElementById('recentSearches');
+      if(!peopleSearchOnly||!currentPersonSearch){host.hidden=true;if(filters)filters.hidden=false;if(recent)recent.hidden=false;return}
+      host.hidden=false;if(filters)filters.hidden=true;if(recent)recent.hidden=true;
       const name=String(currentPersonSearch.name||'').trim(),photo=safeImageUrl(currentPersonSearch.photo)||'';
       document.getElementById('personSearchName').textContent=name;
       const img=document.getElementById('personSearchPhoto');if(photo){img.src=photo;img.style.display='block';img.alt=name}else{img.removeAttribute('src');img.style.display='none';img.alt=''}
@@ -7166,7 +7168,9 @@
           bundle.related.slice(0,20).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});pushDetailsHistory();normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
           setPanelAvailability(section,true);refreshDetailsTabs();
         }
-      }catch(_){}
+      }catch(_){
+        ['detailsPeopleSection','detailsRatingsSection','detailsTrailersSection'].forEach(id=>{const section=document.getElementById(id),host=section?.querySelector('.details-people,.details-ratings,.details-trailers');if(host&&host.querySelector('.details-skeleton')){host.innerHTML='';setPanelAvailability(section,false)}});refreshDetailsTabs();
+      }
     }
 
     function prepareDetailsShell(preview, type) {
