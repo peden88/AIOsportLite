@@ -82,7 +82,7 @@ function normalize(raw){
     viewMode:text(col.viewMode||'FOLLOW_LAYOUT',40),
     focusGlowEnabled:col.focusGlowEnabled!==false,
     folders:(Array.isArray(col.folders)?col.folders:[]).slice(0,200).map((f,fi)=>({
-      id:text(f.id||('folder-'+ci+'-'+fi),160), name:text(f.title||f.name||('Folder '+(fi+1))),
+      id:text(f.id||('folder-'+ci+'-'+fi),160), name:text(f.title||f.name||('Folder '+(fi+1))), hidden:f.hidden===true,
       hideTitle:!!f.hideTitle, tileShape:text(f.tileShape||'POSTER',40).toUpperCase(),
       focusGlowEnabled:f.focusGlowEnabled!==false, focusGifEnabled:!!f.focusGifEnabled,
       coverImageUrl:image(f.coverImageUrl||f.poster||f.image||f.cover),
@@ -225,7 +225,13 @@ async function saveOrder(order){
   const visibility=order&&typeof order.visibility==='object'?order.visibility:{};
   for(const col of raw){if(Object.prototype.hasOwnProperty.call(visibility,String(col.id)))col.hidden=!visibility[String(col.id)];}
   const folders=order&&typeof order.folders==='object'?order.folders:{};
-  for(const col of raw){const ids=Array.isArray(folders[col.id])?folders[col.id].map(String):[];if(!ids.length||!Array.isArray(col.folders))continue;const r=new Map(ids.map((id,i)=>[id,i]));col.folders.sort((a,b)=>(r.has(String(a.id))?r.get(String(a.id)):99999)-(r.has(String(b.id))?r.get(String(b.id)):99999));}
+  const folderVisibility=order&&typeof order.folderVisibility==='object'?order.folderVisibility:{};
+  for(const col of raw){
+    if(!Array.isArray(col.folders))continue;
+    const ids=Array.isArray(folders[col.id])?folders[col.id].map(String):[];
+    if(ids.length){const r=new Map(ids.map((id,i)=>[id,i]));col.folders.sort((a,b)=>(r.has(String(a.id))?r.get(String(a.id)):99999)-(r.has(String(b.id))?r.get(String(b.id)):99999));}
+    for(const folder of col.folders){if(Object.prototype.hasOwnProperty.call(folderVisibility,String(folder.id)))folder.hidden=!folderVisibility[String(folder.id)];}
+  }
   // Write in place: COLLECTIONS.json is commonly mounted as an individual Docker bind file,
   // where renaming a temporary file over the mount point fails with EBUSY.
   await fs.writeFile(FILE,JSON.stringify(raw,null,2)+'\n','utf8');cache=null;folderCache.clear();return manifest(true);
