@@ -3315,6 +3315,24 @@
       linear-gradient(#fff,#fff) right bottom/2px 7px no-repeat !important;
     border-radius:1px !important;
   }}
+
+  /* Nuvio-style local Collections browser */
+  .collections-browser{display:block!important;width:100%;padding:4px 0 56px;overflow:visible}
+  .collection-section{margin:0 0 28px}
+  .collection-heading{font-family:'Outfit',sans-serif;font-size:clamp(18px,2vw,26px);font-weight:750;margin:0 0 12px;padding:0 4px;color:var(--text)}
+  .collection-folder-row{display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;padding:4px 4px 12px;scroll-snap-type:x proximity;scrollbar-width:none}
+  .collection-folder-row::-webkit-scrollbar{display:none}
+  .collection-folder-card{position:relative;flex:0 0 clamp(138px,17vw,230px);aspect-ratio:2/3;border:1px solid rgba(255,255,255,.16);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.06);padding:0;scroll-snap-align:start;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+  .collection-folder-card.landscape{flex-basis:clamp(210px,25vw,340px);aspect-ratio:16/9}
+  .collection-folder-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .collection-folder-card .focus-art{opacity:0;transition:opacity .18s ease}
+  .collection-folder-card:hover .focus-art,.collection-folder-card:focus .focus-art{opacity:1}
+  .collection-folder-card:focus{outline:none;transform:scale(1.035);border-color:rgba(255,255,255,.9);box-shadow:0 0 0 2px rgba(80,230,190,.7),0 12px 32px rgba(0,0,0,.45);z-index:2}
+  .collection-folder-title{position:absolute;left:0;right:0;bottom:0;padding:28px 12px 10px;background:linear-gradient(transparent,rgba(0,0,0,.88));font:700 15px/1.15 'Outfit',sans-serif;color:white;text-align:left}
+  .collection-folder-card.hide-title .collection-folder-title{display:none}
+  .collections-back{display:inline-flex;align-items:center;gap:7px;margin:0 0 18px;padding:8px 13px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.07);color:var(--text);font-weight:700;cursor:pointer}
+  @media(max-width:700px){.collection-folder-row{gap:10px}.collection-folder-card{flex-basis:42vw}.collection-folder-card.landscape{flex-basis:66vw}.collection-section{margin-bottom:20px}}
+
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5484,7 +5502,7 @@
     }
 
     async function loadCollections() {
-      setCatalogRailVisible(true);
+      setCatalogRailVisible(false);
       tabs().innerHTML = '';
       try {
         const response = await fetch('/api/v1/collections', { cache:'no-store' });
@@ -5493,42 +5511,49 @@
         const collections = Array.isArray(data.collections) ? data.collections : [];
         if (!collections.length) { setGridState('No collections are available yet.'); return; }
 
-        const openCollection = async (collection, tab) => {
-          setActiveTab(tab);
-          showGridSkeleton({ posterMode:true });
-          const catalogs = Array.isArray(collection.catalogs) ? collection.catalogs : [];
-          const settled = await Promise.allSettled(catalogs.slice(0,12).map(async cat => {
-            const url='/api/v1/collections/catalog/'+encodeURIComponent(cat.type)+'/'+encodeURIComponent(cat.id);
-            const r=await fetch(url);
-            if(!r.ok) throw new Error('catalog failed');
-            return {cat,body:await r.json()};
-          }));
-          const metas=[], seen=new Set();
-          for(const row of settled){
-            if(row.status!=='fulfilled') continue;
-            const body=row.value.body;
-            const list=Array.isArray(body.metas)?body.metas:(Array.isArray(body.metasDetailed)?body.metasDetailed:[]);
-            for(const meta of list){
-              const key=String(meta?.type||row.value.cat.type)+'|'+String(meta?.id||'');
-              if(!meta?.id||seen.has(key)) continue;
-              seen.add(key); metas.push({...meta,type:meta.type||row.value.cat.type});
-            }
+        const host=grid();
+        host.className='grid collections-browser';
+        host.innerHTML='';
+
+        const openFolder=async(folder)=>{
+          const addon=(folder.sources||[]).filter(s=>s.provider==='addon'&&s.id&&['movie','series'].includes(s.type));
+          if(!addon.length){
+            setGridState('This collection uses a source type that AIOPlay does not resolve yet.');
+            const back=document.createElement('button'); back.className='collections-back'; back.textContent='‹ Collections'; back.onclick=()=>loadCollections(); host.prepend(back); return;
           }
-          currentItems=metas;
-          renderGrid(metas);
+          showGridSkeleton({posterMode:true});
+          const settled=await Promise.allSettled(addon.map(async s=>{
+            const url='/api/v1/collections/catalog/'+encodeURIComponent(s.type)+'/'+encodeURIComponent(s.id);
+            const r=await fetch(url,{cache:'no-store'}); if(!r.ok)throw new Error('catalog failed');
+            return {source:s,body:await r.json()};
+          }));
+          const metas=[],seen=new Set();
+          for(const row of settled){
+            if(row.status!=='fulfilled')continue;
+            const list=Array.isArray(row.value.body.metas)?row.value.body.metas:(Array.isArray(row.value.body.metasDetailed)?row.value.body.metasDetailed:[]);
+            for(const meta of list){const type=meta?.type||row.value.source.type,key=type+'|'+String(meta?.id||'');if(!meta?.id||seen.has(key))continue;seen.add(key);metas.push({...meta,type});}
+          }
+          currentItems=metas; renderGrid(metas);
+          const back=document.createElement('button');back.className='collections-back';back.textContent='‹ Collections';back.onclick=()=>loadCollections();grid().prepend(back);
         };
 
-        let first=null;
         for(const collection of collections){
-          const tab=document.createElement('div');
-          tab.className='tab';
-          tab.textContent=collection.name||'Collection';
-          tab.title=collection.description||'';
-          tab.onclick=()=>openCollection(collection,tab);
-          tabs().appendChild(tab);
-          if(!first) first={collection,tab};
+          const section=document.createElement('section');section.className='collection-section';
+          const heading=document.createElement('h2');heading.className='collection-heading';heading.textContent=collection.name||'Collection';
+          const row=document.createElement('div');row.className='collection-folder-row';
+          for(const folder of collection.folders||[]){
+            const card=document.createElement('button');card.type='button';card.className='collection-folder-card '+(folder.tileShape==='LANDSCAPE'?'landscape':'poster')+(folder.hideTitle?' hide-title':'');card.title=folder.name||'';
+            const art=folder.coverImageUrl||folder.heroBackdropUrl;
+            if(art){const img=document.createElement('img');img.src=art;img.alt=folder.hideTitle?'':(folder.name||'');img.loading='lazy';card.appendChild(img);}
+            if(folder.focusGifEnabled&&folder.focusGifUrl){const gif=document.createElement('img');gif.src=folder.focusGifUrl;gif.alt='';gif.loading='lazy';gif.className='focus-art';card.appendChild(gif);}
+            const title=document.createElement('span');title.className='collection-folder-title';title.textContent=folder.name||'';card.appendChild(title);
+            card.onclick=()=>openFolder(folder);
+            card.onkeydown=e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){const sibling=e.key==='ArrowLeft'?card.previousElementSibling:card.nextElementSibling;if(sibling){e.preventDefault();sibling.focus();sibling.scrollIntoView({inline:'nearest',block:'nearest',behavior:'smooth'});}}};
+            row.appendChild(card);
+          }
+          if(row.children.length){section.append(heading,row);host.appendChild(section);}
         }
-        if(first) await openCollection(first.collection,first.tab);
+        if(!host.children.length)setGridState('No collection folders are available.');
       } catch(err) {
         console.error(err);
         setGridState('Could not load Collections.', true, () => loadCollections());
