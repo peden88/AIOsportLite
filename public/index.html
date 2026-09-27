@@ -3438,10 +3438,6 @@
   </main>
 
   <nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="Primary navigation" data-booting="true">
-    <button type="button" data-mobile-mode="sports" aria-label="Live">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path><path d="M4 7.5a7 7 0 0 0 0 9"></path></svg>
-      <span>Live</span>
-    </button>
     <button type="button" data-mobile-mode="collections" aria-label="Collections">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="7" rx="1"></rect><rect x="13" y="4" width="8" height="7" rx="1"></rect><rect x="3" y="13" width="8" height="7" rx="1"></rect><rect x="13" y="13" width="8" height="7" rx="1"></rect></svg>
       <span>Collections</span>
@@ -4137,14 +4133,12 @@
       }
       nav.dataset.ready = '1';
 
-      const sportsEnabled = !!bootstrap?.services?.sports?.enabled && currentUserIsAdmin;
       const vodEnabled = !!bootstrap?.services?.vod?.enabled;
       const continueEnabled = !!(vodEnabled && bootstrap?.accountUser);
       const libraryEnabled = continueEnabled;
 
       const visibility = {
-        sports:sportsEnabled,
-        collections:vodEnabled && !currentUserIsAdmin,
+        collections:vodEnabled,
         vod:vodEnabled,
         continue:continueEnabled,
         library:libraryEnabled
@@ -5451,7 +5445,6 @@
           sharedProgressItems = [];
         }
         buildModes();
-        const sports = bootstrap.services && bootstrap.services.sports && bootstrap.services.sports.enabled && currentUserIsAdmin;
         const vod = bootstrap.services && bootstrap.services.vod && bootstrap.services.vod.enabled;
         const deepLink=parseTitleDeepLink();
         const snapshot = deepLink ? null : savedUiState();
@@ -5461,13 +5454,11 @@
           : requestedMode === 'vod'
             ? !!vod
             : requestedMode === 'collections'
-              ? !!(vod && !currentUserIsAdmin)
-              : requestedMode === 'sports'
-                ? !!sports
-                : false;
+              ? !!vod
+              : false;
         const initialMode = validMode
           ? requestedMode
-          : (sports ? 'sports' : (vod ? 'vod' : ''));
+          : (vod ? 'vod' : '');
 
         if (initialMode) {
           restoringUiState = true;
@@ -5507,7 +5498,7 @@
         host.appendChild(btn);
       };
 
-      if (bootstrap.services?.sports?.enabled && currentUserIsAdmin) add('sports', 'Live');
+      if (bootstrap.services?.vod?.enabled) add('collections', 'Collections');
       if (bootstrap.services?.vod?.enabled) add('vod', 'VOD');
       if (bootstrap.services?.vod?.enabled && bootstrap.accountUser) {
         add('continue', 'Continue Watching');
@@ -5517,11 +5508,6 @@
     }
 
     async function loadMode(mode, { snapshot = null, push = true } = {}) {
-      if (mode === 'sports' && !currentUserIsAdmin) {
-        mode = bootstrap?.services?.vod?.enabled ? 'vod' : '';
-        snapshot = null;
-        if (!mode) { setGridState('No content services are enabled.'); return; }
-      }
       if (document.getElementById('player-overlay')?.classList.contains('mini')) {
         playerReturnToDetails = false;
       }
@@ -5533,11 +5519,9 @@
       tabs().innerHTML = (mode === 'continue' || mode === 'library')
         ? ''
         : '<div style="color:var(--text-muted);">Loading catalogs...</div>';
-      showGridSkeleton({ posterMode:mode !== 'sports' });
+      showGridSkeleton({ posterMode:true });
 
-      if (mode === 'sports') {
-        await loadSportsTabs(snapshot);
-      } else if (mode === 'collections') {
+      if (mode === 'collections') {
         await loadCollections();
       } else if (mode === 'continue') {
         await loadContinueWatching({ push:false });
@@ -5548,33 +5532,6 @@
       }
 
       if (push && !restoringUiState) persistUiState({ push:true });
-    }
-
-    async function loadSportsTabs(snapshot = null) {
-      setCatalogRailVisible(true);
-      try {
-        const data = await (await fetch('/api/v1/sports/catalogs')).json();
-        tabs().innerHTML = '';
-        let first = null;
-        let restore = null;
-        for (const catalog of data.catalogs || []) {
-          if (catalog.type !== 'tv') continue;
-          const tab = document.createElement('div');
-          tab.className = 'tab';
-          tab.textContent = String(catalog.name || catalog.id).replace('nuvio ', '').replace('Nuvio ', '');
-          tab.onclick = () => loadSportsCatalog(catalog.id, tab, { push:true });
-          tabs().appendChild(tab);
-          const pair = { catalog, tab };
-          if (!first) first = pair;
-          if (snapshot?.catalog?.id === catalog.id) restore = pair;
-        }
-        const target = restore || first;
-        if (target) await loadSportsCatalog(target.catalog.id, target.tab, { push:false });
-      } catch (err) {
-        console.error(err);
-        tabs().innerHTML = '<div style="color:var(--accent);">Failed to load sports catalogs.</div>';
-        setGridState('Could not load the Live catalog list.', true, () => loadSportsTabs());
-      }
     }
 
     async function loadCollections() {
@@ -5777,25 +5734,6 @@
         console.error(err);
         currentItems = [];
         setGridState('Could not load Continue Watching.', true, () => loadContinueWatching({ push:false }));
-      }
-    }
-
-    async function loadSportsCatalog(catalogId, tab, { push = true } = {}) {
-      setActiveTab(tab);
-      currentCatalogState = { kind:'sports', id:catalogId, type:'tv' };
-      beginGridTransition({ posterMode:false });
-      try {
-        const res = await fetch('/api/v1/sports/catalog/' + encodeURIComponent(catalogId));
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Catalog failed');
-        currentItems = data.metas || [];
-        renderGrid(currentItems);
-        if (push && !restoringUiState) persistUiState({ push:true });
-      } catch (err) {
-        console.error(err);
-        setGridState('Failed to load this sports catalog.', true, () =>
-          loadSportsCatalog(catalogId, tab, { push:false })
-        );
       }
     }
 
