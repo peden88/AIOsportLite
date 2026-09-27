@@ -52,7 +52,8 @@ t(/\.header-row\s*\{[\s\S]*?grid-template-columns\s*:\s*auto\s+minmax\(0\s*,\s*1
 t(html.includes('.mode-tabs { display:flex; justify-content:center'), 'Live VOD selector is centered to the page');
 t(/\.mode-tab\s*\{[\s\S]*?border-radius\s*:\s*20px/.test(html), 'top navigation reuses Nuvio season-pill styling');
 t(/<div class="top-header">[\s\S]*?id="searchInput"[\s\S]*?<\/div>\s*<header>[\s\S]*?<div class="mode-tabs" id="modeTabs"><\/div>[\s\S]*?<\/header>/.test(html), 'search scrolls naturally above the sticky Live VOD navigation');
-t(html.includes("add('sports', 'Live')"), 'Sports mode is labelled Live');
+t(!html.includes("add('sports', 'Live')"), 'retired Live mode is absent from top navigation');
+t(html.includes("add('collections', 'Collections')"), 'Collections is available uniformly in top navigation');
 t(html.includes("add('vod', 'VOD')"), 'Movies and Series are combined into one VOD mode');
 t(html.includes("add('continue', 'Continue Watching')"), 'signed-in VOD users get a Continue Watching mode');
 t(html.includes('/api/v1/progress?continue=1'), 'Continue Watching is loaded from per-user server progress');
@@ -83,7 +84,7 @@ t(html.includes("setCatalogRailVisible(mode !== 'continue')"), 'Continue Watchin
 t(/html\s*\{[\s\S]*?background-color\s*:\s*#414a7f[\s\S]*?linear-gradient\([\s\S]*?135deg[\s\S]*?#355f7f[\s\S]*?#2f4d7f[\s\S]*?#414a7f/.test(html), 'web app uses one opaque continuous AIOPlay gradient through the Safari underlay');
 t(!html.includes('body::before') && !html.includes('body::after'), 'global background uses no fixed pseudo-element layers that can seam on iOS');
 t(/\.content-state\s*\{[\s\S]*?place-items\s*:\s*center[\s\S]*?font\s*:\s*600\s+1\.5rem/.test(html), 'loading and empty states are centered and enlarged');
-t(html.includes("beginGridTransition({ posterMode:false })"), 'sports catalog loading uses the premium skeleton grid');
+t(!html.includes("loadSportsCatalog(") && !html.includes("loadSportsTabs("), 'retired Live catalog loaders are absent');
 t(html.includes("setGridState('Nothing to show here right now.')"), 'empty catalog text uses the centered state');
 t(html.includes('id="playerMinimize"'), 'web player exposes the mini-player control');
 t(html.includes('id="searchFilters"'), 'global search exposes All Movies Series filters');
