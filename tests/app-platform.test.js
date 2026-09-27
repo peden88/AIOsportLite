@@ -14,8 +14,6 @@ const saved = {
   VOD_ENABLED: process.env.VOD_ENABLED,
   AIOMETADATA_MANIFEST_URL: process.env.AIOMETADATA_MANIFEST_URL,
   AIOSTREAMS_MANIFEST_URL: process.env.AIOSTREAMS_MANIFEST_URL,
-  AIOSPORT_MANIFEST_URL: process.env.AIOSPORT_MANIFEST_URL,
-  SPORTS_ENABLED: process.env.SPORTS_ENABLED
 };
 const restore = () => {
   for (const [k, v] of Object.entries(saved)) {
@@ -28,12 +26,10 @@ try {
   delete process.env.VOD_ENABLED;
   delete process.env.AIOMETADATA_MANIFEST_URL;
   delete process.env.AIOSTREAMS_MANIFEST_URL;
-  delete process.env.AIOSPORT_MANIFEST_URL;
-  delete process.env.SPORTS_ENABLED;
 
   console.log('--- app-wide service registry');
   let boot = registry.publicBootstrap();
-  t(true, boot.services.sports.enabled, 'sports is enabled by default');
+  t(false, Object.prototype.hasOwnProperty.call(boot.services, 'sports'), 'retired Live service is absent from bootstrap');
   t(false, boot.services.vod.enabled, 'VOD stays off until both app-wide services are configured and enabled');
   t(false, boot.playback.exposeStreamChoices, 'first-party clients never expose stream choices');
   t(false, boot.playback.exposeProviderNames, 'first-party clients never expose provider names');
@@ -61,14 +57,12 @@ try {
   t(false, boot.services.vod.enabled, 'invalid metadata URL disables VOD');
 
   console.log('--- opaque playback target');
-  t('abc123', playback._normaliseSportsId('nuvio_sport_abc123'), 'canonical catalog ids are not double-prefixed');
-  t('abc123', playback._normaliseSportsId('abc123'), 'raw sports ids remain accepted');
   const target = playback._opaqueTarget({
     name: 'Provider Secret',
     title: 'Source 1 1080p',
     score: 999,
     _source: 'private-provider',
-    url: 'https://cdn.example.test/live.m3u8',
+    url: 'https://cdn.example.test/movie.mp4',
     behaviorHints: {
       proxyHeaders: {
         request: {
@@ -79,7 +73,7 @@ try {
     }
   });
   t('direct', target.kind, 'client receives only playback kind');
-  t('https://cdn.example.test/live.m3u8', target.url, 'client receives only the selected playback URL');
+  t('https://cdn.example.test/movie.mp4', target.url, 'client receives only the selected playback URL');
   t('https://origin.example.test/', target.requestHeaders.Referer, 'required playback headers survive');
   const serialized = JSON.stringify(target);
   t(false, serialized.includes('Provider Secret'), 'provider display name is stripped');
