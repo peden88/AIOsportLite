@@ -30,24 +30,6 @@ input[type=text]{width:100%;background:var(--panel2);color:var(--text);border:1p
 
   <div class="grid">
     <section class="card">
-      <h2>Sports</h2>
-      <p class="help">One installation-wide sports setup is shared by every AIOPlay account. Detailed catalog, source, ordering and playback settings stay in Configure Sports.</p>
-
-      <label class="check" style="text-transform:none;letter-spacing:0;font-size:14px"><input type="checkbox" id="sportsEnabled"> Enable Sports</label>
-
-      <div class="status"><div><strong>Status</strong><div class="host" id="sportsError"></div></div><span class="pill" id="sportsState">Checking</span></div>
-      <div class="status"><div><strong>Configuration</strong><div class="host" id="sportsMode">Checking</div></div><span class="pill" id="sportsProfileState">—</span></div>
-      <div class="status"><div><strong>Catalogs</strong><div class="host">Enabled in the active sports profile</div></div><span class="pill good" id="sportsCatalogs">—</span></div>
-      <div class="status"><div><strong>Sources</strong><div class="host">Enabled stream providers</div></div><span class="pill good" id="sportsSources">—</span></div>
-
-      <div class="actions">
-        <button id="saveSports">Save Sports</button>
-        <a id="configureSports" class="button-link secondary" href="/configure?profile=default">Configure Sports</a>
-      </div>
-      <div id="sportsMessage" class="msg"></div>
-    </section>
-
-    <section class="card">
       <h2>VOD configuration</h2>
       <p class="help">These manifests apply to every account. The AIOStreams field below is the saved/shared fallback; client-specific Web/App ENV manifests override it. Leave a URL field blank to keep its current value.</p>
 
@@ -95,23 +77,7 @@ function paint(id,ok,text){
 }
 function render(body){
   const cfg=body.config||{};
-  const sports=body.sports||{};
   const st=body.status||{};
-
-  $('sportsEnabled').checked=!!sports.enabled;
-  $('configureSports').href=sports.configureUrl||'/configure?profile=default';
-  $('sportsMode').textContent=sports.modeLabel||'Unavailable';
-  $('sportsProfileState').textContent=sports.pinnedManifest?'Pinned':(sports.defaultProfileExists?'Saved':'Default');
-  $('sportsProfileState').className='pill '+(sports.state==='error'?'bad':'good');
-  $('sportsCatalogs').textContent=Number.isFinite(sports.catalogCount)?String(sports.catalogCount):'—';
-  $('sportsSources').textContent=Number.isFinite(sports.sourceCount)
-    ? (sports.sourceCount+' / '+(sports.sourceTotal||sports.sourceCount))
-    : '—';
-  $('sportsError').textContent=sports.error||'';
-  paint('sportsState',!!sports.healthy,
-    sports.state==='disabled'?'Disabled':
-    sports.state==='error'?'Error':
-    sports.state==='empty'?'No catalogs':'Healthy');
 
   $('vodEnabled').checked=!!cfg.vodRequested;
   const env=cfg.environment||{};
@@ -147,22 +113,6 @@ async function load(){
   try{render(await api('/api/v1/admin/services'));$('message').textContent='';}
   catch(e){$('message').textContent=e.message;$('message').className='msg bad';}
 }
-$('saveSports').onclick=async()=>{
-  $('sportsMessage').textContent='Saving…';$('sportsMessage').className='msg';
-  try{
-    const result=await api('/api/v1/admin/services',{
-      method:'PUT',
-      body:JSON.stringify({sportsEnabled:$('sportsEnabled').checked})
-    });
-    render(result);
-    $('sportsMessage').textContent='Sports service setting saved.';
-    $('sportsMessage').className='msg good';
-  }catch(e){
-    $('sportsMessage').textContent=e.message;
-    $('sportsMessage').className='msg bad';
-  }
-};
-
 $('save').onclick=async()=>{
   $('message').textContent='Saving and testing…';$('message').className='msg';
   const body={vodEnabled:$('vodEnabled').checked};
@@ -177,7 +127,7 @@ $('save').onclick=async()=>{
     render(result);
     $('metadataUrl').value='';$('streamsUrl').value='';
     $('clearMetadata').checked=false;$('clearStreams').checked=false;
-    $('message').textContent='Saved. Live service checks completed.';
+    $('message').textContent='Saved. Service checks completed.';
     $('message').className='msg good';
   }catch(e){$('message').textContent=e.message;$('message').className='msg bad';}
 };
