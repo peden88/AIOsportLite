@@ -3668,7 +3668,7 @@
             const card = entry.target;
             visibleMetadataObserver.unobserve(card);
             const meta = card._aioplayMeta;
-            if (!meta || currentMode === 'sports') return;
+            if (!meta || false) return;
             const full = await loadMetaFor(meta);
             if (full && document.body.contains(card)) {
               hydrateCardMetadata(card, { ...meta, ...full });
@@ -4278,7 +4278,7 @@
 
     function heroLabels(meta) {
       const labels = [];
-      if (currentMode === 'sports') {
+      if (false) {
         labels.push('LIVE');
       } else if (meta?._progress && meta._progress.season != null && meta._progress.episode != null) {
         labels.push(
@@ -4361,14 +4361,14 @@
       clearTimeout(heroTimer);
       clearTimeout(heroPrefetchTimer);
 
-      const coarseLive = currentMode === 'sports' &&
+      const coarseLive = false &&
         window.matchMedia?.('(hover:none), (pointer:coarse)')?.matches === true;
       if (coarseLive) return;
 
       heroTimer = setTimeout(() => updateHero(meta), 150);
 
       const target = vodMetaTarget(meta);
-      if (!target || currentMode === 'sports') return;
+      if (!target || false) return;
       heroPrefetchTimer = setTimeout(async () => {
         const full = await loadMetaFor(meta);
         if (!full) return;
@@ -4447,7 +4447,7 @@
     }
 
     function observeCardMetadata(card, meta) {
-      if (!card || !meta || currentMode === 'sports') return;
+      if (!card || !meta || false) return;
       card._aioplayMeta = meta;
       if (visibleMetadataObserver) {
         visibleMetadataObserver.observe(card);
@@ -4841,7 +4841,7 @@
     }
 
     async function showQuickActions(anchor, meta) {
-      if (currentMode === 'sports') return;
+      if (false) return;
       const menu = document.getElementById('quickActions');
       if (!menu) return;
       hideQuickActions();
@@ -5398,8 +5398,7 @@
 
     function setActiveMode(mode, { preserveSearch = false } = {}) {
       currentMode = mode;
-      document.body.classList.toggle('live-mode', mode === 'sports');
-      if (mode === 'sports') stopHeroPreview();
+      document.body.classList.remove('live-mode');
       document.querySelectorAll('.mode-tab').forEach(el => {
         const active = el.dataset.mode === mode;
         el.classList.toggle('active', active);
@@ -5409,9 +5408,7 @@
       });
       const search = document.getElementById('searchInput');
       if (!preserveSearch) search.value = '';
-      search.placeholder = mode === 'sports'
-        ? 'Search live…'
-        : 'Search all movies and series…';
+      search.placeholder = 'Search all movies and series…';
       setVodPlayerControlsVisible(mode === 'vod' || mode === 'collections' || mode === 'continue' || mode === 'library');
       const filters = document.getElementById('searchFilters');
       if (filters) filters.style.display = (mode === 'vod' || mode === 'library') ? 'flex' : 'none';
@@ -5768,7 +5765,7 @@
       const clean = String(raw || '').trim();
       setSearchContextVisible(!!clean, clean ? ('Results for “' + clean + '”') : '');
 
-      if (currentMode === 'sports' || currentMode === 'continue') {
+      if (false || currentMode === 'continue') {
         const query = clean.toLowerCase();
         const filtered = currentItems.filter(meta =>
           String(meta.name || '').toLowerCase().includes(query) ||
@@ -5880,7 +5877,7 @@
       syncClearSearchButton();
       const raw = e.target.value;
       clearTimeout(searchTimer);
-      if (currentMode === 'sports' || currentMode === 'continue' || !raw.trim()) {
+      if (false || currentMode === 'continue' || !raw.trim()) {
         applySearch(raw);
         return;
       }
@@ -5987,7 +5984,7 @@
     function renderGrid(metas) {
       const host = grid();
       host.innerHTML = '';
-      host.className = 'grid ' + (currentMode === 'sports' ? 'live-grid' : 'vod-grid');
+      host.className = 'grid ' + (false ? 'live-grid' : 'vod-grid');
       if (!Array.isArray(metas) || metas.length === 0) {
         setGridState('Nothing to show here right now.');
         return;
@@ -6013,19 +6010,19 @@
           }
         }
         const card = document.createElement('div');
-        card.className = 'card' + (currentMode === 'sports' ? ' live-card' : '');
+        card.className = 'card' + (false ? ' live-card' : '');
         card.dataset.contentId = String(meta.id || '');
         card.dataset.contentKey = cardIdentity(meta);
 
         card.tabIndex = 0;
         card.addEventListener('mouseenter', () => {
           rememberCard(card, meta);
-          if (currentMode !== 'sports') {
+          if (true) {
             loadMetaFor(meta).then(prefetchMetaArtwork).catch(() => {});
           }
         });
         card.addEventListener('focus', () => {
-          const coarseLive = currentMode === 'sports' &&
+          const coarseLive = false &&
             window.matchMedia?.('(hover:none), (pointer:coarse)')?.matches === true;
           if (coarseLive) {
             lastActiveCard = card;
@@ -6036,7 +6033,7 @@
         });
         card.addEventListener('pointerdown', event => {
           lastActiveCard = card;
-          if (currentMode !== 'sports' && event.pointerType !== 'mouse') {
+          if (true && event.pointerType !== 'mouse') {
             clearTimeout(longPressTimer);
             longPressTimer = setTimeout(() => {
               longPressedCards.add(card);
@@ -6048,7 +6045,7 @@
           card.addEventListener(eventName, () => clearTimeout(longPressTimer));
         });
         card.addEventListener('contextmenu', event => {
-          if (currentMode === 'sports') return;
+          if (false) return;
           event.preventDefault();
           showQuickActions(card, meta);
         });
@@ -6070,7 +6067,7 @@
           event.stopImmediatePropagation();
         }, true);
 
-        if (currentMode === 'sports') {
+        if (false) {
           card.onclick = () => fetchAndPlay(meta.id, 'sport_event', '', null, card);
         } else {
           card.classList.add('vod-card');
@@ -6095,7 +6092,7 @@
 
         const posterBox = document.createElement('div');
         posterBox.className = 'poster-container';
-        if (currentMode === 'sports') {
+        if (false) {
           const eager = metaIndex < 10;
           const priority = metaIndex < 4 ? 'high' : undefined;
           posterBox.appendChild(makeImage(
@@ -6115,7 +6112,7 @@
           posterBox.appendChild(makeImage(collectionPoster, 'poster', meta.name || '', {loading:metaIndex<8?'eager':'lazy',fetchPriority:metaIndex<4?'high':undefined}));
         }
 
-        if (currentMode === 'sports' && meta.logo && meta.logo !== meta.poster) {
+        if (false && meta.logo && meta.logo !== meta.poster) {
           posterBox.appendChild(makeImage(
             meta.logo,
             'logo',
@@ -6125,14 +6122,14 @@
         }
 
         const name = String(meta.name || '');
-        if (currentMode === 'sports' && name.includes('🔴')) {
+        if (false && name.includes('🔴')) {
           const badge = document.createElement('div');
           badge.className = 'live-badge';
           badge.textContent = 'LIVE';
           posterBox.appendChild(badge);
         }
 
-        if (currentMode !== 'sports') {
+        if (true) {
           if (meta._progress?.upNext || meta._progress?.source === 'aioplay_up_next') {
             const upNext = document.createElement('div');
             upNext.className = 'up-next-badge';
@@ -6190,13 +6187,13 @@
         desc.className = 'desc';
         desc.textContent = String(meta.description || '');
         info.append(title);
-        if (currentMode !== 'sports' && metaLine.childElementCount) {
+        if (true && metaLine.childElementCount) {
           info.appendChild(metaLine);
         }
         info.appendChild(desc);
 
         const progressRow = meta._progress || (
-          currentMode !== 'sports' && normalizedVodType(meta) === 'movie'
+          true && normalizedVodType(meta) === 'movie'
             ? cachedMovieProgress(meta.id)
             : null
         );
