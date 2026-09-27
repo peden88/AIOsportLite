@@ -2468,6 +2468,74 @@
       }
     }
 
+    /* Canonical installed-PWA chrome override. Keep this last so older mobile
+       compatibility rules cannot re-expand or offset either navigation bar. */
+    @media(max-width:650px) {
+      html.aioplay-standalone {
+        --pwa-bottom-nav-height:48px;
+      }
+      html.aioplay-standalone .top-header {
+        position:relative !important;
+        top:auto !important;
+        padding-top:12px !important;
+        background:#0a0e13 !important;
+        background-image:none !important;
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+      }
+      html.aioplay-standalone header {
+        position:sticky !important;
+        top:0 !important;
+        z-index:70 !important;
+        background:#0a0e13 !important;
+        background-image:none !important;
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+        transform:none !important;
+      }
+      html.aioplay-standalone .mobile-bottom-nav {
+        position:fixed !important;
+        inset:auto 0 0 0 !important;
+        width:auto !important;
+        height:var(--pwa-bottom-nav-height) !important;
+        min-height:var(--pwa-bottom-nav-height) !important;
+        margin:0 !important;
+        padding:0 4px !important;
+        gap:2px !important;
+        align-items:stretch !important;
+        border:0 !important;
+        border-top:1px solid rgba(255,255,255,.10) !important;
+        border-radius:0 !important;
+        background:#0a0e13 !important;
+        box-shadow:none !important;
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+      }
+      html.aioplay-standalone .mobile-bottom-nav button,
+      html.aioplay-standalone .mobile-bottom-nav button.active {
+        height:100% !important;
+        min-height:0 !important;
+        align-self:stretch !important;
+        margin:0 !important;
+        padding:2px !important;
+        gap:1px !important;
+        border-radius:0 !important;
+      }
+      html.aioplay-standalone .mobile-bottom-nav button.active {
+        border-radius:8px !important;
+      }
+      html.aioplay-standalone .mobile-bottom-nav button svg {
+        width:16px !important;
+        height:16px !important;
+      }
+      html.aioplay-standalone body {
+        padding-bottom:var(--pwa-bottom-nav-height) !important;
+      }
+      html.aioplay-standalone main {
+        padding-bottom:calc(var(--pwa-bottom-nav-height) + 4px) !important;
+      }
+    }
+
     .episode-btn.is-next {
       border-color:rgba(154,173,181,.48);
       box-shadow:0 10px 28px rgba(0,0,0,.20);
