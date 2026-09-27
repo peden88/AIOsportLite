@@ -132,7 +132,7 @@
   .stream-entry { transition:background .14s ease; border-color:var(--line); }
   .stream-entry:hover { background:rgba(255,255,255,.025); }
 
-  .admin-tabs{display:flex;gap:8px;margin-bottom:18px}.admin-tabs button.active{background:#34404b;border-color:rgba(255,255,255,.28)}
+  .admin-tabs{position:fixed;left:0;right:0;bottom:0;z-index:100;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin:0;padding:4px;background:#0a0e13;border-top:1px solid var(--line)}.admin-tabs a,.admin-tabs button{display:flex;align-items:center;justify-content:center;min-height:48px;padding:6px 4px;border:0;border-radius:9px;background:transparent;color:var(--dim);text-decoration:none;font-weight:700}.admin-tabs .active{background:#34404b;color:var(--text)}body{padding-bottom:58px}@media(max-width:650px){.admin-tabs a,.admin-tabs button{font-size:11px;min-height:46px}}
   .collection-editor{display:grid;gap:16px}.editor-collection{background:rgba(17,22,29,.84);border:1px solid var(--line);border-radius:16px;padding:14px}
   .editor-collection-head,.editor-folder{display:flex;align-items:center;gap:9px}.editor-collection-head{margin-bottom:10px;font-weight:700}.editor-folder{padding:8px 10px;border-top:1px solid var(--line)}
   .editor-folder span,.editor-collection-head span{flex:1}.move-btn{padding:5px 9px}.collapse-btn{padding:5px 10px;min-width:36px}.visibility-btn{padding:5px 10px;min-width:64px}.editor-collection.is-hidden{opacity:.58}.editor-collection.is-hidden .editor-collection-head span{text-decoration:line-through}.editor-folders[hidden]{display:none}
@@ -144,9 +144,7 @@
   <h1>AIOPlay Dashboard</h1>
   <div class="spacer"></div>
   <button id="lockBtn" hidden style="padding:7px 13px">Sign out</button>
-  <a href="/analytics">Analytics</a>
-  <a href="/users">Users</a>
-  <a href="/">← Back to catalog</a>
+  <a href="/">← AIOPlay</a>
 </header>
 
 <div id="signin" hidden style="max-width:1000px;margin:24px auto 0;padding:0 24px">
@@ -162,7 +160,6 @@
 </div>
 
 <main id="panel" hidden>
-  <nav class="admin-tabs"><button id="overviewTabBtn" class="active">Overview</button><button id="collectionsTabBtn">Collections editor</button></nav>
   <section id="overviewTab">
   <div class="grid">
     <div class="card">
@@ -226,6 +223,7 @@
     <div class="card"><h2>Collections editor</h2><div class="dim" style="margin-bottom:14px">Reorder collections and their folder cards. Changes are written directly to COLLECTIONS.json.</div><div id="collectionEditor" class="collection-editor"></div><div class="actions"><button id="saveCollectionOrder">Save order</button></div></div>
   </section>
 </main>
+<nav class="admin-tabs" aria-label="Admin console"><a href="/services">Services</a><a href="/analytics">Analytics</a><a href="/users">Users</a><button id="overviewTabBtn" class="active">Dashboard</button><button id="collectionsTabBtn">Collections editor</button></nav>
 
 <script>
 const $ = id => document.getElementById(id);
