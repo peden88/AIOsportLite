@@ -956,6 +956,10 @@ app.get('/services', requireAdminPage, (req, res) => {
   res.sendFile(path.join(publicDir, 'services.html'));
 });
 
+app.get('/analytics', requireAdminPage, (req, res) => {
+  res.sendFile(path.join(publicDir, 'analytics.html'));
+});
+
 /**
  * Anything that changes state is guarded. This addon is meant to be reachable
  * from the internet -- that is how a phone gets at it -- so an unguarded button
@@ -1189,7 +1193,7 @@ function requirePage(req, res, next) {
 function guardStaticPages(req, res, next) {
   if (!/\.html?$/i.test(req.path)) return next();
   if (/^\/login\.html?$/i.test(req.path)) return next();
-  if (/^\/(?:dashboard|users|services|configure)\.html?$/i.test(req.path)) {
+  if (/^\/(?:dashboard|users|services|configure|analytics)\.html?$/i.test(req.path)) {
     return requireAdminPage(req, res, next);
   }
   return requirePage(req, res, next);
