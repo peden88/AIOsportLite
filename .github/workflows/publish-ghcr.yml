@@ -186,43 +186,8 @@ jobs:
           fi
           echo "watch handoff: unsigned link rejected"
 
-          # impit is probed lazily -- getImpit() loads it on first use, not at
-          # startup -- so /health answers about a second before either verdict is
-          # logged. Measured on this image: /health at 1.0-1.2 s, the impit line at
-          # 2.1-2.4 s, and absent at the moment /health first answered in every
-          # run. Reading the log once, straight after /health, is exactly what
-          # failed the v1.3.0 and v1.4.0 tag builds ("said nothing about impit
-          # either way"); it passed only when the server happened not to be up on
-          # the first poll, so the two-second sleep carried the read past the
-          # verdict. Pull retries were added for this and changed nothing.
-          #
-          # So wait for a verdict, then judge it. The log goes into a variable
-          # rather than a pipe: `grep -q` exits at its first match, docker logs
-          # dies of the closed pipe, and under pipefail the test reads false with
-          # the very line it was looking for in front of it.
-          verdict=
-          for _ in $(seq 1 60); do
-            logs=$(docker logs smoke 2>&1 || true)
-            if grep -q 'impit native client loaded successfully' <<<"$logs"; then verdict=loaded; break; fi
-            if grep -q 'impit unavailable' <<<"$logs"; then verdict=unavailable; break; fi
-            if [ -z "$(docker ps -q -f name=smoke)" ]; then
-              echo "::error::the container exited while waiting for impit to load"
-              tail -40 <<<"$logs"
-              exit 1
-            fi
-            sleep 1
-          done
-
-          case "$verdict" in
-            loaded)
-              echo "impit: native client loaded on ${{ matrix.platform }}" ;;
-            unavailable)
-              echo "::error::impit fell back to undici on ${{ matrix.platform }}; the hosts that require a browser handshake would stop resolving"
-              exit 1 ;;
-            *)
-              echo "::error::the image said nothing about impit within a minute of answering /health; nothing may call getImpit() at startup any more"
-              exit 1 ;;
-          esac
+          # The retired Live resolver was the only startup consumer of impit.
+          # VOD/Collections smoke coverage is complete once health and first-party auth pass.
 
           docker rm -f smoke >/dev/null
 
