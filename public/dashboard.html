@@ -95,16 +95,8 @@
       linear-gradient(135deg,#0a0e13 0%,#11161d 52%,#171920 100%);
     min-height:100vh;
   }
-  header {
-    position:sticky;
-    top:0;
-    z-index:20;
-    padding:14px 24px;
-    background:rgba(10,14,19,.78);
-    backdrop-filter:blur(18px);
-    -webkit-backdrop-filter:blur(18px);
-    border-color:var(--line);
-  }
+  header {position:sticky;top:0;z-index:20;height:64px;padding:0 max(20px,calc((100vw - 1100px)/2));background:rgba(10,14,19,.86);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-color:var(--line);}
+  @media(max-width:650px){header{height:58px;padding:0 16px}main{padding:18px 16px 30px}}
   .dashboard-brand { width:34px; height:34px; border-radius:8px; object-fit:cover; border:1px solid rgba(255,255,255,.10); }
   header h1 { font-size:16px; letter-spacing:-.01em; }
   main { max-width:1100px; }
@@ -141,10 +133,10 @@
 <body>
 <header>
   <img src="/aioplay-brand.webp" class="dashboard-brand" alt="AIOPlay">
-  <h1>AIOPlay Dashboard</h1>
+  <h1 id="consoleTitle">Dashboard</h1>
   <div class="spacer"></div>
+  <span class="dim" id="consoleSubtitle" style="font-size:13px">System health and cache controls</span>
   <button id="lockBtn" hidden style="padding:7px 13px">Sign out</button>
-  <a href="/">← AIOPlay</a>
 </header>
 
 <div id="signin" hidden style="max-width:1000px;margin:24px auto 0;padding:0 24px">
@@ -232,6 +224,8 @@ const collapsedCollections=new Set();
 function showAdminTab(which){
   $('overviewTab').hidden=which!=='overview'; $('collectionsTab').hidden=which!=='collections';
   $('overviewTabBtn').classList.toggle('active',which==='overview'); $('collectionsTabBtn').classList.toggle('active',which==='collections');
+  $('consoleTitle').textContent=which==='collections'?'Collections editor':'Dashboard';
+  $('consoleSubtitle').textContent=which==='collections'?'Catalog organisation and visibility':'System health and cache controls';
   if(which==='collections')loadCollectionEditor();
 }
 $('overviewTabBtn').onclick=()=>showAdminTab('overview');
