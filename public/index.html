@@ -2025,6 +2025,34 @@
       main { padding-bottom:92px; }
     }
 
+    /* Compact bottom navigation when AIOPlay is installed as a standalone web app.
+       Browser/mobile web keeps the roomier navigation above. */
+    @media (max-width:650px) and (display-mode:standalone) {
+      body {
+        padding-bottom:calc(60px + env(safe-area-inset-bottom, 0px));
+      }
+      .mobile-bottom-nav {
+        left:8px;
+        right:8px;
+        bottom:calc(4px + env(safe-area-inset-bottom, 0px));
+        gap:2px;
+        padding:4px;
+        border-radius:16px;
+      }
+      .mobile-bottom-nav button {
+        min-height:42px;
+        gap:1px;
+        padding:3px 2px;
+        border-radius:11px;
+        font-size:.53rem;
+      }
+      .mobile-bottom-nav button svg {
+        width:17px;
+        height:17px;
+      }
+      main { padding-bottom:70px; }
+    }
+
     @media(prefers-reduced-motion:reduce) {
       html:not(.force-motion) *, html:not(.force-motion) *::before, html:not(.force-motion) *::after {
         scroll-behavior:auto !important;
