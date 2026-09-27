@@ -2525,20 +2525,6 @@ app.get('/api/proxy-embed', async (req, res) => {
 });
 
 
-// Mount the HLS Video Proxy (routes to the internal resolver on port RESOLVER_PORT)
-app.use('/api', createProxyMiddleware({
-  target: `http://127.0.0.1:${RESOLVER_PORT}/api`,
-  changeOrigin: true,
-  xfwd: true,
-  logLevel: 'debug',
-  onError: (err, req, res) => {
-    console.error('[Proxy Error] Failed to proxy /api request to internal resolver:', err.message);
-    if (!res.headersSent) {
-      res.status(502).send('Bad Gateway: Internal stream resolver is not responding.');
-    }
-  }
-}));
-
 // ─── Universal Dynamic Base URL Response Rewriter ─────────────────────────────
 // Intercepts /manifest.json, /catalog/*, /meta/*, and /stream/* responses to
 // dynamically rewrite all internal proxy URLs (/img, /watch, /api/manifest)
