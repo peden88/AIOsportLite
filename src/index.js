@@ -24,7 +24,6 @@ require('dotenv').config({ override: false, quiet: true });
 
 const express = require('express');
 const cors    = require('cors');
-const { createProxyMiddleware } = require('http-proxy-middleware');
 const child_process = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -363,7 +362,7 @@ const BUILD_INFO = (() => {
       }).toString().trim();
     } catch (e) { build = ''; }
   }
-  return { version: require('./manifest').manifest.version, build, sha };
+  return { version: require('../package.json').version, build, sha };
 })();
 
 app.get('/api/version', (req, res) => res.json(BUILD_INFO));
