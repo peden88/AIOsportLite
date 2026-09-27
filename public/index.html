@@ -7162,6 +7162,12 @@
       setPanelAvailability(section,!!host.children.length);refreshDetailsTabs();
     }
 
+    const analyticsDetailSeen=new Map();
+    function trackDetailsView(meta){
+      const type=normalizedVodType(meta),id=String(meta?.id||meta?.contentId||'').trim();if(!id)return;
+      const key=type+':'+id,now=Date.now();if(now-(analyticsDetailSeen.get(key)||0)<30000)return;analyticsDetailSeen.set(key,now);
+      fetch('/api/v1/analytics/details-view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contentType:type,contentId:id,title:meta?.name||meta?.title||'',seriesTitle:meta?.seriesTitle||'',season:meta?.season,episode:meta?.episode}),keepalive:true}).catch(()=>{});
+    }
     const visitedRelatedTitles=new Set();
     function detailsContentArrived(host){if(!host)return;host.classList.remove('details-content-enter');void host.offsetWidth;host.classList.add('details-content-enter')}
     function ratingDisplay(label,value){
@@ -7321,6 +7327,7 @@
 
       const meta = await loadMetaFor({ ...preview, type:'movie' }) || preview;
       currentDetailsMeta = { ...preview, ...meta, type:'movie' };
+      trackDetailsView(currentDetailsMeta);
       if(!restoringUiState&&document.getElementById('details-overlay')?.style.display==='block')persistUiState();
       prefetchMetaArtwork(currentDetailsMeta);
       perfEnd(perf);
@@ -7387,6 +7394,7 @@
           vodMetaCache.set(cacheKey, meta);
         }
         currentDetailsMeta = { ...preview, ...meta, type:'series' };
+        trackDetailsView(currentDetailsMeta);
         if(!restoringUiState&&document.getElementById('details-overlay')?.style.display==='block')persistUiState();
         prefetchMetaArtwork(currentDetailsMeta);
         finishEpisodeSkeleton(list);
