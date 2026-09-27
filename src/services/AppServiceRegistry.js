@@ -7,9 +7,8 @@
  * Users carry identity/state/preferences only. The manifest URLs stay server-side
  * and are deliberately omitted from the public bootstrap response.
  *
- * Sports is native to this service and is enabled by default. VOD becomes
- * available only when both AIOMetadata (discovery/meta) and AIOStreams
- * (stream resolution/failover) are configured and VOD_ENABLED is truthy.
+ * AIOPlay now exposes a uniform VOD/Collections experience for every account.
+ * VOD becomes available when AIOMetadata and AIOStreams are configured and VOD_ENABLED is truthy.
  */
 
 const crypto = require('crypto');
@@ -80,7 +79,6 @@ function privateConfig() {
   const appStreamsEnvUrl = normaliseHttpUrl(process.env.AIOSTREAMS_APP_MANIFEST_URL);
   const webStreamsManifestUrl = webStreamsEnvUrl || sharedStreamsManifestUrl;
   const appStreamsManifestUrl = appStreamsEnvUrl || sharedStreamsManifestUrl;
-  const sportsManifestUrl = normaliseHttpUrl(process.env.AIOSPORT_MANIFEST_URL);
 
   const metadataEnabled = !!metadataManifestUrl;
   const streamsEnabled = !!(webStreamsManifestUrl || appStreamsManifestUrl);
@@ -88,16 +86,9 @@ function privateConfig() {
     ? !!saved.vodEnabled
     : enabled(process.env.VOD_ENABLED);
   const vodEnabled = vodRequested && metadataEnabled && streamsEnabled;
-  const sportsEnabled = Object.prototype.hasOwnProperty.call(saved, 'sportsEnabled')
-    ? !!saved.sportsEnabled
-    : (process.env.SPORTS_ENABLED === undefined ? true : enabled(process.env.SPORTS_ENABLED));
+
 
   return {
-    sports: {
-      enabled: sportsEnabled,
-      manifestUrl: sportsManifestUrl,
-      role: 'live-catalog-and-playback'
-    },
     metadata: {
       enabled: metadataEnabled,
       manifestUrl: metadataManifestUrl,
@@ -116,7 +107,6 @@ function privateConfig() {
       requested: vodRequested
     },
     sources: {
-      sportsEnabled: sourceFor(saved, 'sportsEnabled'),
       metadata: sourceFor(saved, 'aiometadataManifestUrl'),
       streams: sourceFor(saved, 'aiostreamsManifestUrl'),
       streamsWeb: streamsSourceFor(saved, webStreamsEnvUrl, 'web'),
@@ -129,7 +119,6 @@ function privateConfig() {
 function publicBootstrap() {
   const cfg = privateConfig();
   const contentTypes = [];
-  if (cfg.sports.enabled) contentTypes.push('sport_event', 'live_channel');
   if (cfg.vod.enabled) contentTypes.push('movie', 'series', 'anime', 'episode');
 
   return {
@@ -143,10 +132,6 @@ function publicBootstrap() {
       selectionOwner: 'server'
     },
     services: {
-      sports: {
-        enabled: cfg.sports.enabled,
-        role: cfg.sports.role
-      },
       metadata: {
         enabled: cfg.metadata.enabled,
         role: cfg.metadata.role
@@ -191,11 +176,6 @@ function endpointSummary(url, source) {
 function adminSummary() {
   const cfg = privateConfig();
   return {
-    sports: {
-      enabled: cfg.sports.enabled,
-      source: cfg.sources.sportsEnabled,
-      manifest: endpointSummary(cfg.sports.manifestUrl, 'environment')
-    },
     vodRequested: cfg.vod.requested,
     vodEnabled: cfg.vod.enabled,
     metadata: endpointSummary(cfg.metadata.manifestUrl, cfg.sources.metadata),
@@ -220,9 +200,6 @@ function updatePersistentServices(patch = {}) {
   const current = serviceSettings.read();
   const next = { ...current };
 
-  if (Object.prototype.hasOwnProperty.call(patch, 'sportsEnabled')) {
-    next.sportsEnabled = !!patch.sportsEnabled;
-  }
   if (Object.prototype.hasOwnProperty.call(patch, 'vodEnabled')) {
     next.vodEnabled = !!patch.vodEnabled;
   }
