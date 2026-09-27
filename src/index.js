@@ -1630,11 +1630,11 @@ app.post('/api/v1/playback/:sessionId/next', requirePage, (req, res) => {
   res.status(result.ok ? 200 : (result.reason === 'PLAYBACK_SESSION_EXPIRED' ? 410 : 404)).json(result);
 });
 
-app.post('/api/v1/playback/:sessionId/heartbeat', requirePage, (req, res) => {
+app.post('/api/v1/playback/:sessionId/heartbeat', requirePage, express.json({ limit:'2kb' }), (req, res) => {
   const account = currentAccount(req);
   if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
   const ok = playbackLeases.touchSession(req.params.sessionId, account.user.id);
-  if (ok) analytics.heartbeat(account.user,req.params.sessionId);
+  if (ok && req.body?.playing !== false) analytics.heartbeat(account.user,req.params.sessionId);
   if (!ok) {
     return res.status(410).json({
       ok: false,
