@@ -2253,6 +2253,48 @@
         box-shadow:0 8px 24px rgba(0,0,0,.24);
       }
     }
+    /* iPhone Home Screen / standalone override. This intentionally comes after
+       the generic iOS Safari safe-area rule so the installed app does not inherit
+       Safari's tall toolbar-compensation dock. */
+    @media(max-width:650px) {
+      html.aioplay-standalone .mobile-bottom-nav {
+        left:8px;
+        right:8px;
+        bottom:calc(4px + env(safe-area-inset-bottom, 0px));
+        min-height:0;
+        height:auto;
+        padding:4px;
+        padding-bottom:4px;
+        gap:2px;
+        border-radius:16px;
+        box-shadow:0 10px 30px rgba(0,0,0,.34);
+      }
+      html.aioplay-standalone .mobile-bottom-nav button {
+        min-height:42px;
+        height:42px;
+        gap:1px;
+        padding:3px 2px;
+        border-radius:11px;
+        font-size:.53rem;
+      }
+      html.aioplay-standalone .mobile-bottom-nav button svg {
+        width:17px;
+        height:17px;
+      }
+      html.aioplay-standalone body {
+        padding-bottom:calc(58px + env(safe-area-inset-bottom, 0px));
+      }
+      html.aioplay-standalone main { padding-bottom:68px; }
+
+      /* In the installed app keep the primary/search header reachable instead
+         of letting the mobile scroll-collapse state strand it off-screen. */
+      html.aioplay-standalone body.mobile-header-collapsed header {
+        transform:none;
+        opacity:1;
+        pointer-events:auto;
+      }
+    }
+
     .episode-btn.is-next {
       border-color:rgba(154,173,181,.48);
       box-shadow:0 10px 28px rgba(0,0,0,.20);
@@ -3398,6 +3440,14 @@
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
 </head>
 <body>
+  <script>
+    // iOS Home Screen apps do not consistently match display-mode:standalone.
+    // Stamp an explicit class before first paint so standalone-only CSS is reliable.
+    (() => {
+      const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+      if (standalone) document.documentElement.classList.add('aioplay-standalone');
+    })();
+  </script>
 
   <div id="appHero" class="app-hero" aria-hidden="true"></div>
   <video id="appHeroPreview" class="app-hero-preview" muted loop playsinline preload="none" aria-hidden="true"></video>
@@ -4239,7 +4289,7 @@
 
       const apply = () => {
         ticking = false;
-        if (!window.matchMedia?.('(max-width:650px)')?.matches) {
+        if (!window.matchMedia?.('(max-width:650px)')?.matches || document.documentElement.classList.contains('aioplay-standalone')) {
           document.body.classList.remove('mobile-header-collapsed');
           lastY = Math.max(0, window.scrollY || 0);
           return;
