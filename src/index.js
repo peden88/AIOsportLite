@@ -56,56 +56,6 @@ const analytics = require('./services/Analytics');
 
 // Removed global User-Agent fix because it causes ECONNRESET on Streamed.pk
 
-// ─── Spawn the Streamed.pk Resolver ───────────────────────────────────────────
-
-// Use a dynamic random port between 20000-60000 for the internal resolver to prevent EADDRINUSE on shared hosts
-const RESOLVER_PORT = process.env.RESOLVER_PORT || "7003";
-let resolverProcess = null;
-let isShuttingDown = false;
-
-function spawnResolver() {
-  if (isShuttingDown) return;
-  const spawnEnv = { ...process.env, PORT: RESOLVER_PORT, HOST: '127.0.0.1' };
-  if (process.env.LOW_MEMORY_MODE === 'true') {
-    /* spawnEnv.NODE_OPTIONS removed to prevent 502 crashes */
-  }
-
-  // Decode 'server.js' from base64 at runtime so Webpack's asset relocator ignores it
-  const scriptName = Buffer.from('c2VydmVyLmpz', 'base64').toString('utf8');
-  const scriptPath = process.cwd() + '/resolver/src/' + scriptName;
-  const args = [];
-  args.push(scriptPath);
-
-  resolverProcess = child_process['sp' + 'awn']('node', args, {
-    stdio: 'inherit',
-    env: spawnEnv
-  });
-  
-  resolverProcess.on('error', (err) => console.error('[FATAL] Resolver spawn error:', err));
-  
-  resolverProcess.on('exit', (code, signal) => {
-    if (isShuttingDown) return;
-    console.error(`[FATAL] Resolver process exited with code ${code} and signal ${signal}. Restarting in 2 seconds...`);
-    setTimeout(spawnResolver, 2000);
-  });
-}
-
-spawnResolver();
-
-// Ensure child process is killed when the parent exits
-function shutdownResolver() {
-  isShuttingDown = true;
-  if (resolverProcess && !resolverProcess.killed) {
-    console.log('Shutting down Stream Resolver...');
-    resolverProcess.kill();
-  }
-  // Shut down the headless browser sniffer if it was ever launched
-  try { container.resolve('browserSniffer').shutdown(); } catch (_) {}
-}
-process.on('exit', shutdownResolver);
-process.on('SIGINT', () => { shutdownResolver(); process.exit(0); });
-process.on('SIGTERM', () => { shutdownResolver(); process.exit(0); });
-
 // ─── Register Addon Handlers ──────────────────────────────────────────────────
 
 builder.defineCatalogHandler(({ type, id, extra, config }) => handleCatalog(type, id, extra, config));
@@ -742,7 +692,6 @@ app.get('/api/v1/admin/services', async (req, res) => {
   try {
     res.json({
       config: appServices.adminSummary(),
-      sports: sportsServiceSummary(),
       status: await vodGateway.diagnostics()
     });
   } catch (err) {
@@ -756,7 +705,7 @@ app.put('/api/v1/admin/services', express.json({ limit: '16kb' }), async (req, r
   try {
     const config = appServices.updatePersistentServices(req.body || {});
     const status = await vodGateway.diagnostics();
-    res.json({ saved: true, config, sports: sportsServiceSummary(), status });
+    res.json({ saved: true, config, status });
   } catch (err) {
     const statusCode = ['INVALID_SERVICE_URL', 'INVALID_SERVICE_CONFIG'].includes(err.code) ? 400 : 500;
     res.status(statusCode).json({ error: err.message });
@@ -1261,59 +1210,6 @@ app.get('/users', requireAdminPage, (req, res) => {
   res.sendFile(path.join(publicDir, 'users.html'));
 });
 
-app.get('/api/matches', requirePage, (req, res) => {
-  const matches = container.resolve('cacheService').getMatches();
-  res.json(matches);
-});
-
-app.get('/api/v1/sports/catalogs', requirePage, (req, res) => {
-  try {
-    const config = resolveAppSportsConfig();
-    const configured = buildConfiguredManifest(config);
-    // First-party home navigation only lists catalogs that can be loaded
-    // without a required Stremio extra. Search-only/discover-only twins are
-    // still available through the public addon protocol, not as empty tabs.
-    const catalogs = (configured.catalogs || []).filter(cat => {
-      const extra = Array.isArray(cat.extra) ? cat.extra : [];
-      return !extra.some(item => item && item.isRequired);
-    });
-    res.json({ catalogs });
-  } catch (err) {
-    res.status(err.statusCode || 500).json({ error: 'Sports configuration is unavailable.' });
-  }
-});
-
-app.get('/api/v1/sports/catalog/:catalogId', requirePage, async (req, res) => {
-  try {
-    const config = resolveAppSportsConfig();
-    const configured = buildConfiguredManifest(config);
-    const catalogId = String(req.params.catalogId || '');
-    const allowed = (configured.catalogs || []).some(cat => cat.id === catalogId);
-    if (!allowed) return res.status(404).json({ error: 'Catalog is not enabled.' });
-
-    const extra = {};
-    for (const key of ['search', 'genre', 'skip']) {
-      if (typeof req.query[key] === 'string') extra[key] = req.query[key];
-    }
-    const result = await handleCatalog('tv', catalogId, extra, config);
-    res.json(result);
-  } catch (err) {
-    console.error('[app-sports] catalog failed:', err.message);
-    res.status(err.statusCode || 502).json({ error: 'Could not load sports catalog.' });
-  }
-});
-
-app.get('/api/v1/sports/meta/:id', requirePage, async (req, res) => {
-  try {
-    const config = resolveAppSportsConfig();
-    const result = await handleMeta('tv', String(req.params.id || ''), config);
-    res.json(result);
-  } catch (err) {
-    console.error('[app-sports] metadata failed:', err.message);
-    res.status(err.statusCode || 502).json({ error: 'Could not load sports metadata.' });
-  }
-});
-
 function vodExtraFromQuery(query) {
   const out = {};
   let count = 0;
@@ -1554,20 +1450,6 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
         episode: body.episode,
         episodeTitle: String(body.episodeTitle || '')
       });
-    }
-
-    if (contentType === 'sport' || contentType === 'sport_event' || contentType === 'live_channel') {
-      const services = appServices.publicBootstrap();
-      if (!services.services.sports.enabled) {
-        if (lease) playbackLeases.releaseLease(lease.id);
-        return res.status(503).json({ error: 'Sports playback is disabled.' });
-      }
-
-      const appConfig = resolveAppSportsConfig();
-      const result = await opaquePlayback.startSportsPlayback(id, appConfig);
-      if (result.ok && lease) { playbackLeases.bind(lease.id, result.sessionId); analytics.playbackStart(account.user, account.session, {...lease,playbackSessionId:result.sessionId}, result); }
-      else if (lease) playbackLeases.releaseLease(lease.id);
-      return res.status(result.ok ? 200 : 404).json(result);
     }
 
     if (['movie', 'series', 'anime', 'episode'].includes(contentType)) {
@@ -3003,142 +2885,6 @@ function encodeConfigSegment(config) {
  * Pangolin address while this process is reached internally by another name.
  * The path is the stable identity of the local config.
  */
-function resolveAppSportsConfig() {
-  const configured = appServices.manifestUrl('sports');
-
-  // Migration/default: before the app-wide manifest setting exists, the old
-  // singleton saved config remains the installation-wide sports config.
-  if (!configured) return loadProfile(LEGACY_ID) || {};
-
-  let pathname;
-  try {
-    pathname = new URL(configured, BASE_URL).pathname;
-  } catch {
-    const err = new Error('AIOSPORT_MANIFEST_URL is invalid.');
-    err.statusCode = 503;
-    throw err;
-  }
-
-  if (pathname === '/manifest.json') return {};
-
-  if (pathname === '/saved/manifest.json') {
-    const config = loadProfile(LEGACY_ID);
-    if (config) return config;
-    const err = new Error('AIOSPORT_MANIFEST_URL points to a saved profile that does not exist.');
-    err.statusCode = 503;
-    throw err;
-  }
-
-  const profile = pathname.match(/^\/p\/([^/]+)\/manifest\.json$/);
-  if (profile) {
-    let id = '';
-    try { id = decodeURIComponent(profile[1]); } catch (_) {}
-    const config = loadProfile(id);
-    if (config) return config;
-    const err = new Error('AIOSPORT_MANIFEST_URL points to a profile that does not exist.');
-    err.statusCode = 503;
-    throw err;
-  }
-
-  const encoded = pathname.match(/^\/([^/]+)\/manifest\.json$/);
-  if (encoded) {
-    const config = decodeConfigSegment(encoded[1]);
-    if (config) return config;
-  }
-
-  const err = new Error('AIOSPORT_MANIFEST_URL is not a supported AIOSport Lite manifest URL.');
-  err.statusCode = 503;
-  throw err;
-}
-
-const APP_SPORTS_SOURCES = [
-  'streamfree', 'timstreams', 'streamedpk', 'sportyhunter', 'watchfooty',
-  'cdnlive', 'streamsports99', 'streamic', 'totalsportek', 'usatv', 'iptv-org'
-];
-
-function configuredSportsSourceCount(config) {
-  const raw = config && typeof config.sources === 'string' ? config.sources.trim() : '';
-  if (!raw || raw === 'all') return APP_SPORTS_SOURCES.length;
-  if (raw === 'none') return 0;
-  const wanted = new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
-  return APP_SPORTS_SOURCES.filter(id => wanted.has(id)).length;
-}
-
-function sportsConfigMode(configuredManifestUrl, defaultExists) {
-  if (!configuredManifestUrl) {
-    return defaultExists
-      ? { key: 'default-profile', label: 'Default saved profile' }
-      : { key: 'built-in-defaults', label: 'Built-in defaults' };
-  }
-
-  let pathname = '';
-  try { pathname = new URL(configuredManifestUrl, BASE_URL).pathname; }
-  catch (_) { return { key: 'pinned-manifest', label: 'Pinned manifest' }; }
-
-  if (pathname === '/saved/manifest.json') {
-    return { key: 'default-profile', label: 'Default saved profile' };
-  }
-  if (/^\/p\/[^/]+\/manifest\.json$/.test(pathname)) {
-    return { key: 'saved-profile', label: 'Pinned saved profile' };
-  }
-  if (pathname === '/manifest.json') {
-    return { key: 'base-manifest', label: 'Base manifest defaults' };
-  }
-  return { key: 'pinned-manifest', label: 'Pinned manifest' };
-}
-
-/**
- * Administrator-facing Sports card state.
- *
- * The first-party app owns one installation-wide sports setup. With no pinned
- * AIOSPORT_MANIFEST_URL the legacy default saved profile is that setup; if it
- * does not exist yet the built-in defaults are used. Configure Sports always
- * edits/creates that real default profile rather than minting a random UUID.
- */
-function sportsServiceSummary() {
-  const service = appServices.adminSummary().sports || { enabled: true };
-  const configuredManifestUrl = appServices.manifestUrl('sports');
-  const defaultExists = !!loadProfile(LEGACY_ID);
-  const mode = sportsConfigMode(configuredManifestUrl, defaultExists);
-  const configureUrl = defaultExists ? '/saved/configure' : '/configure?profile=default';
-
-  try {
-    const config = resolveAppSportsConfig();
-    const configured = buildConfiguredManifest(config);
-    const catalogs = (configured.catalogs || [])
-      .filter(cat => cat && typeof cat.id === 'string' && !cat.id.endsWith('__search'));
-
-    return {
-      enabled: !!service.enabled,
-      healthy: !!service.enabled && catalogs.length > 0,
-      state: service.enabled ? (catalogs.length ? 'healthy' : 'empty') : 'disabled',
-      mode: mode.key,
-      modeLabel: mode.label,
-      configureUrl,
-      defaultProfileExists: defaultExists,
-      catalogCount: catalogs.length,
-      sourceCount: configuredSportsSourceCount(config),
-      sourceTotal: APP_SPORTS_SOURCES.length,
-      pinnedManifest: !!configuredManifestUrl
-    };
-  } catch (err) {
-    return {
-      enabled: !!service.enabled,
-      healthy: false,
-      state: service.enabled ? 'error' : 'disabled',
-      mode: mode.key,
-      modeLabel: mode.label,
-      configureUrl,
-      defaultProfileExists: defaultExists,
-      catalogCount: 0,
-      sourceCount: 0,
-      sourceTotal: APP_SPORTS_SOURCES.length,
-      pinnedManifest: !!configuredManifestUrl,
-      error: err && err.message ? err.message : 'Sports configuration is unavailable.'
-    };
-  }
-}
-
 function decodeConfigSegment(configStr) {
   try {
     let parsed;
