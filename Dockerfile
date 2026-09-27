@@ -30,8 +30,6 @@ ARG BUILD_SHA=""
 RUN date -u +%Y.%m.%d.%H%M > /app/BUILD_ID \
  && printf '%s' "$BUILD_SHA" > /app/BUILD_SHA
 
-# Install internal resolver dependencies
-RUN cd resolver && npm install
 
 # Build the bundled distribution
 RUN npm run build
