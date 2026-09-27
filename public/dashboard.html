@@ -236,6 +236,8 @@ function showAdminTab(which){
 }
 $('overviewTabBtn').onclick=()=>showAdminTab('overview');
 $('collectionsTabBtn').onclick=()=>showAdminTab('collections');
+if(location.hash==='#collections') showAdminTab('collections');
+window.addEventListener('hashchange',()=>{if(location.hash==='#collections')showAdminTab('collections');else if(location.hash==='#dashboard'||!location.hash)showAdminTab('overview')});
 function moveIn(arr,index,delta){const to=index+delta;if(to<0||to>=arr.length)return;[arr[index],arr[to]]=[arr[to],arr[index]];renderCollectionEditor();}
 function renderCollectionEditor(){
   const host=$('collectionEditor');host.innerHTML='';
