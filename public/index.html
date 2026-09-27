@@ -2600,6 +2600,14 @@
       }
     }
 
+    .header-search-wrap{position:relative}
+    .search-suggestions{position:absolute;top:calc(100% + 7px);left:0;right:0;z-index:130;background:rgba(13,18,24,.98);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:6px;box-shadow:0 18px 45px rgba(0,0,0,.42);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);max-height:min(52vh,420px);overflow:auto}
+    .search-suggestion{width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:0;border-radius:10px;background:transparent;color:#f3f5f7;text-align:left;cursor:pointer}
+    .search-suggestion:hover,.search-suggestion.active{background:rgba(154,173,181,.18)}
+    .search-suggestion img{width:32px;height:45px;object-fit:cover;border-radius:5px;background:#1b222b;flex:0 0 auto}
+    .search-suggestion-copy{min-width:0;display:flex;flex-direction:column;gap:2px}.search-suggestion-title{font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.search-suggestion-meta{font-size:12px;color:#9ca6af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    @media(max-width:650px){.search-suggestions{position:fixed;top:calc(env(safe-area-inset-top,0px) + 70px);left:8px;right:8px;max-height:44vh}}
+
     .episode-btn.is-next {
       border-color:rgba(154,173,181,.48);
       box-shadow:0 10px 28px rgba(0,0,0,.20);
@@ -3764,8 +3772,9 @@
         <img src="/aioplay-brand.webp" alt="AIOPlay">
       </div>
       <div class="header-search-wrap">
-        <input type="text" id="searchInput" class="header-search" placeholder="Search matches…" aria-label="Search">
+        <input type="text" id="searchInput" class="header-search" placeholder="Search matches…" aria-label="Search" autocomplete="off" aria-autocomplete="list" aria-controls="searchSuggestions">
         <button type="button" id="clearSearchBtn" class="clear-search-btn" aria-label="Clear search" title="Clear search" hidden><span aria-hidden="true"></span></button>
+        <div id="searchSuggestions" class="search-suggestions" role="listbox" hidden></div>
       </div>
       <div class="header-actions">
         <a href="/dashboard" id="adminConsoleBtn" class="header-icon-button admin-only" title="Admin console" aria-label="Admin console" style="display:none;text-decoration:none;align-items:center;justify-content:center;"><svg height="18" width="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg></a>
@@ -6227,6 +6236,33 @@
 
     const searchInput = document.getElementById('searchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const searchSuggestions = document.getElementById('searchSuggestions');
+    let suggestionTimer = null;
+    let suggestionRequest = 0;
+    let activeSuggestion = -1;
+
+    function hideSearchSuggestions(){ if(searchSuggestions){searchSuggestions.hidden=true;searchSuggestions.innerHTML='';} activeSuggestion=-1; }
+    async function updateSearchSuggestions(raw){
+      const q=String(raw||'').trim(); clearTimeout(suggestionTimer);
+      if(q.length<2||peopleSearchOnly){hideSearchSuggestions();return}
+      suggestionTimer=setTimeout(async()=>{
+        const request=++suggestionRequest;
+        try{
+          const url='/api/v1/vod/search?q='+encodeURIComponent(q)+(searchType?'&type='+encodeURIComponent(searchType):'');
+          const res=await fetch(url); const data=await res.json(); if(!res.ok||request!==suggestionRequest)return;
+          const rows=(Array.isArray(data.catalogs)&&data.catalogs.length?data.catalogs.flatMap(r=>r.metas||[]):data.metas||[]);
+          const seen=new Set(); const items=rows.filter(m=>{const k=String(m.id||'')+'|'+String(m.type||'')+'|'+String(m.name||'').toLowerCase();if(seen.has(k))return false;seen.add(k);return true}).slice(0,7);
+          if(!items.length){hideSearchSuggestions();return}
+          searchSuggestions.innerHTML='';
+          items.forEach((m,i)=>{const b=document.createElement('button');b.type='button';b.className='search-suggestion';b.setAttribute('role','option');b.dataset.index=i;
+            if(m.poster){const im=document.createElement('img');im.src=safeImageUrl(m.poster);im.alt='';im.loading='lazy';b.appendChild(im)}
+            const copy=document.createElement('span');copy.className='search-suggestion-copy';const title=document.createElement('span');title.className='search-suggestion-title';title.textContent=m.name||'Untitled';copy.appendChild(title);
+            const meta=document.createElement('span');meta.className='search-suggestion-meta';meta.textContent=[m.releaseInfo||m.year||'',String(m.type||'').replace('tv','Series')].filter(Boolean).join(' · ');copy.appendChild(meta);b.appendChild(copy);
+            b.onclick=()=>{searchInput.value=m.name||q;syncClearSearchButton();hideSearchSuggestions();applySearch(searchInput.value);searchInput.focus()};searchSuggestions.appendChild(b)});
+          searchSuggestions.hidden=false; activeSuggestion=-1;
+        }catch(_){hideSearchSuggestions()}
+      },180);
+    }
 
     function syncClearSearchButton() {
       if (clearSearchBtn) clearSearchBtn.hidden = !searchInput.value.length;
@@ -6234,6 +6270,7 @@
 
     async function clearSearchUi({ restoreCatalog = true } = {}) {
       clearTimeout(searchTimer);
+      clearTimeout(suggestionTimer); hideSearchSuggestions();
       searchInput.value = '';
       peopleSearchOnly = false;
       currentPersonSearch = null;
@@ -6261,10 +6298,21 @@
 
     syncClearSearchButton();
 
+    searchInput.addEventListener('keydown', e => {
+      if(!searchSuggestions || searchSuggestions.hidden) return;
+      const opts=[...searchSuggestions.querySelectorAll('.search-suggestion')];
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();activeSuggestion=e.key==='ArrowDown'?Math.min(opts.length-1,activeSuggestion+1):Math.max(0,activeSuggestion-1);opts.forEach((x,i)=>x.classList.toggle('active',i===activeSuggestion));opts[activeSuggestion]?.scrollIntoView({block:'nearest'});}
+      else if(e.key==='Enter'&&activeSuggestion>=0){e.preventDefault();opts[activeSuggestion]?.click();}
+      else if(e.key==='Escape'){hideSearchSuggestions();}
+    });
+    searchInput.addEventListener('blur',()=>setTimeout(hideSearchSuggestions,160));
+    searchInput.addEventListener('focus',()=>{if(searchInput.value.trim().length>=2)updateSearchSuggestions(searchInput.value)});
+
     searchInput.addEventListener('input', e => {
       peopleSearchOnly = false;currentPersonSearch=null;personSearchOrigin=null;renderPersonSearchHeader();
       syncClearSearchButton();
       const raw = e.target.value;
+      updateSearchSuggestions(raw);
       clearTimeout(searchTimer);
       if (false || currentMode === 'continue' || !raw.trim()) {
         applySearch(raw);
