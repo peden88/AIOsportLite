@@ -24,20 +24,15 @@ require('dotenv').config({ override: false, quiet: true });
 
 const express = require('express');
 const cors    = require('cors');
-const { getRouter } = require('stremio-addon-sdk');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const child_process = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
 
-const { builder } = require('./manifest');
 const crypto = require('crypto');
 const cardWarmer = require('./services/CardWarmer');
-const { handleCatalog, handleMeta } = require('./catalog');
-const { handleStream, remintUpstream } = require('./streams');
 const { PORT, BASE_URL, getRequestBaseUrl } = require('./config');
-const container = require('./container');
 const appServices = require('./services/AppServiceRegistry');
 const opaquePlayback = require('./services/OpaquePlayback');
 const externalPlayback = require('./services/ExternalPlaybackBridge');
@@ -55,12 +50,6 @@ const analytics = require('./services/Analytics');
 
 
 // Removed global User-Agent fix because it causes ECONNRESET on Streamed.pk
-
-// ─── Register Addon Handlers ──────────────────────────────────────────────────
-
-builder.defineCatalogHandler(({ type, id, extra, config }) => handleCatalog(type, id, extra, config));
-builder.defineMetaHandler(({ type, id, config })           => handleMeta(type, id, config));
-builder.defineStreamHandler(({ type, id, config })         => handleStream(type, id, config));
 
 // ─── Build Express App ────────────────────────────────────────────────────────
 
@@ -225,6 +214,7 @@ async function collectWarmUrls() {
   const perCatalog = [];
   for (const id of ids) {
     try {
+      const { handleCatalog } = require('./catalog');
       const { metas } = await handleCatalog('tv', id, {}, {}, { revalidate: false });
       perCatalog.push(cardWarmer.urlsFrom(metas));
     } catch {
@@ -1135,12 +1125,10 @@ app.get('/api/cache/stats', (req, res) => {
     images: imageService.cacheStats(),
     // Whether warming is actually surviving to the click: a rising evictions
     // count against a flat hits count is the cap being too small for the board.
-    streams: container.resolve('streamResolveCache').stats(),
     activeStreams: playbackLeases.status(),
     // Which channels the background check found with no streams, and are hidden.
     channels: require('./services/ChannelHealth').status(),
     warmer: cardWarmer.status(),
-    matches: container.resolve('cacheService').getMatches().length,
     admin: isAdmin(req),
     tokenRequired: !!process.env.ADMIN_TOKEN,
     uptimeSeconds: Math.round(process.uptime()),
@@ -2157,6 +2145,7 @@ app.get('/api/manifest', async (req, res) => {
             || (code && remint.looksExpired({ status: Number(code[1]) }));
           if (!expired || !remint.mayAttempt(targetUrl)) throw err;
           remint.noteAttempt(targetUrl);
+          const { remintUpstream } = require('./streams');
           const fresh = await remintUpstream(targetUrl);
           if (!fresh || !fresh.url) throw err;
           remint.setSubstitute(targetUrl, fresh.url);
@@ -3091,9 +3080,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-// Mount the Stremio addon router
-app.use(getRouter(builder.getInterface()));
 
 // ─── /watch — Embed Proxy Page ────────────────────────────────────────────────
 
