@@ -2406,17 +2406,9 @@
        through its usable height. Remove all blur/filter effects from the upper
        chrome and its ancestors so iOS cannot composite catalog artwork into it. */
     @media(max-width:650px) {
-      html.aioplay-standalone body::before {
-        content:'';
-        position:fixed;
-        left:0; right:0; top:0;
-        height:calc(var(--pwa-top-header-height,66px) + env(safe-area-inset-top,0px));
-        z-index:39;
-        background:#0a0e13;
-        pointer-events:none;
-      }
       html.aioplay-standalone .top-header,
       html.aioplay-standalone header {
+        isolation:isolate !important;
         background:#0a0e13 !important;
         background-image:none !important;
         backdrop-filter:none !important;
