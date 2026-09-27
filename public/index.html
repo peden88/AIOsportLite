@@ -2295,6 +2295,60 @@
       }
     }
 
+    /* Installed iOS PWA: use viewport-fixed chrome. iOS reports the Home
+       Screen safe-area inset even though there is no Safari toolbar; anchoring
+       above that inset makes the dock visibly float. */
+    @media(max-width:650px) {
+      html.aioplay-standalone .mobile-bottom-nav {
+        position:fixed !important;
+        left:0 !important;
+        right:0 !important;
+        bottom:0 !important;
+        width:100% !important;
+        margin:0 !important;
+        padding:4px 8px max(4px,env(safe-area-inset-bottom,0px)) !important;
+        border-left:0 !important;
+        border-right:0 !important;
+        border-bottom:0 !important;
+        border-radius:16px 16px 0 0 !important;
+        transform:none !important;
+      }
+      html.aioplay-standalone .mobile-bottom-nav button {
+        min-height:42px !important;
+        height:42px !important;
+        padding:3px 2px !important;
+      }
+      html.aioplay-standalone body {
+        padding-bottom:calc(50px + env(safe-area-inset-bottom,0px)) !important;
+      }
+      html.aioplay-standalone main {
+        padding-bottom:calc(58px + env(safe-area-inset-bottom,0px)) !important;
+      }
+
+      /* The search/brand row is .top-header, not header. Keep both pieces of
+         the top navigation pinned to the PWA viewport. */
+      html.aioplay-standalone .top-header {
+        position:sticky !important;
+        top:0 !important;
+        z-index:70 !important;
+        padding-top:max(12px,env(safe-area-inset-top,0px)) !important;
+      }
+      html.aioplay-standalone header {
+        position:sticky !important;
+        top:var(--pwa-top-header-height,66px) !important;
+        z-index:69 !important;
+        transform:none !important;
+        opacity:1 !important;
+        pointer-events:auto !important;
+      }
+      html.aioplay-standalone body.mobile-header-collapsed .top-header,
+      html.aioplay-standalone body.mobile-header-collapsed header {
+        transform:none !important;
+        opacity:1 !important;
+        pointer-events:auto !important;
+      }
+    }
+
     .episode-btn.is-next {
       border-color:rgba(154,173,181,.48);
       box-shadow:0 10px 28px rgba(0,0,0,.20);
@@ -4280,9 +4334,21 @@
       updateMobileBottomNavState();
     }
 
+    function syncStandaloneChromeMetrics() {
+      if (!document.documentElement.classList.contains('aioplay-standalone')) return;
+      const topHeader = document.querySelector('.top-header');
+      if (topHeader) {
+        document.documentElement.style.setProperty('--pwa-top-header-height', topHeader.getBoundingClientRect().height + 'px');
+      }
+      document.body.classList.remove('mobile-header-collapsed');
+    }
+
     function initMobileScrollNavigation() {
       if (document.body.dataset.mobileScrollNavReady === '1') return;
       document.body.dataset.mobileScrollNavReady = '1';
+      syncStandaloneChromeMetrics();
+      window.addEventListener('resize', syncStandaloneChromeMetrics, { passive:true });
+      window.visualViewport?.addEventListener('resize', syncStandaloneChromeMetrics, { passive:true });
 
       let lastY = Math.max(0, window.scrollY || 0);
       let ticking = false;
