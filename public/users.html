@@ -21,7 +21,7 @@ button{border:0;border-radius:9px;padding:10px 13px;background:var(--accent);col
 .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.row input,.row select{margin:0}.empty{color:var(--dim);padding:10px 0}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.row{grid-template-columns:1fr}}
 </style>
-</head>
+<style id="admin-bottom-nav-style">body{padding-bottom:64px!important}.admin-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:100;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:4px;background:#0a0e13;border-top:1px solid rgba(255,255,255,.08)}.admin-bottom-nav a{display:flex;align-items:center;justify-content:center;min-height:48px;padding:6px 4px;border-radius:9px;color:#9ca6af;text-decoration:none;font-weight:700}.admin-bottom-nav a.active{background:#34404b;color:#f3f5f7}@media(max-width:650px){.admin-bottom-nav a{font-size:11px;min-height:46px}}</style></head>
 <body>
 <main>
   <div class="top">
@@ -150,5 +150,5 @@ document.getElementById('createForm').onsubmit=async e=>{
 };
 load();
 </script>
-</body>
+<nav class="admin-bottom-nav" aria-label="Admin console"><a href="/services">Services</a><a href="/analytics">Analytics</a><a href="/users" class="active">Users</a><a href="/dashboard">Dashboard</a><a href="/dashboard#collections">Collections editor</a></nav></body>
 </html>
