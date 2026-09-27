@@ -50,6 +50,7 @@ const vodGateway = require('./services/VodGateway');
 const nuvioCollections = require('./services/NuvioCollections');
 const hlsTransmux = require('./services/HlsTransmux');
 const skipMetadata = require('./services/SkipMetadata');
+const analytics = require('./services/Analytics');
 
 
 
@@ -344,11 +345,13 @@ async function accountLoginHandler(req, res) {
     deviceName
   });
   if (!session) {
+    analytics.loginFailed(username, req);
     noteFailureOnce(req);
     return res.status(403).json({ error: 'Username or password was not accepted.' });
   }
 
   FAILURES.delete(failureKey(req));
+  analytics.login(session.user, { id:'', deviceName, kind:isAppClient?'app':'web' });
 
   if (isAppClient) {
     // Native clients receive the opaque token once and store it in platform
@@ -660,6 +663,22 @@ app.delete('/api/v1/account/sessions/:sessionId', requirePage, (req, res) => {
     account.user.role === 'admin'
   );
   res.status(ok ? 204 : 404).end();
+});
+
+app.post('/api/v1/analytics/details-view', requirePage, express.json({ limit:'4kb' }), (req,res)=>{
+  const account=currentAccount(req);if(!account)return res.status(401).json({error:'An AIOPlay account is required.'});
+  analytics.detailsView(account.user,req.body||{});res.status(204).end();
+});
+
+app.get('/api/v1/admin/analytics', (req,res)=>{
+  if(!requireAdmin(req,res))return;
+  const days=Math.max(1,Math.min(365,Number(req.query.days)||30));
+  res.json({...analytics.summarize(userAuth.listUsers(),days),retentionDays:analytics.RETENTION_DAYS,activeStreams:playbackLeases.listActive()});
+});
+
+app.post('/api/v1/admin/analytics/compact', (req,res)=>{
+  if(!requireAdmin(req,res))return;
+  res.json({ok:true,events:analytics.compact(),retentionDays:analytics.RETENTION_DAYS});
 });
 
 app.get('/api/v1/admin/users', (req, res) => {
@@ -1542,7 +1561,7 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
 
       const appConfig = resolveAppSportsConfig();
       const result = await opaquePlayback.startSportsPlayback(id, appConfig);
-      if (result.ok && lease) playbackLeases.bind(lease.id, result.sessionId);
+      if (result.ok && lease) { playbackLeases.bind(lease.id, result.sessionId); analytics.playbackStart(account.user, account.session, {...lease,playbackSessionId:result.sessionId}, result); }
       else if (lease) playbackLeases.releaseLease(lease.id);
       return res.status(result.ok ? 200 : 404).json(result);
     }
@@ -1574,7 +1593,7 @@ app.post('/api/v1/play', requirePage, express.json({ limit: '8kb' }), async (req
         stremioType + ':' + id,
         candidates
       );
-      if (result.ok && lease) playbackLeases.bind(lease.id, result.sessionId);
+      if (result.ok && lease) { playbackLeases.bind(lease.id, result.sessionId); analytics.playbackStart(account.user, account.session, {...lease,playbackSessionId:result.sessionId}, result); }
       else if (lease) playbackLeases.releaseLease(lease.id);
       return res.status(result.ok ? 200 : 404).json(result);
     }
@@ -1602,7 +1621,8 @@ app.post('/api/v1/playback/:sessionId/next', requirePage, (req, res) => {
     return res.status(410).json({ error: 'Playback lease expired.', code: 'PLAYBACK_LEASE_EXPIRED' });
   }
   const result = opaquePlayback.nextPlayback(req.params.sessionId);
-  if (!result.ok) playbackLeases.releaseSession(req.params.sessionId);
+  if(result.ok && account) analytics.streamSwitch(account.user,req.params.sessionId);
+  if (!result.ok) { if(account) analytics.playbackStop(account.user,req.params.sessionId,'source_exhausted'); playbackLeases.releaseSession(req.params.sessionId); }
   res.status(result.ok ? 200 : (result.reason === 'PLAYBACK_SESSION_EXPIRED' ? 410 : 404)).json(result);
 });
 
@@ -1610,6 +1630,7 @@ app.post('/api/v1/playback/:sessionId/heartbeat', requirePage, (req, res) => {
   const account = currentAccount(req);
   if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
   const ok = playbackLeases.touchSession(req.params.sessionId, account.user.id);
+  if (ok) analytics.heartbeat(account.user,req.params.sessionId);
   if (!ok) {
     return res.status(410).json({
       ok: false,
@@ -1683,6 +1704,7 @@ app.delete('/api/v1/playback', requirePage, (req, res) => {
   if (!account) return res.status(401).json({ error: 'An AIOPlay account is required.' });
   const active = playbackLeases.listActive().filter(row => row.userId === account.user.id);
   for (const row of active) {
+    if(row.playbackSessionId) analytics.playbackStop(account.user,row.playbackSessionId,'user_stop');
     playbackLeases.releaseLease(row.id);
     if (row.playbackSessionId) opaquePlayback.finishPlayback(row.playbackSessionId);
   }
