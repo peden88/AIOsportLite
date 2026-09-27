@@ -3573,17 +3573,6 @@ app.get('/health', (_, res) => {
 // drawn before anyone opens the tab. A re-sync that changed nothing asks for
 // nothing -- otherwise a warm pass that happened to trigger a re-sync would
 // queue another pass, and that one another. The warmer debounces the rest.
-let lastSyncSignature = null;
-container.resolve('cronService').onSynced = matches => {
-  const signature = crypto.createHash('sha1')
-    .update((matches || []).map(m => `${m.id}|${m.date}|${m.title}`).sort().join('\n'))
-    .digest('base64');
-  if (signature === lastSyncSignature) return;
-  lastSyncSignature = signature;
-  Promise.resolve(cardWarmer.request(collectWarmUrls, 'sync')).catch(() => {});
-};
-container.resolve('cronService').start();
-
 const BIND_HOST = process.env.HOST || process.env.IP || '0.0.0.0';
 userAuth.bootstrap().then(authBoot => {
 app.listen(PORT, BIND_HOST, () => {
@@ -3631,16 +3620,7 @@ app.listen(PORT, BIND_HOST, () => {
   }
   console.log('');
 
-  // Make the cards before anyone asks. Delayed so the providers have answered
-  // and the catalog is real: warming an empty catalog just warms nothing.
-  setTimeout(() => {
-    console.log('[CardWarmer] warming catalog art in the background');
-    startWarm('boot');
-  }, 45000);
 
-  // And again on a cycle anchored on the last run. Re-syncs, which bring new
-  // fixtures all day, also ask for a pass (wired where the cron starts).
-  cardWarmer.schedule(collectWarmUrls, WARM_INTERVAL_MS);
 });
 }).catch(err => {
   console.error('[auth] failed to initialise account store:', err);
