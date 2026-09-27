@@ -2608,6 +2608,75 @@
     .search-suggestion-copy{min-width:0;display:flex;flex-direction:column;gap:2px}.search-suggestion-title{font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.search-suggestion-meta{font-size:12px;color:#9ca6af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     @media(max-width:650px){.search-suggestions{position:fixed;top:calc(env(safe-area-inset-top,0px) + 70px);left:8px;right:8px;max-height:44vh}}
 
+    /* Mobile details viewport reset: details are their own full-screen layer.
+       Do not inherit the installed-PWA page chrome offsets or widened content
+       experiments while the overlay is open. */
+    @media(max-width:650px) {
+      body.details-open > .top-header,
+      body.details-open > header,
+      body.details-open > .mobile-bottom-nav {
+        visibility:hidden !important;
+        pointer-events:none !important;
+      }
+      #details-overlay {
+        z-index:180 !important;
+        inset:0 !important;
+        box-sizing:border-box !important;
+        padding:calc(env(safe-area-inset-top,0px) + 8px) 8px calc(env(safe-area-inset-bottom,0px) + 12px) !important;
+      }
+      #details-overlay .details-shell {
+        width:100% !important;
+        max-width:none !important;
+        min-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 20px) !important;
+        margin:0 !important;
+        padding:16px !important;
+        border-radius:16px !important;
+      }
+      #details-overlay .details-nav-row {
+        position:sticky !important;
+        top:0 !important;
+        z-index:30 !important;
+        min-height:44px !important;
+        margin:0 0 10px !important;
+        justify-content:flex-end !important;
+        pointer-events:auto !important;
+      }
+      #details-overlay .details-close {
+        position:relative !important;
+        inset:auto !important;
+        z-index:31 !important;
+      }
+      #details-overlay .details-head {
+        grid-template-columns:110px minmax(0,1fr) !important;
+        gap:14px 16px !important;
+      }
+      #details-overlay .details-poster {
+        width:110px !important;
+        max-width:110px !important;
+        height:auto !important;
+      }
+      #details-overlay .details-hero-action {
+        transform:none !important;
+        padding-top:8px !important;
+      }
+      #details-overlay .details-play-orb {
+        width:58px !important;
+        height:58px !important;
+      }
+      #details-overlay .details-copy {
+        width:100% !important;
+        max-width:100% !important;
+        margin:0 !important;
+        grid-column:1 / -1 !important;
+      }
+      #details-overlay .details-actions {
+        width:100% !important;
+        max-width:100% !important;
+        margin-left:0 !important;
+        margin-right:0 !important;
+      }
+    }
+
     .episode-btn.is-next {
       border-color:rgba(154,173,181,.48);
       box-shadow:0 10px 28px rgba(0,0,0,.20);
