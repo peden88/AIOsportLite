@@ -1,7 +1,6 @@
 'use strict';
 
 const crypto = require('crypto');
-const { handleStream } = require('../streams');
 
 // Playback alternatives remain server-side. The client receives exactly one
 // target at a time and can only ask for the next candidate after a playback
@@ -65,14 +64,6 @@ function publicResult(sessionId, target) {
   };
 }
 
-function normaliseSportsId(matchId) {
-  const suppliedId = String(matchId || '').trim();
-  if (!suppliedId) return '';
-  return suppliedId.startsWith('nuvio_sport_')
-    ? suppliedId.slice('nuvio_sport_'.length)
-    : suppliedId;
-}
-
 function startOpaquePlayback(kind, contentId, rows) {
   cleanup();
   const targets = (Array.isArray(rows) ? rows : []).map(opaqueTarget).filter(Boolean);
@@ -98,18 +89,6 @@ function startOpaquePlayback(kind, contentId, rows) {
   sessions.set(sessionId, session);
   cleanup();
   return publicResult(sessionId, targets[0]);
-}
-
-async function startSportsPlayback(matchId, config) {
-  const rawId = normaliseSportsId(matchId);
-  if (!rawId) throw Object.assign(new Error('Missing sports event id.'), { statusCode: 400 });
-
-  const result = await handleStream('tv', `nuvio_sport_${rawId}`, config || {});
-  return startOpaquePlayback(
-    'sport',
-    rawId,
-    result && Array.isArray(result.streams) ? result.streams : []
-  );
 }
 
 function nextPlayback(sessionId) {
@@ -179,7 +158,6 @@ function status() {
 }
 
 module.exports = {
-  startSportsPlayback,
   startOpaquePlayback,
   nextPlayback,
   currentTarget,
@@ -188,7 +166,6 @@ module.exports = {
   finishPlayback,
   status,
   _opaqueTarget: opaqueTarget,
-  _normaliseSportsId: normaliseSportsId,
   _cleanup: cleanup,
   _sessions: sessions
 };
