@@ -798,12 +798,6 @@ app.get('/api/config/saved', (req, res) => {
   });
 });
 
-// A change of cities starts a catalog sync, and a sync is the most expensive
-// thing this process does. One this way every few minutes at most, whatever a
-// script does to a profile's cities; the four-hourly sync picks up the rest.
-let lastMarketSyncAt = 0;
-const MARKET_SYNC_EVERY_MS = 5 * 60 * 1000;
-
 app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
   // First-party application configuration is installation-wide. Once account
   // mode is enabled, only an administrator can create/change addon profiles.
@@ -842,7 +836,6 @@ app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
     });
   }
 
-  const marketsBefore = String((loadProfile(id) || {}).markets || '');
   try {
     // The key first: a profile written without one could never be changed.
     if (editKey) writeEditKey(id, editKey);
