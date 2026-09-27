@@ -7776,7 +7776,7 @@
         try {
           const res = await fetch(
             '/api/v1/playback/' + encodeURIComponent(sessionId) + '/heartbeat',
-            { method: 'POST' }
+            { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({playing:!document.getElementById('video')?.paused&&!document.getElementById('video')?.ended}) }
           );
           if (res.ok) return;
           const data = await res.json().catch(() => ({}));
