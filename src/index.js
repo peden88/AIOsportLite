@@ -855,18 +855,6 @@ app.post('/api/config/save', express.json({ limit: '64kb' }), (req, res) => {
     });
   }
 
-  // A new city's stations are listed by the next sync. Start one now rather
-  // than leave the viewer who just typed it looking at an empty Local tab.
-  if (String(config.markets || '') !== marketsBefore && Date.now() - lastMarketSyncAt >= MARKET_SYNC_EVERY_MS) {
-    const cron = container.resolve('cronService');
-    // A sync already under way read the profiles before this save. The next
-    // revalidation picks the change up, and the cooldown is not spent on it.
-    if (!cron.syncing) {
-      lastMarketSyncAt = Date.now();
-      Promise.resolve(cron.runSync()).catch(err => console.warn('[profiles] re-sync after a market change failed:', err.message));
-    }
-  }
-
   const base = getRequestBaseUrl(req);
   const home = base + (id === LEGACY_ID ? '/saved' : '/p/' + id);
   res.json({
