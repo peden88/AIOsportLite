@@ -7660,13 +7660,28 @@
       setPanelAvailability(section,!!host.children.length);detailsContentArrived(host);refreshDetailsTabs();
     }
 
+    const detailsEnrichmentCache = new Map();
+    const detailsEnrichmentInFlight = new Map();
+    const DETAILS_ENRICHMENT_TTL_MS = 10 * 60 * 1000;
+    async function loadDetailsEnrichment(type, id) {
+      const key=String(type||'')+':'+String(id||''),now=Date.now(),cached=detailsEnrichmentCache.get(key);
+      if(cached && now-cached.at<DETAILS_ENRICHMENT_TTL_MS)return cached.value;
+      if(detailsEnrichmentInFlight.has(key))return detailsEnrichmentInFlight.get(key);
+      const request=(async()=>{
+        const res=await fetch('/api/v1/vod/enrichment/'+encodeURIComponent(type)+'/'+encodeURIComponent(id));
+        if(!res.ok)return null;
+        const value=await res.json();detailsEnrichmentCache.set(key,{at:Date.now(),value});return value;
+      })().finally(()=>detailsEnrichmentInFlight.delete(key));
+      detailsEnrichmentInFlight.set(key,request);return request;
+    }
+
     async function enrichDetails(meta) {
       const visitId=String(meta?.id||meta?.contentId||'');
       renderDetailsPeople(meta);renderDetailsRatings(meta);renderDetailsTrailers(meta);renderDetailsRelated(meta);beginDetailsEnrichmentSkeletons();
       if(!visitId)return;
       try{
-        const type=normalizedVodType(meta),res=await fetch('/api/v1/vod/enrichment/'+encodeURIComponent(type)+'/'+encodeURIComponent(visitId));
-        if(!res.ok)return;const bundle=await res.json();
+        const type=normalizedVodType(meta),bundle=await loadDetailsEnrichment(type,visitId);
+        if(!bundle)return;
         if(String(currentDetailsMeta?.id||currentDetailsMeta?.contentId||'')!==visitId)return;
         const enriched={...meta,...(bundle.meta||{})};
         // If the server returned structured TMDB people, always prefer those over
