@@ -2054,6 +2054,27 @@
       main { padding-bottom:70px; }
     }
 
+    /* iPhone installed PWA player chrome: keep primary escape controls below
+       the status/notch safe area. These sit above every playback/loading layer. */
+    @media(max-width:650px) {
+      html.aioplay-standalone #player-overlay:not(.mini) .player-brand {
+        top:calc(env(safe-area-inset-top, 0px) + 12px) !important;
+        left:max(12px, env(safe-area-inset-left, 0px)) !important;
+        z-index:180 !important;
+      }
+      html.aioplay-standalone #player-overlay:not(.mini) #close-btn {
+        top:calc(env(safe-area-inset-top, 0px) + 12px) !important;
+        right:max(12px, env(safe-area-inset-right, 0px)) !important;
+        z-index:181 !important;
+        padding:10px 14px !important;
+      }
+      html.aioplay-standalone #player-overlay:not(.mini) #video-container {
+        padding-top:env(safe-area-inset-top, 0px);
+        padding-bottom:env(safe-area-inset-bottom, 0px);
+        box-sizing:border-box;
+      }
+    }
+
     @media(prefers-reduced-motion:reduce) {
       html:not(.force-motion) *, html:not(.force-motion) *::before, html:not(.force-motion) *::after {
         scroll-behavior:auto !important;
