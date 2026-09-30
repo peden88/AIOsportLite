@@ -1352,6 +1352,16 @@ app.get('/api/v1/vod/enrichment/:type/:id', requirePage, async (req, res) => {
   }
 });
 
+app.get('/api/v1/vod/person/:personId', requirePage, async (req, res) => {
+  try {
+    res.setHeader('Cache-Control','private, max-age=3600, stale-while-revalidate=21600');
+    res.json(await vodGateway.personCredits(req.params.personId));
+  } catch (err) {
+    console.error('[app-vod] person credits failed:', err.message);
+    res.status(err.statusCode || 502).json({ error:'Person credits are unavailable.', credits:[] });
+  }
+});
+
 app.get('/api/v1/vod/related/:type/:id', requirePage, async (req, res) => {
   try {
     res.setHeader('Cache-Control','private, max-age=900');
