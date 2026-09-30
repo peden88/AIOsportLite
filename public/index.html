@@ -8615,7 +8615,18 @@
 
     async function playOpaqueTarget(target, generation, { recovery = false, compatibility = false } = {}) {
       if (generation !== playbackGeneration || !target) return;
-      const targetChanged = !currentPlaybackTarget || currentPlaybackTarget.url !== target.url;
+      const fingerprint = value => {
+        const url=String(value?.url||'');
+        try {
+          const parsed=new URL(url,location.href);
+          // Signed URLs frequently rotate query tokens for the same media file.
+          // Recovery should treat that as the same source, not a brand-new stream.
+          return [String(value?.kind||''),parsed.origin,parsed.pathname].join('|');
+        } catch (_) {
+          return [String(value?.kind||''),url.split('?')[0]].join('|');
+        }
+      };
+      const targetChanged = !currentPlaybackTarget || fingerprint(currentPlaybackTarget) !== fingerprint(target);
       currentPlaybackTarget = target;
       if (targetChanged) {
         recoverySameSourceRetries = 0;
