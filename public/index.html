@@ -4196,6 +4196,7 @@
     let currentPlaybackTarget = null;
     let recoverySnapshot = null;
     let recoverySameSourceRetries = 0;
+    let recoveryCompatibilityAttempted = false;
     const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
     const visibleMetadataObserver = 'IntersectionObserver' in window
@@ -8563,7 +8564,14 @@
       }
       if(recoverySameSourceRetries<1){
         recoverySameSourceRetries++;
-        await playOpaqueTarget(target,generation,{recovery:true});
+        // Keep the original AIOStreams result, but escalate only the failed
+        // direct VOD source through the compatibility pipeline. This avoids
+        // paying an FFmpeg/transcode startup cost for streams the browser can
+        // already direct-play.
+        const isVod=currentPlaybackKind!=='sport_event'&&currentPlaybackKind!=='live_channel'&&currentPlaybackKind!=='sport';
+        const compatibility=isVod&&target?.kind==='direct'&&!recoveryCompatibilityAttempted;
+        if(compatibility)recoveryCompatibilityAttempted=true;
+        await playOpaqueTarget(target,generation,{recovery:true,compatibility});
         return;
       }
       await requestNextPlayback(generation,{preserveSnapshot:true});
@@ -8605,11 +8613,14 @@
       }
     }
 
-    async function playOpaqueTarget(target, generation, { recovery = false } = {}) {
+    async function playOpaqueTarget(target, generation, { recovery = false, compatibility = false } = {}) {
       if (generation !== playbackGeneration || !target) return;
       const targetChanged = !currentPlaybackTarget || currentPlaybackTarget.url !== target.url;
       currentPlaybackTarget = target;
-      if (targetChanged) recoverySameSourceRetries = 0;
+      if (targetChanged) {
+        recoverySameSourceRetries = 0;
+        recoveryCompatibilityAttempted = false;
+      }
 
       // Sports still has a few signed web-player fallbacks. VOD never receives
       // external targets: its gateway accepts only in-player media URLs.
@@ -8634,10 +8645,11 @@
       let playbackUrl = url;
       const isVod = currentPlaybackKind !== 'sport_event' && currentPlaybackKind !== 'live_channel' && currentPlaybackKind !== 'sport';
 
-      // Temporary compatibility experiment: route all direct VOD through the
-      // backend FFmpeg pipeline. It stream-copies AVC/AAC, transcodes audio when
-      // only audio is incompatible, and falls back to H.264/AAC for other video.
-      if (isVod && currentPlaybackSession && target.kind === 'direct') {
+      // Direct-play first. Escalate through the backend compatibility pipeline
+      // only after this exact VOD source fails in the browser. The backend can
+      // stream-copy compatible video, transcode only incompatible audio, or
+      // fall back to H.264/AAC when the source genuinely needs it.
+      if (compatibility && isVod && currentPlaybackSession && target.kind === 'direct') {
         showPlaybackLoading('Preparing compatible stream…');
         try {
           const preparedRes = await fetch('/api/v1/playback/' + encodeURIComponent(currentPlaybackSession) + '/apple-hls', { method:'POST' });
@@ -8740,6 +8752,7 @@
       currentPlaybackTarget = null;
       recoverySnapshot = null;
       recoverySameSourceRetries = 0;
+      recoveryCompatibilityAttempted = false;
       currentNextEpisode = null;
       lastProgressSyncAt = 0;
       clearTimeout(playerHudTimer);
