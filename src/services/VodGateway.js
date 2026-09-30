@@ -406,7 +406,14 @@ async function tmdbPersonCredits(personId){
     const rows=[...(credits.cast||[]).map(x=>({...x,creditRole:'Acting'})),...(credits.crew||[]).map(x=>({...x,creditRole:String(x.department||x.job||'Crew')}))]
       .filter(x=>['movie','tv'].includes(String(x.media_type||''))&&x.id&&x.title||x.name)
       .map(x=>{const type=x.media_type==='movie'?'movie':'series',preview=tmdbPreview(x,type);return {...preview,creditRole:x.creditRole,character:String(x.character||x.job||''),releaseDate:String(x.release_date||x.first_air_date||'')}})
-      .filter(x=>{const k=x.type+'|'+x.id+'|'+x.creditRole+'|'+x.character;if(seen.has(k))return false;seen.add(k);return true})
+      .filter(x=>{
+        // A person can have multiple TMDB credits for the same title (cast + crew,
+        // multiple characters/jobs). Search is title discovery, so emit each title once.
+        const tmdbId=Number(x.tmdbId)||0,imdbId=String(x.imdbId||'').trim();
+        const fallback=String(x.name||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ')+'|'+String(x.releaseInfo||'')+'|'+x.type;
+        const k=tmdbId?('tmdb|'+x.type+'|'+tmdbId):(imdbId?('imdb|'+imdbId):('title|'+fallback));
+        if(seen.has(k))return false;seen.add(k);return true;
+      })
       .sort((a,b)=>String(b.releaseDate||'').localeCompare(String(a.releaseDate||'')));
     return putCache(key,{id,name:String(body?.name||''),biography:String(body?.biography||''),birthday:String(body?.birthday||''),deathday:String(body?.deathday||''),placeOfBirth:String(body?.place_of_birth||''),knownForDepartment:String(body?.known_for_department||''),photo:body?.profile_path?'https://image.tmdb.org/t/p/w500'+body.profile_path:'',credits:rows},24*60*60*1000);
   }catch(_){return null}
