@@ -395,6 +395,24 @@ async function tmdbBundle(type,tmdbId){
 }
 function normalizeTmdbPerson(row,role){return {name:String(row?.name||row?.original_name||''),character:String(row?.character||row?.job||role||''),photo:row?.profile_path?'https://image.tmdb.org/t/p/w500'+row.profile_path:'',tmdbId:row?.id||null}}
 function tmdbPreview(row,type){const rid=row?.external_ids?.imdb_id||'',tid=row?.id;return {id:rid||('tmdb:'+tid),tmdbId:tid,imdbId:rid,type,name:row?.title||row?.name||'',releaseInfo:String(row?.release_date||row?.first_air_date||'').slice(0,4),description:row?.overview||'',rating:row?.vote_average,poster:row?.backdrop_path?'https://image.tmdb.org/t/p/w780'+row.backdrop_path:(row?.poster_path?'https://image.tmdb.org/t/p/w500'+row.poster_path:''),background:row?.backdrop_path?'https://image.tmdb.org/t/p/w780'+row.backdrop_path:'',genres:[]}}
+async function tmdbPersonCredits(personId){
+  const id=Number(personId);if(!id)return null;
+  const token=String(process.env.TMDB_API_READ_ACCESS_TOKEN||process.env.TMDB_BEARER_TOKEN||'').trim(),apiKey=String(process.env.TMDB_API_KEY||'').trim();if(!token&&!apiKey)return null;
+  const headers=token?{Authorization:'Bearer '+token}:{},qs=(apiKey?'api_key='+encodeURIComponent(apiKey)+'&':'')+'language=en-US&append_to_response=combined_credits,external_ids';
+  const key='tmdb:person:'+id,c=cached(key,24*60*60*1000);if(c)return c;
+  try{
+    const body=await publicJson('https://api.themoviedb.org/3/person/'+id+'?'+qs,{headers});
+    const credits=body?.combined_credits||{},seen=new Set();
+    const rows=[...(credits.cast||[]).map(x=>({...x,creditRole:'Acting'})),...(credits.crew||[]).map(x=>({...x,creditRole:String(x.department||x.job||'Crew')}))]
+      .filter(x=>['movie','tv'].includes(String(x.media_type||''))&&x.id&&x.title||x.name)
+      .map(x=>{const type=x.media_type==='movie'?'movie':'series',preview=tmdbPreview(x,type);return {...preview,creditRole:x.creditRole,character:String(x.character||x.job||''),releaseDate:String(x.release_date||x.first_air_date||'')}})
+      .filter(x=>{const k=x.type+'|'+x.id+'|'+x.creditRole+'|'+x.character;if(seen.has(k))return false;seen.add(k);return true})
+      .sort((a,b)=>String(b.releaseDate||'').localeCompare(String(a.releaseDate||'')));
+    return putCache(key,{id,name:String(body?.name||''),biography:String(body?.biography||''),birthday:String(body?.birthday||''),deathday:String(body?.deathday||''),placeOfBirth:String(body?.place_of_birth||''),knownForDepartment:String(body?.known_for_department||''),photo:body?.profile_path?'https://image.tmdb.org/t/p/w500'+body.profile_path:'',credits:rows},24*60*60*1000);
+  }catch(_){return null}
+}
+async function personCredits(personId){return await tmdbPersonCredits(personId)||{credits:[]};}
+
 async function tvdbToken(){
   const apiKey=String(process.env.TVDB_API_KEY||'').trim(),pin=String(process.env.TVDB_PIN||'').trim();if(!apiKey)return '';
   const c=cached('tvdb:token');if(c)return c;
@@ -551,6 +569,7 @@ module.exports = {
   meta,
   enrichment,
   related,
+  personCredits,
   playbackCandidates,
   rawPlaybackCandidates,
   refreshAioStreams,
