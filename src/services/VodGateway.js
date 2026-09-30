@@ -411,7 +411,17 @@ async function tmdbPersonCredits(personId){
     return putCache(key,{id,name:String(body?.name||''),biography:String(body?.biography||''),birthday:String(body?.birthday||''),deathday:String(body?.deathday||''),placeOfBirth:String(body?.place_of_birth||''),knownForDepartment:String(body?.known_for_department||''),photo:body?.profile_path?'https://image.tmdb.org/t/p/w500'+body.profile_path:'',credits:rows},24*60*60*1000);
   }catch(_){return null}
 }
-async function personCredits(personId){return await tmdbPersonCredits(personId)||{credits:[]};}
+async function personCredits(personId,personName=''){
+  let id=Number(personId)||0;
+  if(!id&&String(personName).trim()){
+    const token=String(process.env.TMDB_API_READ_ACCESS_TOKEN||process.env.TMDB_BEARER_TOKEN||'').trim(),apiKey=String(process.env.TMDB_API_KEY||'').trim();
+    if(token||apiKey){
+      const headers=token?{Authorization:'Bearer '+token}:{},qs=(apiKey?'api_key='+encodeURIComponent(apiKey)+'&':'')+'query='+encodeURIComponent(String(personName).trim())+'&language=en-US&page=1';
+      try{const body=await publicJson('https://api.themoviedb.org/3/search/person?'+qs,{headers});id=Number(body?.results?.[0]?.id)||0}catch(_){}
+    }
+  }
+  return await tmdbPersonCredits(id)||{name:String(personName||''),credits:[]};
+}
 
 async function tvdbToken(){
   const apiKey=String(process.env.TVDB_API_KEY||'').trim(),pin=String(process.env.TVDB_PIN||'').trim();if(!apiKey)return '';
