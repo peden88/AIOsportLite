@@ -6353,11 +6353,24 @@
 
       beginGridTransition({ posterMode:true });
       try {
-        const url = '/api/v1/vod/search?q=' + encodeURIComponent(clean) +
-          (searchType ? ('&type=' + encodeURIComponent(searchType)) : '');
+        const personId=Number(currentPersonSearch?.tmdbId||0);
+        const url = peopleSearchOnly&&currentPersonSearch
+          ? '/api/v1/vod/person/'+encodeURIComponent(personId)+'?name='+encodeURIComponent(currentPersonSearch.name||clean)
+          : '/api/v1/vod/search?q=' + encodeURIComponent(clean) +
+            (searchType ? ('&type=' + encodeURIComponent(searchType)) : '');
         const res = await fetch(url);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Search failed');
+        if(peopleSearchOnly&&currentPersonSearch&&Array.isArray(data.credits)){
+          const results=data.credits;
+          document.getElementById('searchContextTitle').textContent='Filmography · '+currentPersonSearch.name+' · '+results.length+' titles';
+          renderPersonSearchHeader(results);
+          rememberSearch(clean);
+          if(!results.length)setGridState('No filmography titles are available for '+currentPersonSearch.name+'.');
+          else renderGrid(results);
+          if(persist)persistUiState();
+          return;
+        }
         // Keep AIOMetadata's searchable catalogs separate, in manifest order, as
         // Nuvio does. This prevents broad franchise searches from being flattened
         // into a single lossy result set before Movie/Series presentation.
