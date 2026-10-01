@@ -3855,7 +3855,6 @@
     #player-overlay.is-vod #playerSettings,
     #player-overlay.is-vod #playerSettingsPanel,
     #player-overlay.is-vod #playerMinimize,
-    #player-overlay.is-vod #playerPip,
     #player-overlay.is-vod #playerStreamPicker,
     #player-overlay.is-vod #playerSwitchSource,
     #player-overlay.is-vod .player-hud-main,
@@ -3959,7 +3958,19 @@
       #episodeStateMenu button{min-height:44px;padding:12px 14px}
     }
 
-    @media(max-width:650px), (hover:none) and (pointer:coarse){#player-overlay.is-vod #playerPip{width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:50%!important;font-size:0!important}#player-overlay.is-vod #playerPip::before{content:'▣';font-size:22px;line-height:1;color:#fff}}
+    @media(max-width:650px), (hover:none) and (pointer:coarse){
+      #player-overlay.is-vod #playerPip{
+        display:inline-flex!important;visibility:visible!important;opacity:1!important;
+        align-items:center!important;justify-content:center!important;position:static!important;
+        width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;
+        padding:0!important;border-radius:50%!important;font-size:0!important;
+        pointer-events:auto!important;transform:none!important;
+      }
+      #player-overlay.is-vod #playerPip::before{
+        content:'';display:block;width:23px;height:17px;border:2px solid currentColor;border-radius:3px;
+        box-sizing:border-box;background:linear-gradient(currentColor,currentColor) right 2px bottom 2px/9px 7px no-repeat;
+      }
+    }
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
