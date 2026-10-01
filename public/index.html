@@ -8629,7 +8629,8 @@
           if (opened) return;
         }
 
-        await playOpaqueTarget(data.playback, generation);
+        const appleCompatibility = isVod && isSafariBasedBrowser() && data.playback?.kind === 'direct';
+        await playOpaqueTarget(data.playback, generation, { compatibility:appleCompatibility });
       } catch (err) {
         console.error('Playback start failed', err);
         if (generation === playbackGeneration) showPlaybackFailure();
@@ -8832,7 +8833,7 @@
       // HLS path up front there; other browsers retain direct-play-first.
       const needsCompatibility = compatibility || (isVod && isSafariBasedBrowser());
       if (needsCompatibility && isVod && currentPlaybackSession && target.kind === 'direct') {
-        showPlaybackLoading('Preparing compatible stream…');
+        showPlaybackLoading(isSafariBasedBrowser() && !recovery ? 'Starting playback…' : 'Preparing compatible stream…');
         try {
           const preparedRes = await fetch('/api/v1/playback/' + encodeURIComponent(currentPlaybackSession) + '/apple-hls', { method:'POST' });
           const prepared = await preparedRes.json().catch(() => ({}));
