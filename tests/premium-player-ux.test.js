@@ -36,4 +36,9 @@ assert(html.includes("#episodeStateMenu{z-index:260!important;pointer-events:aut
 assert(html.includes(".episode-item>.episode-more::after{content:'';position:absolute;inset:-9px"),'episode action has an enlarged touch hit target');
 assert(html.includes("!event.target.closest?.('.episode-btn,.episode-more')"),'outside-click handling does not dismiss a menu from its own action trigger');
 assert(html.includes("more.addEventListener('click', openEpisodeActions)"),'episode action has an explicit independent click handler');
+assert(html.includes("const availableNow=next.available!==false"),'next episode preparation distinguishes unavailable/future episodes');
+assert(html.includes("currentNextEpisode.availableNow===false"),'auto-next countdown cannot start for an unavailable episode');
+assert(html.includes("if(next&&next.availableNow===false)"),'ended playback has a caught-up path');
+assert(html.includes("fetch('/api/v1/progress',{cache:'no-store'})"),'caught-up transition refreshes authoritative progress before Upcoming resolution');
+assert(html.includes("await closePlayer(true);"),'caught-up playback exits the player after persisting state');
 console.log('premium player UX contract passed');
