@@ -1,0 +1,19 @@
+/* AIOPlay playback intelligence: durable track intent, source affinity and recovery telemetry. */
+(()=>{'use strict';
+const KEY='aioplay.playbackIntelligence.v1';
+const defaults={audio:null,subtitle:null,subtitleMode:'off',subtitleDelay:0,sourceAffinity:{},recovery:{attempts:0,sameSource:0,compatibility:0,fallbacks:0,lastReason:'',lastAt:0}};
+function read(){try{return{...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(_){return{...defaults,sourceAffinity:{},recovery:{...defaults.recovery}}}}
+function write(value){try{localStorage.setItem(KEY,JSON.stringify(value))}catch(_){}return value}
+function norm(v){return String(v||'').trim().toLowerCase()}
+function trackIdentity(track){return {language:norm(track?.language||track?.lang),label:norm(track?.label||track?.name),forced:!!track?.forced,sdh:/\b(sdh|cc|hearing impaired)\b/i.test(String(track?.label||track?.name||''))}}
+function rememberTrack(kind,track,mode='on'){const state=read();state[kind]=track?trackIdentity(track):null;if(kind==='subtitle')state.subtitleMode=mode;return write(state)}
+function scoreTrack(track,want){if(!want)return -1;const got=trackIdentity(track);let score=0;if(want.language&&got.language===want.language)score+=8;if(want.label&&got.label===want.label)score+=4;if(got.forced===!!want.forced)score+=2;if(got.sdh===!!want.sdh)score+=1;return score}
+function bestTrack(tracks,want){let best=-1,bestScore=0;(tracks||[]).forEach((t,i)=>{const score=scoreTrack(t,want);if(score>bestScore){bestScore=score;best=i}});return best}
+function seriesKey(ctx){return String(ctx?.contentId||ctx?.parentId||'')}
+function streamSignature(stream){const text=[stream?.name,stream?.title,stream?.description,stream?.filename].filter(Boolean).join(' ');const provider=(text.match(/\b(?:real-?debrid|torbox|easynews|usenet|torrent|debrid)\b/i)||[])[0]||'';const resolution=(text.match(/\b(?:2160p|4k|1080p|720p|480p)\b/i)||[])[0]||'';const source=(text.match(/\b(?:remux|blu[ .-]?ray|web[ .-]?dl|webrip|hdtv)\b/i)||[])[0]||'';return [provider,resolution,source].map(norm).join('|')}
+function rememberSource(ctx,stream,index){const key=seriesKey(ctx);if(!key)return;const state=read();state.sourceAffinity={...(state.sourceAffinity||{}),[key]:{signature:streamSignature(stream),index:Number(index),at:Date.now()}};write(state)}
+function preferredStream(ctx,streams){const pref=read().sourceAffinity?.[seriesKey(ctx)];if(!pref)return null;let index=(streams||[]).findIndex(s=>streamSignature(s)===pref.signature&&pref.signature!=='||');if(index<0&&Number.isInteger(pref.index)&&streams?.[pref.index])index=pref.index;return index>=0?index:null}
+function recovery(reason,kind='attempts'){const state=read();state.recovery={...defaults.recovery,...state.recovery};state.recovery.attempts++;if(kind in state.recovery)state.recovery[kind]++;state.recovery.lastReason=String(reason||'unknown');state.recovery.lastAt=Date.now();write(state);return state.recovery}
+function stats({video,hls,target,session}={}){const state=read(),level=hls?.levels?.[hls?.currentLevel]||null;return {session:session?'active':'idle',engine:hls?'HLS':'native',resolution:(video?.videoWidth&&video?.videoHeight)?video.videoWidth+'×'+video.videoHeight:'unknown',bitrate:level?.bitrate?Math.round(level.bitrate/1000)+' kbps':'unknown',buffered:video?.buffered?.length?Math.max(0,video.buffered.end(video.buffered.length-1)-(video.currentTime||0)).toFixed(1)+'s':'0s',source:target?.kind||'unknown',recovery:state.recovery||defaults.recovery}}
+window.AIOPlayback=Object.freeze({read,write,trackIdentity,rememberTrack,bestTrack,rememberSource,preferredStream,recovery,stats});
+})();
