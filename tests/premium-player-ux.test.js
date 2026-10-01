@@ -7,5 +7,10 @@ assert(html.includes("playerReturnToDetails&&currentDetailsMeta?'details':''"),'
 assert(html.includes("classList.remove('mini-player-active','details-open');document.body.classList.add('player-open')"),'expand returns to full player');
 assert.equal((html.match(/timelineTrack\?\.addEventListener\('click'/g)||[]).length,0,'legacy duplicate timeline click seek removed');
 assert(!html.includes("currentPlaybackSession = data.sessionId || null;\n        if(window.AIOTrickplay"),'trickplay must not race the primary stream startup');
-assert(html.includes("setTimeout(()=>AIOTrickplay.start(currentPlaybackSession),1500)"),'trickplay starts only after media readiness');
+assert(html.includes("progressVideo.addEventListener('playing'"),'trickplay waits for genuine playback');
+assert(html.includes("setTimeout(()=>{if(generation===playbackGeneration&&session===currentPlaybackSession&&!progressVideo.paused)AIOTrickplay.start(session)},8000)"),'trickplay waits for stable playback before generation');
+assert(html.includes("recoverPlayback(generation,'startup-timeout')"),'stalled Safari starts automatically escalate to compatibility');
+assert(html.includes("#player-overlay.is-vod .player-timeline{display:block!important"),'inline mobile VOD exposes the scrubber');
+assert(!html.includes('.player-timeline{display:none;}'),'mobile CSS cannot suppress the premium scrubber');
+assert(html.includes("document.getElementById('playerStreamPicker').onclick=()=>openRawStreamPicker()"),'stream picker remains directly bound, independent of settings');
 console.log('premium player UX contract passed');
