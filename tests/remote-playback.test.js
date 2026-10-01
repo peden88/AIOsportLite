@@ -1,0 +1,15 @@
+'use strict';const assert=require('assert'),fs=require('fs'),path=require('path');
+const remote=fs.readFileSync(path.join(__dirname,'../public/remote-playback.js'),'utf8');
+const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');
+const server=fs.readFileSync(path.join(__dirname,'../src/index.js'),'utf8');
+assert(remote.includes('DEFAULT_MEDIA_RECEIVER_APP_ID'),'Cast uses the Google Default Media Receiver');
+assert(remote.includes('ORIGIN_SCOPED'),'Cast auto-join is scoped to the AIOPlay origin');
+assert(remote.includes('requestSession'),'remote layer supports explicit receiver selection');
+assert(remote.includes('RemotePlayerController'),'remote layer tracks receiver state');
+assert(html.includes('id="playerCast"'),'player exposes Cast control');
+assert(html.includes("fetch('/api/v1/playback/'+encodeURIComponent(currentPlaybackSession)+'/remote'"),'Cast requests a receiver-safe playback URL');
+assert(html.includes("document.getElementById('video')?.pause()"),'local playback pauses only after remote load succeeds');
+assert(server.includes("app.post('/api/v1/playback/:sessionId/remote'"),'server exposes playback-scoped remote URL issuing');
+assert(server.includes("externalPlayback.issue(target,{leaseId:lease.id})"),'remote URL stays bound to the active playback lease');
+assert(!remote.includes('/apple-hls'),'Cast foundation does not alter Safari compatibility playback');
+console.log('remote playback foundation contract passed');
