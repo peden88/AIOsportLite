@@ -5756,14 +5756,18 @@
       document.getElementById('miniPlayerBar').hidden = false;
       document.body.classList.remove('player-open');document.body.classList.add('mini-player-active');
       const title=currentPlaybackMeta?.episodeTitle||currentPlaybackMeta?.name||currentPlaybackMeta?.parentName||'Playing';document.getElementById('miniPlayerTitle').textContent=title;
-      persistUiState({overlay:null});showPlayerHud(false);
+      // Reveal the exact page that launched playback so browsing can continue
+      // without destroying the playback session or media element.
+      const details=document.getElementById('details-overlay');if(playerReturnToDetails&&currentDetailsMeta){document.body.classList.add('details-open');details.style.display='block'}else{document.body.classList.remove('details-open');if(details)details.style.display='none'}
+      persistUiState({overlay:playerReturnToDetails&&currentDetailsMeta?'details':''});showPlayerHud(false);
     }
 
     function expandPlayer() {
       const overlay = document.getElementById('player-overlay');
       if (!overlay) return;
       overlay.classList.remove('mini');document.getElementById('miniPlayerBar').hidden = true;
-      document.body.classList.remove('mini-player-active');document.body.classList.add('player-open');
+      document.body.classList.remove('mini-player-active','details-open');document.body.classList.add('player-open');
+      const details=document.getElementById('details-overlay');if(details)details.style.display='none';
       persistUiState({overlay:'player'});showPlayerHud(true);
     }
 
@@ -9129,16 +9133,6 @@
     initCatalogRailGestures();
     initDetailsSwipeDismiss();
     initMobileScrollNavigation();
-
-    const timelineTrack = document.querySelector('.player-timeline-track');
-    timelineTrack?.addEventListener('click', event => {
-      const video = document.getElementById('video');
-      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
-      const rect = timelineTrack.getBoundingClientRect();
-      const fraction = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-      video.currentTime = fraction * video.duration;
-      updatePlayerTimeline(video);
-    });
 
     setupPlayerFeatures();
     setupTryAnotherStream();
