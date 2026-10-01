@@ -3897,6 +3897,13 @@
         font:800 .86rem/1 'Inter',sans-serif !important;
       }
     }
+
+    .continue-rows{display:flex;flex-direction:column;gap:30px;width:100%;min-width:0}
+    .continue-row-section{min-width:0}.continue-row-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 2px 12px}
+    .continue-row-head h2{margin:0;font:700 clamp(1.05rem,1.6vw,1.35rem)/1.1 'Outfit',sans-serif;color:#f3f5f6}.continue-row-head span{font-size:.7rem;color:var(--text-muted)}
+    .continue-rail-grid.grid{display:flex;grid-template-columns:none;gap:14px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 12px;scroll-snap-type:x proximity;overscroll-behavior-inline:contain;scrollbar-width:thin}
+    .continue-rail-grid .card{flex:0 0 clamp(145px,15vw,205px);scroll-snap-align:start}.continue-empty{padding:20px 4px;color:var(--text-muted);font-size:.82rem}
+    @media(max-width:650px){.continue-rows{gap:24px}.continue-rail-grid .card{flex-basis:38vw}.continue-row-head{margin-bottom:9px}}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3904,7 +3911,7 @@
   <meta name="apple-mobile-web-app-title" content="AIOPlay">
   <link rel="apple-touch-icon" href="/aioplay-launcher.webp">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
-  <script src="/data-layer.js"></script>\n</head>
+  <script src="/data-layer.js"></script>\n  <script src="/continue-system.js"></script>\n</head>
 <body>
   <script>
     // iOS Home Screen apps do not consistently match display-mode:standalone.
@@ -4164,6 +4171,7 @@
     let pendingVodPlayback = null;
     let searchTimer = null;
     let gridTransitionTimer = null;
+    let continueRefreshTimer = null;
     let currentProgressContext = null;
     let lastProgressSyncAt = 0;
     let sharedProgressItems = [];
@@ -6262,47 +6270,49 @@
       }
     }
 
+    function renderContinueRows(continueItems, upcomingItems) {
+      const host = grid(); host.innerHTML = ''; host.className = 'grid continue-rows';
+      const makeRow = (title, subtitle, items, emptyText) => {
+        const section=document.createElement('section'); section.className='continue-row-section';
+        const head=document.createElement('div'); head.className='continue-row-head';
+        const heading=document.createElement('h2'); heading.textContent=title;
+        const note=document.createElement('span'); note.textContent=subtitle; head.append(heading,note); section.appendChild(head);
+        if(items.length){const rail=document.createElement('div');rail.className='grid vod-grid continue-rail-grid';section.appendChild(rail);renderGrid(items,rail)}
+        else{const empty=document.createElement('div');empty.className='continue-empty';empty.textContent=emptyText;section.appendChild(empty)}
+        host.appendChild(section);
+      };
+      makeRow('Continue Watching','Resume or play the next available episode',continueItems,'Nothing waiting to continue right now.');
+      makeRow('Upcoming','Next episodes from shows you are watching',upcomingItems,'No upcoming episodes are known right now.');
+      finishGridTransition();
+    }
+
     async function loadContinueWatching({ push = true } = {}) {
-      clearCollectionDock();
-      setCatalogRailVisible(false);
-      currentCatalogState = { kind:'continue', id:'continue', type:'' };
-      tabs().innerHTML = '';
-      currentVodType = '';
-      beginGridTransition({ posterMode:true });
+      clearCollectionDock(); setCatalogRailVisible(false);
+      currentCatalogState={kind:'continue',id:'continue',type:''}; tabs().innerHTML=''; currentVodType='';
+      beginGridTransition({posterMode:true}); clearTimeout(continueRefreshTimer);
       try {
-        const res = await fetch('/api/v1/progress?continue=1', { cache: 'no-store' });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Progress failed');
-
-        const continueRows = Array.isArray(data.items) ? data.items : [];
-        for (const row of continueRows) {
-          const key = progressIdentityKey(row);
-          const index = sharedProgressItems.findIndex(existing => progressIdentityKey(existing) === key);
-          if (index >= 0) sharedProgressItems[index] = row;
-          else sharedProgressItems.push(row);
+        const progressData=window.AIOData
+          ? await AIOData.requestJson('/api/v1/progress',{key:'progress:all',ttl:15000,staleTime:5*60*1000,staleWhileRevalidate:true})
+          : await (await fetch('/api/v1/progress',{cache:'no-store'})).json();
+        if(Array.isArray(progressData?.items))sharedProgressItems=progressData.items;
+        const resolved=window.AIOContinue
+          ? await AIOContinue.resolve({progress:sharedProgressItems,loadMeta:loadMetaFor})
+          : {continueItems:[],upcomingItems:[],nextRefreshAt:Infinity};
+        currentItems=[...resolved.continueItems,...resolved.upcomingItems];
+        renderContinueRows(resolved.continueItems,resolved.upcomingItems);
+        if(window.AIOData)AIOData.saveSnapshot('continue-overview',{continueItems:resolved.continueItems,upcomingItems:resolved.upcomingItems},7*24*60*60*1000);
+        if(Number.isFinite(resolved.nextRefreshAt)){
+          const delay=Math.min(2147480000,Math.max(1000,resolved.nextRefreshAt-Date.now()+15000));
+          continueRefreshTimer=setTimeout(()=>{if(currentMode==='continue')loadContinueWatching({push:false})},delay);
         }
-
-        currentItems = continueRows.map(row => ({
-          id: row.videoId || row.contentId,
-          type: row.contentType === 'series' ? 'episode' : 'movie',
-          name: row.name || 'Untitled',
-          description: row.contentType === 'series'
-            ? [
-                row.season != null && row.episode != null ? ('S' + row.season + ' E' + row.episode) : '',
-                row.episodeTitle || ''
-              ].filter(Boolean).join(' · ')
-            : '',
-          poster: row.poster,
-          background: row.backdrop,
-          logo: row.logo,
-          _progress: row
-        }));
-        renderGrid(currentItems);
-        if (push && !restoringUiState) persistUiState({ push:true });
-      } catch (err) {
+        if(push&&!restoringUiState)persistUiState({push:true});
+      } catch(err) {
         console.error(err);
-        currentItems = [];
-        setGridState('Could not load Continue Watching.', true, () => loadContinueWatching({ push:false }));
+        const cached=window.AIOData?AIOData.loadSnapshot('continue-overview'):null;
+        if(cached&&(cached.continueItems?.length||cached.upcomingItems?.length)){
+          currentItems=[...(cached.continueItems||[]),...(cached.upcomingItems||[])];
+          renderContinueRows(cached.continueItems||[],cached.upcomingItems||[]);
+        } else {currentItems=[];setGridState('Could not load Continue Watching.',true,()=>loadContinueWatching({push:false}))}
       }
     }
 
@@ -6610,8 +6620,8 @@
       return true;
     }
 
-    function renderGrid(metas) {
-      const host = grid();
+    function renderGrid(metas, targetHost = null) {
+      const host = targetHost || grid();
       host.innerHTML = '';
       host.className = 'grid ' + (false ? 'live-grid' : 'vod-grid');
       if (!Array.isArray(metas) || metas.length === 0) {
@@ -6619,7 +6629,7 @@
         return;
       }
 
-      updateHero(metas[0]);
+      if (!targetHost) updateHero(metas[0]);
       prefetchNearVisibleArtwork(metas);
 
       let lastSearchCatalogKey = '';
@@ -6866,7 +6876,7 @@
           lastActiveCard = card;
         }
       }
-      finishGridTransition();
+      if (!targetHost) finishGridTransition();
     }
 
     function progressIdentityKey(row) {
