@@ -32,4 +32,8 @@ assert(html.includes("episodeWrap.className='episode-item'"),'episode actions us
 assert(html.includes("episodeWrap.appendChild(more)"),'episode action button is not nested inside the episode playback button');
 assert(!html.includes("thumb.appendChild(more)"),'episode contextual action cannot be nested in the episode button');
 
+assert(html.includes("#episodeStateMenu{z-index:260!important;pointer-events:auto!important}"),'episode state menu renders above the details surface');
+assert(html.includes(".episode-item>.episode-more::after{content:'';position:absolute;inset:-9px"),'episode action has an enlarged touch hit target');
+assert(html.includes("!event.target.closest?.('.episode-btn,.episode-more')"),'outside-click handling does not dismiss a menu from its own action trigger');
+assert(html.includes("more.addEventListener('click', openEpisodeActions)"),'episode action has an explicit independent click handler');
 console.log('premium player UX contract passed');
