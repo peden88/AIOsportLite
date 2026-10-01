@@ -56,7 +56,9 @@ t(!html.includes("add('sports', 'Live')"), 'retired Live mode is absent from top
 t(html.includes("add('collections', 'Collections')"), 'Collections is available uniformly in top navigation');
 t(html.includes("add('vod', 'VOD')"), 'Movies and Series are combined into one VOD mode');
 t(html.includes("add('continue', 'Continue Watching')"), 'signed-in VOD users get a Continue Watching mode');
-t(html.includes('/api/v1/progress?continue=1'), 'Continue Watching is loaded from per-user server progress');
+t(html.includes("AIOData.requestJson('/api/v1/progress'") && html.includes('AIOContinue.resolve'), 'Continue Watching reconciles from per-user server progress');
+t(html.includes("makeRow('Continue Watching'") && html.includes("makeRow('Upcoming'"), 'Continue page exposes separate horizontal Continue and Upcoming rails');
+t(html.includes("accountSnapshotScope+':continue-overview'"), 'Continue and Upcoming snapshot is scoped to the active account');
 t(html.includes("method: 'PUT'") && html.includes('/api/v1/progress'), 'internal web playback writes progress back to the server');
 t(!html.includes("add('movie', 'Movies')") && !html.includes("add('series', 'Series')"), 'separate Movies and Series top-level modes are absent');
 t(/\.vod-card \.poster-container\s*\{[\s\S]*?aspect-ratio\s*:\s*2\s*\/\s*3/.test(html), 'web VOD cards use portrait poster proportions');
