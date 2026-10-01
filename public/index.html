@@ -7485,15 +7485,51 @@
       } catch (_) {}
     }
 
+    function resumePositionSeconds(video) {
+      const row=currentProgressContext;
+      const saved=Number(row?.position||0)/1000;
+      if(!row||!Number.isFinite(saved)||saved<=1)return 0;
+      const duration=Number(video?.duration||0);
+      if(Number.isFinite(duration)&&duration>0)return Math.min(saved,Math.max(0,duration-2));
+      return saved;
+    }
+
     function applyResumePosition(video) {
-      const row = currentProgressContext;
-      if (!row || !Number.isFinite(video.duration) || video.duration <= 0) return;
-      const resumeSeconds = Number(row.position || 0) / 1000;
-      if (resumeSeconds <= 0) return;
-      if (resumeSeconds >= video.duration * 0.90) return;
-      if (Math.abs(video.currentTime - resumeSeconds) > 2) {
-        try { video.currentTime = Math.min(resumeSeconds, Math.max(0, video.duration - 2)); } catch (_) {}
+      const resumeSeconds=resumePositionSeconds(video);
+      if(!video||resumeSeconds<=0)return false;
+      // Compatibility HLS can report metadata before Safari has established a
+      // seekable timeline. Do not consume the resume attempt until the target
+      // sits inside a real seekable range.
+      const ranges=video.seekable;
+      if(ranges?.length){
+        let target=resumeSeconds,valid=false;
+        for(let i=0;i<ranges.length;i++){
+          const start=ranges.start(i),end=ranges.end(i);
+          if(target>=start&&target<=end){valid=true;break}
+          if(target<start){target=start;valid=true;break}
+        }
+        if(!valid)return false;
+        if(Math.abs(video.currentTime-target)>2){try{video.currentTime=target}catch(_){return false}}
+        return true;
       }
+      if(video.readyState<1||!Number.isFinite(video.duration)||video.duration<=0)return false;
+      if(Math.abs(video.currentTime-resumeSeconds)>2){try{video.currentTime=resumeSeconds}catch(_){return false}}
+      return true;
+    }
+
+    function armResumePosition(video,generation){
+      if(!video||resumePositionSeconds(video)<=0)return;
+      let applied=false;
+      const tryResume=()=>{
+        if(applied||generation!==playbackGeneration)return;
+        applied=applyResumePosition(video);
+        if(applied){video.removeEventListener('loadedmetadata',tryResume);video.removeEventListener('durationchange',tryResume);video.removeEventListener('progress',tryResume);video.removeEventListener('canplay',tryResume)}
+      };
+      video.addEventListener('loadedmetadata',tryResume);
+      video.addEventListener('durationchange',tryResume);
+      video.addEventListener('progress',tryResume);
+      video.addEventListener('canplay',tryResume);
+      tryResume();
     }
 
     function fillDetailsMeta(meta) {
@@ -8897,7 +8933,7 @@
       if (recoverySnapshot) {
         restoreRecoverySnapshot(video);
       } else if (currentProgressContext) {
-        video.addEventListener('loadedmetadata', () => applyResumePosition(video), { once: true });
+        armResumePosition(video,generation);
       }
       let playbackTarget = target;
       let playbackUrl = url;
@@ -8942,6 +8978,7 @@
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (generation !== playbackGeneration) return;
+          applyResumePosition(video);
           started = true;
           document.getElementById('loader').style.display = 'none';
           video.style.opacity = '1';
