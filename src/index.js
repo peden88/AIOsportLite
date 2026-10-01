@@ -45,7 +45,6 @@ const nuvioCollections = require('./services/NuvioCollections');
 const hlsTransmux = require('./services/HlsTransmux');
 const skipMetadata = require('./services/SkipMetadata');
 const analytics = require('./services/Analytics');
-const trickplay = require('./services/TrickplayService');
 
 
 
@@ -1505,21 +1504,6 @@ app.post('/api/v1/playback/:sessionId/heartbeat', requirePage, express.json({ li
   }
   return res.json({ ok: true });
 });
-
-app.post('/api/v1/playback/:sessionId/trickplay', requirePage, (req,res)=>{
-  const account=currentAccount(req),lease=playbackLeases.leaseForSession(req.params.sessionId);
-  if(account&&(!lease||lease.userId!==account.user.id||!playbackLeases.touchLease(lease.id)))return res.status(410).json({error:'Playback lease expired.',code:'PLAYBACK_LEASE_EXPIRED'});
-  const target=opaquePlayback.currentTarget(req.params.sessionId);
-  const result=trickplay.request(target);
-  res.setHeader('Cache-Control','no-store');
-  return res.status(result.status==='unsupported'?409:202).json(result);
-});
-app.get('/api/v1/playback/:sessionId/trickplay/:key', requirePage, (req,res)=>{
-  const account=currentAccount(req),lease=playbackLeases.leaseForSession(req.params.sessionId);
-  if(account&&(!lease||lease.userId!==account.user.id||!playbackLeases.touchLease(lease.id)))return res.status(410).json({error:'Playback lease expired.',code:'PLAYBACK_LEASE_EXPIRED'});
-  const result=trickplay.status(req.params.key);res.setHeader('Cache-Control','no-store');return res.status(result.status==='missing'?404:200).json(result);
-});
-app.get('/api/v1/trickplay/:key/:file', requirePage, (req,res)=>trickplay.serve(req.params.key,req.params.file,res));
 
 app.post('/api/v1/playback/:sessionId/apple-hls', requirePage, express.json({ limit:'2kb' }), async (req, res) => {
   const account = currentAccount(req);
