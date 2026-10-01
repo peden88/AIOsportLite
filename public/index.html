@@ -8586,7 +8586,6 @@
         }
 
         currentPlaybackSession = data.sessionId || null;
-        if(window.AIOTrickplay&&currentPlaybackSession)AIOTrickplay.start(currentPlaybackSession);
         setPlayerPresentation(currentPlaybackMeta, contentType);
         startPlaybackHeartbeat(currentPlaybackSession, generation);
         const isVod = contentType !== 'sport_event' && contentType !== 'live_channel' && contentType !== 'sport';
@@ -8846,6 +8845,7 @@
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (generation !== playbackGeneration) return;
           started = true;
+          if(window.AIOTrickplay&&currentPlaybackSession)setTimeout(()=>AIOTrickplay.start(currentPlaybackSession),1500);
           document.getElementById('loader').style.display = 'none';
           video.style.opacity = '1';
           video.muted = false;
@@ -8872,6 +8872,7 @@
       stopVideoEngine();
       const loaded = () => {
         if (generation !== playbackGeneration) return;
+        if(window.AIOTrickplay&&currentPlaybackSession)setTimeout(()=>AIOTrickplay.start(currentPlaybackSession),1500);
         document.getElementById('loader').style.display = 'none';
         video.style.opacity = '1';
         video.muted = false;
