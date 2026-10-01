@@ -51,4 +51,9 @@ assert(html.includes('applyResumePosition(video);\n          started = true;'), 
 assert(!html.includes('resumeSeconds >= video.duration * 0.90'), 'playback resume is not suppressed by Continue-Watching completion thresholds');
 assert(!html.includes("#player-overlay.is-vod #playerMinimize,\n    #player-overlay.is-vod #playerPip,\n    #player-overlay.is-vod #playerStreamPicker"),'unified VOD chrome must not globally hide PiP');
 assert(html.includes("display:inline-flex!important;visibility:visible!important;opacity:1!important;"),'final mobile PiP rule explicitly defeats legacy visibility rules');
+assert(html.includes("#player-overlay.is-vod:not(.mini) #playerPip"),'mobile PiP has an independent player anchor');
+assert(html.includes("right:max(18px,env(safe-area-inset-right,0px))!important"),'PiP is docked to the lower-right safe area');
+assert(html.includes("html.aioplay-standalone #player-overlay.is-vod:not(.mini) #playerPip"),'installed PWA explicitly exposes the PiP control');
+assert(html.includes("video.webkitSupportsPresentationMode('picture-in-picture')"),'installed iOS PWA checks the WebKit PiP capability directly');
+assert(html.includes("if(supportsWebkitPip())"),'Apple PiP prefers the WebKit presentation path before the standards API');
 console.log('premium player UX contract passed');
