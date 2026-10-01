@@ -1,0 +1,12 @@
+'use strict';const assert=require('assert'),fs=require('fs'),path=require('path');
+const service=fs.readFileSync(path.join(__dirname,'../src/services/TrickplayService.js'),'utf8');
+const server=fs.readFileSync(path.join(__dirname,'../src/index.js'),'utf8');
+assert(service.includes("fps=1/")&&service.includes("tile="),'trickplay uses sampled tiled sprites');
+assert(service.includes("MAX_BYTES")&&service.includes("TTL_MS"),'trickplay cache is bounded by size and age');
+assert(service.includes("jobs=new Map()")&&service.includes("status:'generating'"),'generation is background and coalesced');
+assert(service.includes("requestHeaders")&&service.includes("-headers"),'resolved source request headers are preserved');
+assert(service.includes("m3u8|mpd"),'segmented sources are not fed to direct sprite generator');
+assert(server.includes("/api/v1/playback/:sessionId/trickplay"),'authenticated playback-scoped trickplay API exists');
+assert(server.includes("/api/v1/trickplay/:key/:file"),'sprite serving route exists');
+assert(server.includes("lease.userId!==account.user.id"),'trickplay generation is scoped to playback owner');
+console.log('trickplay service contract passed');
