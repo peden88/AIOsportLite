@@ -8524,8 +8524,7 @@
         : (matchingItem || { id, name: String(id) });
       setPlayerPresentation(playbackMeta, contentType);
       const detailsWasOpen = document.getElementById('details-overlay').style.display === 'block';
-      playerReturnToDetails = detailsWasOpen ||
-        (preservePlayerOrigin ? priorReturnToDetails : false);
+      playerReturnToDetails = detailsWasOpen || priorReturnToDetails;
       const transitionSource = sourceElement?.querySelector?.('.poster-container') || sourceElement;
       await withSharedTransition(
         transitionSource,
