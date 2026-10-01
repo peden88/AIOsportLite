@@ -2111,7 +2111,9 @@
       .player-hud-subtitle{font-size:.62rem;}
       .player-hud-chips{gap:3px;margin-top:4px;}
       .player-hud-chip{padding:2px 4px;border-radius:5px;font-size:.52rem;}
-      .player-timeline{display:none;}
+      #player-overlay.is-vod .player-timeline{display:block!important;position:fixed;left:18px;right:18px;bottom:calc(148px + env(safe-area-inset-bottom,0px));z-index:147;min-width:0!important;width:auto!important;padding:10px 12px;border-radius:14px;background:rgba(8,11,15,.62);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:auto;}
+      #player-overlay.is-vod .player-timeline-track{height:8px;}
+      #player-overlay.is-vod .player-timeline-times{font-size:.68rem;}
       .player-hud-actions{gap:5px;}
       .player-hud-btn{padding:6px 8px;font-size:.62rem;}
       .player-hud.is-collapsed .player-hud-main{display:none;}
@@ -4128,7 +4130,7 @@
           <div id="playerHudTitle" class="player-hud-title"></div>
           <div id="playerHudSubtitle" class="player-hud-subtitle"></div>
           <div id="playerHudChips" class="player-hud-chips"></div>
-          <div id="playerTimeline" class="player-timeline" aria-hidden="true">
+          <div id="playerTimeline" class="player-timeline">
             <div id="playerTimelineTrack" class="player-timeline-track" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
               <div id="playerTimelineFill" class="player-timeline-fill"></div>
               <div id="playerTimelineMarkers" class="player-timeline-markers"></div>
@@ -5815,8 +5817,8 @@
       }
       const speed=document.getElementById('playerSpeedSelect');speed.value=String(prefs.speed||1);speed.onchange=()=>{video.playbackRate=Number(speed.value);const p=playerPrefs();p.speed=video.playbackRate;savePlayerPrefs(p)};
       const delay=document.getElementById('playerSubtitleDelay');if(delay){delay.value=String(window.AIOPlayback?.read()?.subtitleDelay||0);delay.onchange=()=>{if(window.AIOPlayback){const state=AIOPlayback.read();state.subtitleDelay=Number(delay.value)||0;AIOPlayback.write(state)}applySubtitleDelay()}};
-      document.getElementById('playerSettings').onclick=()=>{panel.hidden=!panel.hidden;
-    document.getElementById('playerStreamPicker').onclick = openRawStreamPicker;if(!panel.hidden)populatePlayerTracks()};
+      document.getElementById('playerSettings').onclick=()=>{panel.hidden=!panel.hidden;if(!panel.hidden)populatePlayerTracks()};
+      document.getElementById('playerStreamPicker').onclick=()=>openRawStreamPicker();
       const playPauseButton=document.getElementById('playerPlayPause');
       const syncPlayPauseButton=()=>{
         if(!playPauseButton) return;
@@ -8494,9 +8496,14 @@
       const pickerAllowed = !!bootstrap?.accountUser?.streamPickerEnabled || bootstrap?.accountUser?.role === 'admin';
       if (pickerAllowed && !Number.isInteger(selectedStreamIndex) && stremioType && sourceElement?.id !== 'playerBackdrop') {
         currentRawStreamContext={type:stremioType,id,playArgs:[id,contentType,stremioType,progressContext,sourceElement]};
+        const detailsOverlay=document.getElementById('details-overlay');
+        const detailsWasOpen=detailsOverlay?.style.display==='block';
+        if(detailsWasOpen){document.body.classList.remove('details-open');detailsOverlay.style.display='none'}
         document.getElementById('player-overlay').style.display='flex';
         document.body.classList.add('player-open');
+        setPlayerPresentation(progressContext||currentDetailsMeta||{id,name:String(id)},contentType);
         const shown=await openRawStreamPicker({beforePlayback:true,context:currentRawStreamContext});
+        if(!shown&&detailsWasOpen){document.getElementById('player-overlay').style.display='none';document.body.classList.remove('player-open');document.body.classList.add('details-open');detailsOverlay.style.display='block'}
         if(shown)return;
       }
       const priorReturnToDetails = playerReturnToDetails;
