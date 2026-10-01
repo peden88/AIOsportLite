@@ -1760,6 +1760,12 @@
       font-variant-numeric:tabular-nums;
     }
 
+
+    .player-timeline-track{cursor:pointer;touch-action:none}
+    .player-seek-preview{position:absolute;bottom:18px;left:0;transform:translateX(-50%);z-index:8;padding:5px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(7,10,14,.94);box-shadow:0 10px 28px rgba(0,0,0,.45);pointer-events:none}
+    .player-seek-preview[hidden]{display:none}.player-seek-thumb{width:160px;height:90px;border-radius:6px;background:#10151b center/cover no-repeat;overflow:hidden}.player-seek-label{text-align:center;padding:4px 3px 1px;color:#fff;font-size:.68rem;font-weight:800;font-variant-numeric:tabular-nums}
+    .player-timeline-marker[data-kind="chapter"]{width:1px;background:rgba(255,255,255,.36)}
+    @media(max-width:650px){.player-seek-thumb{width:128px;height:72px}.player-seek-preview{bottom:20px}}
     #player-overlay.mini {
       inset:auto 18px 18px auto;
       width:min(430px,calc(100vw - 24px));
@@ -3912,7 +3918,8 @@
   <link rel="apple-touch-icon" href="/aioplay-launcher.webp">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
   <script src="/data-layer.js"></script>\n  <script src="/continue-system.js"></script>
-  <script src="/playback-intelligence.js"></script>\n</head>
+  <script src="/playback-intelligence.js"></script>
+  <script src="/trickplay-client.js"></script>\n</head>
 <body>
   <script>
     // iOS Home Screen apps do not consistently match display-mode:standalone.
@@ -4114,9 +4121,10 @@
           <div id="playerHudSubtitle" class="player-hud-subtitle"></div>
           <div id="playerHudChips" class="player-hud-chips"></div>
           <div id="playerTimeline" class="player-timeline" aria-hidden="true">
-            <div class="player-timeline-track">
+            <div id="playerTimelineTrack" class="player-timeline-track" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
               <div id="playerTimelineFill" class="player-timeline-fill"></div>
               <div id="playerTimelineMarkers" class="player-timeline-markers"></div>
+              <div id="playerSeekPreview" class="player-seek-preview" hidden><div id="playerSeekThumb" class="player-seek-thumb"></div><div id="playerSeekLabel" class="player-seek-label">0:00</div></div>
             </div>
             <div class="player-timeline-times">
               <span id="playerTimelineCurrent">0:00</span>
@@ -4129,7 +4137,9 @@
           <button type="button" id="playerTryAnother" class="player-hud-btn">Try another stream</button>
           <button type="button" id="playerBack10" class="player-hud-btn player-transport-skip back" aria-label="Back 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><circle class="skip-circle" cx="32" cy="34" r="20"/><path class="skip-gap" d="M25 14.8 A20 20 0 0 1 39 14.8"/><path class="skip-arrow" d="M32 8 L19 14 L32 20 Z"/><text x="32" y="42">10</text></svg></button>
           <button type="button" id="playerPlayPause" class="player-hud-btn player-transport-main" aria-label="Pause"><span class="transport-main-icon pause" aria-hidden="true"></span></button>
+          <button type="button" id="playerPrevChapter" class="player-hud-btn" aria-label="Previous chapter">‹ Chapter</button>
           <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip forward" aria-label="Forward 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><circle class="skip-circle" cx="32" cy="34" r="20"/><path class="skip-gap" d="M25 14.8 A20 20 0 0 1 39 14.8"/><path class="skip-arrow" d="M32 8 L45 14 L32 20 Z"/><text x="32" y="42">10</text></svg></button>
+          <button type="button" id="playerNextChapter" class="player-hud-btn" aria-label="Next chapter">Chapter ›</button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn player-fullscreen-object" aria-label="Fullscreen"><span aria-hidden="true"></span></button>
           <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
@@ -4210,6 +4220,7 @@
     let recoverySameSourceRetries = 0;
     let recoveryCompatibilityAttempted = false;
     let nextEpisodeCountdownTimer = null;
+    let playerSeekingPointer = false;
     const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
     const visibleMetadataObserver = 'IntersectionObserver' in window
@@ -5646,7 +5657,7 @@
             ? 'recap'
             : rawKind.includes('outro') || rawKind.includes('ending') || rawKind.includes('credits')
               ? 'outro'
-              : '';
+              : 'chapter';
         if (!kind) return;
         push(kind, row.start ?? row.startTime ?? row.startMs ?? row.time, row.title || row.name, row.end ?? row.endTime ?? row.endMs);
       };
@@ -5683,6 +5694,7 @@
       if (currentLabel) currentLabel.textContent = formatPlaybackTime(current);
       if (remainingLabel) remainingLabel.textContent =
         '−' + formatPlaybackTime(Number.isFinite(duration) ? Math.max(0, duration - current) : 0);
+      const track=document.getElementById('playerTimelineTrack');if(track&&Number.isFinite(duration)&&duration>0)track.setAttribute('aria-valuenow',String(Math.round(current/duration*100)));
     }
 
     function renderPlayerTimelineMarkers(video = document.getElementById('video')) {
@@ -5697,9 +5709,36 @@
         node.className = 'player-timeline-marker';
         node.dataset.kind = marker.kind;
         node.title = marker.label;
+        node.dataset.label = marker.label;
         node.style.left = (marker.start / duration * 100) + '%';
         host.appendChild(node);
       });
+    }
+
+    function playerChapters(){return playbackMarkers(currentPlaybackMeta).filter(m=>m.kind==='chapter').sort((a,b)=>a.start-b.start)}
+    function seekChapter(direction){
+      const video=document.getElementById('video'),chapters=playerChapters();if(!video||!chapters.length)return;
+      const now=Number(video.currentTime||0);let target=null;
+      if(direction>0)target=chapters.find(c=>c.start>now+2);
+      else target=[...chapters].reverse().find(c=>c.start<now-3);
+      if(target){video.currentTime=Math.max(0,target.start);showPlayerHud(false)}
+    }
+    function showSeekPreview(clientX,{commit=false}={}){
+      const track=document.getElementById('playerTimelineTrack'),video=document.getElementById('video'),preview=document.getElementById('playerSeekPreview'),thumb=document.getElementById('playerSeekThumb'),label=document.getElementById('playerSeekLabel');
+      if(!track||!video||!preview||!label||!Number.isFinite(video.duration)||video.duration<=0)return;
+      const rect=track.getBoundingClientRect(),ratio=Math.max(0,Math.min(1,(clientX-rect.left)/Math.max(1,rect.width))),seconds=ratio*video.duration;
+      preview.hidden=false;preview.style.left=(ratio*100)+'%';label.textContent=formatPlaybackTime(seconds);
+      const frame=window.AIOTrickplay?.frameAt(seconds);if(frame&&thumb){thumb.style.backgroundImage='url("'+frame.url.replace(/"/g,'%22')+'")';thumb.style.backgroundSize=(frame.width*(AIOTrickplay.manifest?.columns||5))+'px '+(frame.height*(AIOTrickplay.manifest?.rows||5))+'px';thumb.style.backgroundPosition=(-frame.x)+'px '+(-frame.y)+'px'}else if(thumb){thumb.style.backgroundImage='none'}
+      if(commit){video.currentTime=seconds;updatePlayerTimeline(video)}
+    }
+    function setupPlayerTimelineInteraction(){
+      const track=document.getElementById('playerTimelineTrack'),preview=document.getElementById('playerSeekPreview');if(!track||track.dataset.ready==='1')return;track.dataset.ready='1';
+      track.addEventListener('pointerdown',e=>{playerSeekingPointer=true;track.setPointerCapture?.(e.pointerId);showSeekPreview(e.clientX,{commit:true})});
+      track.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||playerSeekingPointer)showSeekPreview(e.clientX,{commit:playerSeekingPointer})});
+      track.addEventListener('pointerup',e=>{playerSeekingPointer=false;showSeekPreview(e.clientX,{commit:true});setTimeout(()=>{preview.hidden=true},450)});
+      track.addEventListener('pointerleave',()=>{if(!playerSeekingPointer)preview.hidden=true});
+      track.addEventListener('keydown',e=>{const video=document.getElementById('video');if(!video)return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();video.currentTime=Math.max(0,Math.min(video.duration||Infinity,video.currentTime+(e.key==='ArrowRight'?10:-10)));updatePlayerTimeline(video)}});
+      document.getElementById('playerPrevChapter').onclick=()=>seekChapter(-1);document.getElementById('playerNextChapter').onclick=()=>seekChapter(1);
     }
 
     function minimizePlayer() {
@@ -5756,6 +5795,7 @@
     }
     function setupPlayerFeatures(){
       const video=document.getElementById('video'), panel=document.getElementById('playerSettingsPanel'), prefs=playerPrefs();
+      setupPlayerTimelineInteraction();
       for(const [id,key] of [['playerAutoNext','autoNext'],['playerAutoIntro','autoIntro'],['playerAutoRecap','autoRecap'],['playerAutoOutro','autoOutro'],['playerAutoRecover','autoRecover']]){
         const el=document.getElementById(id);el.checked=!!prefs[key];el.onchange=()=>{const p=playerPrefs();p[key]=el.checked;savePlayerPrefs(p)};
       }
@@ -8532,6 +8572,7 @@
         }
 
         currentPlaybackSession = data.sessionId || null;
+        if(window.AIOTrickplay&&currentPlaybackSession)AIOTrickplay.start(currentPlaybackSession);
         setPlayerPresentation(currentPlaybackMeta, contentType);
         startPlaybackHeartbeat(currentPlaybackSession, generation);
         const isVod = contentType !== 'sport_event' && contentType !== 'live_channel' && contentType !== 'sport';
@@ -8606,6 +8647,7 @@
 
         stopPlaybackHeartbeat();
         currentPlaybackSession = null;
+        if(window.AIOTrickplay)AIOTrickplay.reset();
         requestingFallback = false;
         currentProgressContext = null;
         lastProgressSyncAt = 0;
