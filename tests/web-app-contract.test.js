@@ -96,5 +96,15 @@ t(/\.admin-only\s*\{\s*display\s*:\s*none\s*!important\s*;?\s*\}/.test(html), 'a
 t(html.includes("gate.user.role === 'admin'"), 'admin controls are only revealed after an admin role is confirmed');
 t(/\.tab\s*\{[\s\S]*?var\(--accent-gradient\) border-box/.test(html), 'catalog navigation uses gradient pill outlines');
 
+console.log('--- shared client data contract');
+t(html.includes('src="/data-layer.js"'), 'web app loads the shared data layer before application logic');
+t(html.includes("AIOData.requestJson"), 'web discovery paths use the shared request/cache layer');
+t(html.includes("group:'search-suggestions',cancelPrevious:true"), 'predictive search cancels superseded network work');
+t(html.includes("staleWhileRevalidate:true"), 'read-heavy discovery paths support stale-while-revalidate');
+t(html.includes("AIOData.dedupe(rawResults)"), 'global search canonicalizes duplicate media before rendering');
+t(html.includes("saveSnapshot(snapshotScope+':progress'"), 'account progress keeps a profile-scoped last-known snapshot');
+t(html.includes("saveSnapshot(snapshotScope+':library'"), 'Library keeps a profile-scoped last-known snapshot');
+t(html.includes("saveSnapshot(snapshotScope+':watch-state'"), 'watched state keeps a profile-scoped last-known snapshot');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
