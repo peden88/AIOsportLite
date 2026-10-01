@@ -8852,7 +8852,6 @@
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (generation !== playbackGeneration) return;
           started = true;
-          if(window.AIOTrickplay&&currentPlaybackSession)setTimeout(()=>AIOTrickplay.start(currentPlaybackSession),1500);
           document.getElementById('loader').style.display = 'none';
           video.style.opacity = '1';
           video.muted = false;
@@ -8879,7 +8878,6 @@
       stopVideoEngine();
       const loaded = () => {
         if (generation !== playbackGeneration) return;
-        if(window.AIOTrickplay&&currentPlaybackSession)setTimeout(()=>AIOTrickplay.start(currentPlaybackSession),1500);
         document.getElementById('loader').style.display = 'none';
         video.style.opacity = '1';
         video.muted = false;
@@ -8890,8 +8888,12 @@
         setTimeout(()=>{if(generation===playbackGeneration)recoverySnapshot=null},1200);
       };
       const failed = () => recoverPlayback(generation, 'media-error');
-      video.addEventListener('loadedmetadata', loaded, { once: true });
-      video.addEventListener('error', failed, { once: true });
+      let startupSettled=false;
+      const startupWatch=setTimeout(()=>{if(!startupSettled&&generation===playbackGeneration&&video.readyState<1)recoverPlayback(generation,'startup-timeout')},5000);
+      const settleLoaded=()=>{startupSettled=true;clearTimeout(startupWatch);loaded()};
+      const settleFailed=()=>{startupSettled=true;clearTimeout(startupWatch);failed()};
+      video.addEventListener('loadedmetadata', settleLoaded, { once: true });
+      video.addEventListener('error', settleFailed, { once: true });
       video.src = playbackUrl;
       video.load();
     }
@@ -8992,6 +8994,11 @@
     });
     const syncMiniPlay=()=>{const b=document.getElementById('miniPlayPause');if(b){b.textContent=progressVideo.paused?'Play':'Pause';b.setAttribute('aria-label',progressVideo.paused?'Play playback':'Pause playback')}};
     progressVideo.addEventListener('play', () => {syncMiniPlay();showPlayerHud(false)});
+    progressVideo.addEventListener('playing',()=>{
+      const generation=playbackGeneration,session=currentPlaybackSession;
+      if(!window.AIOTrickplay||!session)return;
+      setTimeout(()=>{if(generation===playbackGeneration&&session===currentPlaybackSession&&!progressVideo.paused)AIOTrickplay.start(session)},8000);
+    });
     progressVideo.addEventListener('pause',syncMiniPlay);
     progressVideo.addEventListener('ended', async () => {
       showPlayerHud(true);
