@@ -3911,7 +3911,8 @@
   <meta name="apple-mobile-web-app-title" content="AIOPlay">
   <link rel="apple-touch-icon" href="/aioplay-launcher.webp">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
-  <script src="/data-layer.js"></script>\n  <script src="/continue-system.js"></script>\n</head>
+  <script src="/data-layer.js"></script>\n  <script src="/continue-system.js"></script>
+  <script src="/playback-intelligence.js"></script>\n</head>
 <body>
   <script>
     // iOS Home Screen apps do not consistently match display-mode:standalone.
@@ -4137,6 +4138,7 @@
         </div>
       </div>
       <button type="button" id="playerSkipSegment" class="player-next-up" hidden>Skip Intro</button>
+      <button type="button" id="playerNextCountdown" class="player-next-up" hidden>Next episode</button>
       <div id="playerStreamPickerPanel" class="player-settings-panel" hidden><div class="aiostreams-picker-head"><button type="button" id="playerStreamRefresh" class="player-hud-btn">↻ Refresh</button></div><div id="playerStreamPickerRows" class="player-stream-info aiostreams-picker">Choose a title to load streams.</div></div>
       <div id="playerSettingsPanel" class="player-settings-panel" hidden>
         <div class="player-settings-grid">
@@ -4151,6 +4153,7 @@
         <label><input type="checkbox" id="playerAutoOutro"> Auto-skip outro/ending</label>
         <label><input type="checkbox" id="playerAutoRecover"> Auto-recover failed/stalled streams</label>
         <div id="playerStreamInfo" class="player-stream-info"></div>
+        <div id="playerPlaybackStats" class="player-stream-info"></div>
       </div>
     </div>
   </div>
@@ -4205,6 +4208,7 @@
     let recoverySnapshot = null;
     let recoverySameSourceRetries = 0;
     let recoveryCompatibilityAttempted = false;
+    let nextEpisodeCountdownTimer = null;
     const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
     const visibleMetadataObserver = 'IntersectionObserver' in window
@@ -4272,6 +4276,7 @@
         const r=await fetch('/api/v1/vod/streams/'+encodeURIComponent(ctx.type)+'/'+encodeURIComponent(ctx.id)+'/raw',{cache:'no-store'});
         if(r.status===403){panel.hidden=true;return false}
         const data=await r.json(), streams=Array.isArray(data.streams)?data.streams:[];
+        const affinityIndex=window.AIOPlayback?AIOPlayback.preferredStream(ctx.playArgs?.[3],streams):null;
         rows.innerHTML='';
         streams.forEach(s=>{
           const button=document.createElement('button');button.type='button';button.className='aiostreams-result';
@@ -4285,7 +4290,8 @@
             add('aiostreams-result-badges',parts.badges);
             add('aiostreams-result-file','#'+(s.index+1)+(parts.filename?' · '+parts.filename:'')+(s.playable?'':' · Not directly playable'));
           }
-          button.onclick=()=>{panel.hidden=true;const args=ctx.playArgs;if(args)fetchAndPlay(...args,s.index)};
+          button.onclick=()=>{panel.hidden=true;const args=ctx.playArgs;if(window.AIOPlayback)AIOPlayback.rememberSource(args?.[3],s,s.index);if(args)fetchAndPlay(...args,s.index)};
+          if(affinityIndex===s.index)button.title='Preferred source from previous episode';
           rows.appendChild(button);
         });
         if(!streams.length)rows.textContent='No AIOStreams results.';
@@ -5596,6 +5602,8 @@
       if (!hud) return;
       hud.classList.remove('is-idle');
       clearTimeout(playerHudTimer);
+      clearInterval(nextEpisodeCountdownTimer);
+      const nextCountdown=document.getElementById('playerNextCountdown');if(nextCountdown)nextCountdown.hidden=true;
       // Keep AIOPlay controls visible above the browser's native transport
       // controls. They are intentionally persistent so Streams/Settings and
       // playback helpers remain discoverable while native controls stay intact.
@@ -5725,7 +5733,14 @@
       qual.innerHTML='<option value="-1">Auto</option>';
       const levels=hls?.levels||[];
       levels.forEach((l,i)=>qual.add(new Option((l.height?l.height+'p':'Level '+(i+1))+(l.bitrate?' · '+Math.round(l.bitrate/1000)+' kbps':''),String(i))));
+      const saved=window.AIOPlayback?AIOPlayback.read():null;
+      if(saved){
+        const subtitleTracks=[...(video.textTracks||[])],si=saved.subtitleMode==='off'?-1:AIOPlayback.bestTrack(subtitleTracks,saved.subtitle);
+        subtitleTracks.forEach((t,i)=>t.mode=i===si?'showing':'disabled');sub.value=String(si);
+        const ai=AIOPlayback.bestTrack(audio,saved.audio);if(hls&&ai>=0){hls.audioTrack=ai;aud.value=String(ai)}
+      }
       document.getElementById('playerStreamInfo').textContent='Stream '+(currentPlaybackSession?'active':'idle')+' · '+(video.videoWidth||'?')+'×'+(video.videoHeight||'?')+' · '+(hls?'HLS adaptive':'native media');
+      updatePlaybackStats();
     }
     function updateSkipSegment(video){
       const button=document.getElementById('playerSkipSegment'), now=Number(video.currentTime||0), prefs=playerPrefs();
@@ -5791,12 +5806,25 @@
           playerLastTapAt = now;
         }
       }, { passive:false });
-      document.getElementById('playerSubtitleSelect').onchange=e=>{[...(video.textTracks||[])].forEach((t,i)=>t.mode=i===Number(e.target.value)?'showing':'disabled')};
-      document.getElementById('playerAudioSelect').onchange=e=>{if(hls&&Number(e.target.value)>=0)hls.audioTrack=Number(e.target.value)};
+      document.getElementById('playerSubtitleSelect').onchange=e=>{const tracks=[...(video.textTracks||[])],i=Number(e.target.value);tracks.forEach((t,n)=>t.mode=n===i?'showing':'disabled');if(window.AIOPlayback)AIOPlayback.rememberTrack('subtitle',i>=0?tracks[i]:null,i>=0?'on':'off')};
+      document.getElementById('playerAudioSelect').onchange=e=>{const i=Number(e.target.value),tracks=hls?.audioTracks||[];if(hls&&i>=0)hls.audioTrack=i;if(window.AIOPlayback)AIOPlayback.rememberTrack('audio',i>=0?tracks[i]:null)};
       document.getElementById('playerQualitySelect').onchange=e=>{if(hls)hls.currentLevel=Number(e.target.value)};
       video.addEventListener('loadedmetadata',()=>{video.playbackRate=Number(playerPrefs().speed||1);populatePlayerTracks()});
-      video.addEventListener('timeupdate',()=>{updateSkipSegment(video);lastPlayerProgress=Date.now()});
+      video.addEventListener('timeupdate',()=>{updateSkipSegment(video);lastPlayerProgress=Date.now();updatePlaybackStats()});
       clearInterval(playerStallTimer);playerStallTimer=setInterval(()=>{if(playerPrefs().autoRecover&&!video.paused&&!video.ended&&lastPlayerProgress&&Date.now()-lastPlayerProgress>15000&&currentPlaybackSession&&!requestingFallback){lastPlayerProgress=Date.now();recoverPlayback(playbackGeneration,'stall')}},5000);
+    }
+
+    function updatePlaybackStats(){
+      const host=document.getElementById('playerPlaybackStats');if(!host||!window.AIOPlayback)return;
+      const st=AIOPlayback.stats({video:document.getElementById('video'),hls,target:currentPlaybackTarget,session:currentPlaybackSession});
+      host.textContent='Playback · '+st.engine+' · '+st.resolution+' · '+st.bitrate+' · buffer '+st.buffered+' · source '+st.source+' · recoveries '+Number(st.recovery?.attempts||0);
+    }
+    function startNextEpisodeCountdown(){
+      clearInterval(nextEpisodeCountdownTimer);const button=document.getElementById('playerNextCountdown');
+      if(!button||!currentNextEpisode||!playerPrefs().autoNext){if(button)button.hidden=true;return}
+      let remaining=8;button.hidden=false;
+      const render=()=>{button.textContent='Next episode in '+remaining+'s';if(remaining--<=0){clearInterval(nextEpisodeCountdownTimer);button.hidden=true;const next=currentNextEpisode;if(next)fetchAndPlay(next.video.id,'episode','series',next.progress,document.getElementById('playerBackdrop'))}};
+      button.onclick=()=>{remaining=0;render()};render();nextEpisodeCountdownTimer=setInterval(render,1000);
     }
 
     function positionMobileTryAnother() {
@@ -8609,6 +8637,7 @@
 
     async function recoverPlayback(generation, reason='network') {
       if(generation!==playbackGeneration||requestingFallback||!playerPrefs().autoRecover)return;
+      if(window.AIOPlayback)AIOPlayback.recovery(reason,recoverySameSourceRetries<1?'sameSource':'fallbacks');
       recoverySnapshot=captureRecoverySnapshot();
       const target=currentPlaybackTarget;
       if(!target)return requestNextPlayback(generation,{preserveSnapshot:true});
@@ -8627,7 +8656,7 @@
         // already direct-play.
         const isVod=currentPlaybackKind!=='sport_event'&&currentPlaybackKind!=='live_channel'&&currentPlaybackKind!=='sport';
         const compatibility=isVod&&target?.kind==='direct'&&!recoveryCompatibilityAttempted;
-        if(compatibility)recoveryCompatibilityAttempted=true;
+        if(compatibility){recoveryCompatibilityAttempted=true;if(window.AIOPlayback)AIOPlayback.recovery(reason,'compatibility')}
         await playOpaqueTarget(target,generation,{recovery:true,compatibility});
         return;
       }
@@ -8896,10 +8925,7 @@
       if (currentMode === 'continue') {
         loadContinueWatching({ push:false });
       }
-      if (playerPrefs().autoNext && currentNextEpisode) {
-        const next=currentNextEpisode;
-        setTimeout(()=>fetchAndPlay(next.video.id,'episode','series',next.progress,document.getElementById('playerBackdrop')),1200);
-      }
+      if (playerPrefs().autoNext && currentNextEpisode) startNextEpisodeCountdown();
     });
 
     const playerOverlay = document.getElementById('player-overlay');
