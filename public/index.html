@@ -3942,6 +3942,9 @@
       #player-overlay.is-vod .player-timeline{position:fixed!important;left:7vw!important;right:7vw!important;bottom:112px!important;width:auto!important;min-width:0!important;z-index:147!important;padding:10px 12px!important;border-radius:14px!important;background:rgba(8,11,15,.68)!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important}
       #player-overlay.is-vod .player-timeline-track{height:8px!important;cursor:pointer!important}
     }
+
+    #playerCast.active{border-color:rgba(87,220,156,.72)!important;color:#8ff0bd!important}
+    @media(min-width:651px) and (hover:hover) and (pointer:fine){#player-overlay.is-vod #playerCast:not([hidden]){display:inline-flex!important;position:static!important;transform:none!important;height:48px!important;padding:0 16px!important;border-radius:14px!important;pointer-events:auto!important}}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3952,6 +3955,7 @@
   <script src="/data-layer.js"></script>
   <script src="/continue-system.js"></script>
   <script src="/playback-intelligence.js"></script>
+  <script src="/remote-playback.js"></script>
 </head>
 <body>
   <script>
@@ -4176,6 +4180,7 @@
           <button type="button" id="playerForward10" class="player-hud-btn player-transport-skip forward" aria-label="Forward 10 seconds"><svg class="transport-skip-svg" viewBox="0 0 64 64" aria-hidden="true"><circle class="skip-circle" cx="32" cy="34" r="20"/><path class="skip-gap" d="M25 14.8 A20 20 0 0 1 39 14.8"/><path class="skip-arrow" d="M32 8 L45 14 L32 20 Z"/><text x="32" y="42">10</text></svg></button>
           <button type="button" id="playerNextChapter" class="player-hud-btn" aria-label="Next chapter">Chapter ›</button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
+          <button type="button" id="playerCast" class="player-hud-btn" aria-label="Cast to device" hidden>Cast</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn player-fullscreen-object" aria-label="Fullscreen"><span aria-hidden="true"></span></button>
           <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
           <button type="button" id="playerSettings" class="player-hud-btn player-hud-primary">⚙ Settings</button>
@@ -4256,6 +4261,7 @@
     let recoveryCompatibilityAttempted = false;
     let nextEpisodeCountdownTimer = null;
     let playerSeekingPointer = false;
+    let remotePlaybackUnsubscribe = null;
     const longPressedCards = new WeakSet();
     const vodMetaCache = new Map();
     const visibleMetadataObserver = 'IntersectionObserver' in window
@@ -5833,9 +5839,27 @@
       if(auto&&end>now){video.currentTime=end;button.hidden=true;return}
       button.textContent='Skip '+(marker.kind==='outro'?'Outro':marker.kind[0].toUpperCase()+marker.kind.slice(1)); button.hidden=false; button.onclick=()=>{video.currentTime=end;button.hidden=true};
     }
+    function remotePlaybackMetadata(){
+      const video=document.getElementById('video'),meta=currentPlaybackMeta||{};
+      return {title:String(meta.name||meta.parentName||meta.title||'AIOPlay'),subtitle:String(meta.episodeTitle||''),image:safeImageUrl(meta.poster||meta.background||meta.backdrop)||'',position:Number(video?.currentTime||0)};
+    }
+    async function castCurrentPlayback(){
+      if(!window.AIORemote||!currentPlaybackSession)return;const button=document.getElementById('playerCast');if(button)button.disabled=true;
+      try{if(AIORemote.state.connected){AIORemote.stop();return}await AIORemote.requestSession();
+        const response=await fetch('/api/v1/playback/'+encodeURIComponent(currentPlaybackSession)+'/remote',{method:'POST'}),data=await response.json().catch(()=>({}));
+        if(!response.ok||!data.url)throw new Error(data.error||'Could not prepare remote playback.');
+        const meta=remotePlaybackMetadata();AIORemote.setContext({...meta,url:data.url,contentType:'video/mp4'});await AIORemote.load({...meta,url:data.url,contentType:'video/mp4'});document.getElementById('video')?.pause();
+      }catch(err){showPlaybackFailure(err?.message||'Could not start Cast playback.')}finally{if(button)button.disabled=false}
+    }
+    function setupRemotePlayback(){
+      if(!window.AIORemote)return;const button=document.getElementById('playerCast');if(!button)return;button.onclick=castCurrentPlayback;
+      remotePlaybackUnsubscribe?.();remotePlaybackUnsubscribe=AIORemote.subscribe(state=>{button.hidden=!state.available;button.textContent=state.connected?'Casting':'Cast';button.classList.toggle('active',state.connected)});AIORemote.init();
+    }
+
     function setupPlayerFeatures(){
       const video=document.getElementById('video'), panel=document.getElementById('playerSettingsPanel'), prefs=playerPrefs();
       setupPlayerTimelineInteraction();
+      setupRemotePlayback();
       for(const [id,key] of [['playerAutoNext','autoNext'],['playerAutoIntro','autoIntro'],['playerAutoRecap','autoRecap'],['playerAutoOutro','autoOutro'],['playerAutoRecover','autoRecover']]){
         const el=document.getElementById(id);el.checked=!!prefs[key];el.onchange=()=>{const p=playerPrefs();p[key]=el.checked;savePlayerPrefs(p)};
       }
@@ -8937,6 +8961,7 @@
 
     async function closePlayer(invalidate = true, { returnToOrigin = true } = {}) {
       const session = currentPlaybackSession;
+      if(window.AIORemote?.state?.connected)AIORemote.stop();
       if (currentProgressContext) {
         await syncCurrentProgress(true, false);
       }
