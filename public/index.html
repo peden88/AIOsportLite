@@ -8827,11 +8827,11 @@
       let playbackUrl = url;
       const isVod = currentPlaybackKind !== 'sport_event' && currentPlaybackKind !== 'live_channel' && currentPlaybackKind !== 'sport';
 
-      // Direct-play first. Escalate through the backend compatibility pipeline
-      // only after this exact VOD source fails in the browser. The backend can
-      // stream-copy compatible video, transcode only incompatible audio, or
-      // fall back to H.264/AAC when the source genuinely needs it.
-      if (compatibility && isVod && currentPlaybackSession && target.kind === 'direct') {
+      // Safari/WebKit can leave unsupported direct media indefinitely pending
+      // without emitting a media error. Prepare the existing Apple-compatible
+      // HLS path up front there; other browsers retain direct-play-first.
+      const needsCompatibility = compatibility || (isVod && isSafariBasedBrowser());
+      if (needsCompatibility && isVod && currentPlaybackSession && target.kind === 'direct') {
         showPlaybackLoading('Preparing compatible stream…');
         try {
           const preparedRes = await fetch('/api/v1/playback/' + encodeURIComponent(currentPlaybackSession) + '/apple-hls', { method:'POST' });
