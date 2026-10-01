@@ -8,6 +8,8 @@ assert(html.includes("classList.remove('mini-player-active','details-open');docu
 assert.equal((html.match(/timelineTrack\?\.addEventListener\('click'/g)||[]).length,0,'legacy duplicate timeline click seek removed');
 assert(!html.includes("recoverPlayback(generation,'startup-timeout')"),'healthy direct playback must never be escalated by a fixed startup timer');
 assert(html.includes("video.addEventListener('error', failed, { once: true })"),'direct playback recovery is driven by an actual media error');
+assert(html.includes("const appleCompatibility = isVod && isSafariBasedBrowser() && data.playback?.kind === 'direct'"),'Safari VOD uses compatibility on its first attempt');
+assert(html.includes("compatibility:appleCompatibility"),'Safari compatibility is passed directly into initial playback');
 assert(html.includes("const needsCompatibility = compatibility || (isVod && isSafariBasedBrowser())"),'Safari VOD prepares compatibility before attaching a direct target');
 assert(!html.includes("startup-timeout"),'Safari compatibility selection must not depend on a startup timer');
 assert(html.includes("#player-overlay.is-vod .player-timeline{display:block!important"),'custom VOD scrubber is always exposed');
