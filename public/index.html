@@ -3913,11 +3913,28 @@
     }
 
     .continue-rows{display:flex;flex-direction:column;gap:30px;width:100%;min-width:0}
-    .continue-row-section{min-width:0}.continue-row-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 2px 12px}
+    .continue-row-section{min-width:0;overflow:hidden}.continue-row-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 2px 12px}
     .continue-row-head h2{margin:0;font:700 clamp(1.05rem,1.6vw,1.35rem)/1.1 'Outfit',sans-serif;color:#f3f5f6}.continue-row-head span{font-size:.7rem;color:var(--text-muted)}
-    .continue-rail-grid.grid{display:flex;grid-template-columns:none;gap:14px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 12px;scroll-snap-type:x proximity;overscroll-behavior-inline:contain;scrollbar-width:thin}
-    .continue-rail-grid .card{flex:0 0 clamp(145px,15vw,205px);scroll-snap-align:start}.continue-empty{padding:20px 4px;color:var(--text-muted);font-size:.82rem}
-    @media(max-width:650px){.continue-rows{gap:24px}.continue-rail-grid .card{flex-basis:38vw}.continue-row-head{margin-bottom:9px}}
+    .continue-rail-grid.grid,.continue-rail-grid.grid.vod-grid{display:grid!important;grid-template-columns:none!important;grid-template-rows:repeat(2,auto)!important;grid-auto-flow:column!important;grid-auto-columns:clamp(145px,15vw,205px)!important;gap:14px!important;overflow-x:auto!important;overflow-y:hidden!important;padding:2px 2px 12px!important;scroll-snap-type:x proximity;overscroll-behavior-inline:contain;scrollbar-width:thin}
+    .continue-rail-grid .card{width:auto!important;min-width:0!important;scroll-snap-align:start}.continue-empty{padding:20px 4px;color:var(--text-muted);font-size:.82rem}
+    @media(max-width:650px){.continue-rows{gap:24px}.continue-rail-grid.grid,.continue-rail-grid.grid.vod-grid{grid-template-rows:1fr!important;grid-auto-columns:38vw!important}.continue-row-head{margin-bottom:9px}}
+
+    /* Final player geometry: one custom control system on desktop and mobile. */
+    .player-seek-thumb{display:none!important}
+    #player-overlay.is-vod .player-timeline{display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}
+    @media(min-width:651px) and (hover:hover) and (pointer:fine){
+      #player-overlay.is-vod .player-hud{position:fixed!important;left:24px!important;right:24px!important;bottom:22px!important;top:auto!important;width:auto!important;height:auto!important;display:flex!important;align-items:flex-end!important;justify-content:center!important;pointer-events:none!important;z-index:145!important}
+      #player-overlay.is-vod .player-hud-actions{position:static!important;inset:auto!important;width:auto!important;height:auto!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:12px!important;padding:10px 14px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:18px!important;background:rgba(12,15,19,.78)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important;box-shadow:0 10px 32px rgba(0,0,0,.38)!important;pointer-events:auto!important}
+      #player-overlay.is-vod .player-hud-actions>*{position:static!important;transform:none!important}
+      #player-overlay.is-vod #playerMinimize,#player-overlay.is-vod #playerPrevChapter,#player-overlay.is-vod #playerNextChapter,#player-overlay.is-vod #playerPip,#player-overlay.is-vod #playerStreamPicker,#player-overlay.is-vod #playerSettings,#player-overlay.is-vod #playerSwitchSource{display:none!important}
+      #player-overlay.is-vod #playerTryAnother,#player-overlay.is-vod #playerBack10,#player-overlay.is-vod #playerPlayPause,#player-overlay.is-vod #playerForward10,#player-overlay.is-vod #playerFullscreen{display:inline-flex!important;position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;pointer-events:auto!important}
+      #player-overlay.is-vod #playerBack10,#player-overlay.is-vod #playerForward10{width:52px!important;min-width:52px!important;height:52px!important;min-height:52px!important;padding:0!important;border-radius:50%!important}
+      #player-overlay.is-vod #playerPlayPause{width:68px!important;min-width:68px!important;height:68px!important;min-height:68px!important;padding:0!important;border-radius:50%!important}
+      #player-overlay.is-vod #playerFullscreen{width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:50%!important}
+      #player-overlay.is-vod #playerTryAnother{min-width:190px!important;height:48px!important;padding:0 18px!important;border-radius:14px!important}
+      #player-overlay.is-vod .player-timeline{position:fixed!important;left:7vw!important;right:7vw!important;bottom:112px!important;width:auto!important;min-width:0!important;z-index:147!important;padding:10px 12px!important;border-radius:14px!important;background:rgba(8,11,15,.68)!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important}
+      #player-overlay.is-vod .player-timeline-track{height:8px!important;cursor:pointer!important}
+    }
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3926,8 +3943,7 @@
   <link rel="apple-touch-icon" href="/aioplay-launcher.webp">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
   <script src="/data-layer.js"></script>\n  <script src="/continue-system.js"></script>
-  <script src="/playback-intelligence.js"></script>
-  <script src="/trickplay-client.js"></script>\n</head>
+  <script src="/playback-intelligence.js"></script>\n</head>
 <body>
   <script>
     // iOS Home Screen apps do not consistently match display-mode:standalone.
@@ -4134,7 +4150,7 @@
             <div id="playerTimelineTrack" class="player-timeline-track" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
               <div id="playerTimelineFill" class="player-timeline-fill"></div>
               <div id="playerTimelineMarkers" class="player-timeline-markers"></div>
-              <div id="playerSeekPreview" class="player-seek-preview" hidden><div id="playerSeekThumb" class="player-seek-thumb"></div><div id="playerSeekLabel" class="player-seek-label">0:00</div></div>
+              <div id="playerSeekPreview" class="player-seek-preview" hidden><div id="playerSeekLabel" class="player-seek-label">0:00</div></div>
             </div>
             <div class="player-timeline-times">
               <span id="playerTimelineCurrent">0:00</span>
@@ -5734,11 +5750,10 @@
       if(target){video.currentTime=Math.max(0,target.start);showPlayerHud(false)}
     }
     function showSeekPreview(clientX,{commit=false}={}){
-      const track=document.getElementById('playerTimelineTrack'),video=document.getElementById('video'),preview=document.getElementById('playerSeekPreview'),thumb=document.getElementById('playerSeekThumb'),label=document.getElementById('playerSeekLabel');
+      const track=document.getElementById('playerTimelineTrack'),video=document.getElementById('video'),preview=document.getElementById('playerSeekPreview'),label=document.getElementById('playerSeekLabel');
       if(!track||!video||!preview||!label||!Number.isFinite(video.duration)||video.duration<=0)return;
       const rect=track.getBoundingClientRect(),ratio=Math.max(0,Math.min(1,(clientX-rect.left)/Math.max(1,rect.width))),seconds=ratio*video.duration;
       preview.hidden=false;preview.style.left=(ratio*100)+'%';label.textContent=formatPlaybackTime(seconds);
-      const frame=window.AIOTrickplay?.frameAt(seconds);if(frame&&thumb){thumb.style.backgroundImage='url("'+frame.url.replace(/"/g,'%22')+'")';thumb.style.backgroundSize=(frame.width*(AIOTrickplay.manifest?.columns||5))+'px '+(frame.height*(AIOTrickplay.manifest?.rows||5))+'px';thumb.style.backgroundPosition=(-frame.x)+'px '+(-frame.y)+'px'}else if(thumb){thumb.style.backgroundImage='none'}
       if(commit){video.currentTime=seconds;updatePlayerTimeline(video)}
     }
     function setupPlayerTimelineInteraction(){
@@ -8666,7 +8681,6 @@
 
         stopPlaybackHeartbeat();
         currentPlaybackSession = null;
-        if(window.AIOTrickplay)AIOTrickplay.reset();
         requestingFallback = false;
         currentProgressContext = null;
         lastProgressSyncAt = 0;
@@ -8993,11 +9007,6 @@
     });
     const syncMiniPlay=()=>{const b=document.getElementById('miniPlayPause');if(b){b.textContent=progressVideo.paused?'Play':'Pause';b.setAttribute('aria-label',progressVideo.paused?'Play playback':'Pause playback')}};
     progressVideo.addEventListener('play', () => {syncMiniPlay();showPlayerHud(false)});
-    progressVideo.addEventListener('playing',()=>{
-      const generation=playbackGeneration,session=currentPlaybackSession;
-      if(!window.AIOTrickplay||!session)return;
-      setTimeout(()=>{if(generation===playbackGeneration&&session===currentPlaybackSession&&!progressVideo.paused)AIOTrickplay.start(session)},8000);
-    });
     progressVideo.addEventListener('pause',syncMiniPlay);
     progressVideo.addEventListener('ended', async () => {
       showPlayerHud(true);
