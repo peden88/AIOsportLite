@@ -4228,9 +4228,11 @@
     const THEME_KEY = 'aioplay.appearance.v1';
 
     const grid = () => document.getElementById('grid');
+    window.addEventListener('online',()=>{if(currentMode==='continue')loadContinueWatching({push:false})});
     const tabs = () => document.getElementById('tabs');
     const VOD_PLAYER_KEY = 'aioplay.vodPlayer';
     let currentUserIsAdmin = false;
+    let accountSnapshotScope = 'account';
 
     function aiostreamsVisualParts(stream) {
       const rawName=String(stream?.name||'').trim();
@@ -5986,7 +5988,8 @@
           bootstrap.accountUser = account && account.user ? account.user : null;
           currentUserIsAdmin = !!(bootstrap.accountUser && bootstrap.accountUser.role === 'admin');
           if (bootstrap.accountUser) {
-            const snapshotScope=String(bootstrap.accountUser.id||bootstrap.accountUser.username||bootstrap.accountUser.email||'account');
+            const snapshotScope=String(bootstrap.accountUser.id||bootstrap.accountUser.username||'account');
+            accountSnapshotScope=snapshotScope;
             if(window.AIOData){
               sharedProgressItems=AIOData.loadSnapshot(snapshotScope+':progress')||sharedProgressItems;
               sharedLibraryItems=AIOData.loadSnapshot(snapshotScope+':library')||sharedLibraryItems;
@@ -6292,7 +6295,7 @@
       beginGridTransition({posterMode:true}); clearTimeout(continueRefreshTimer);
       try {
         const progressData=window.AIOData
-          ? await AIOData.requestJson('/api/v1/progress',{key:'progress:all',ttl:15000,staleTime:5*60*1000,staleWhileRevalidate:true})
+          ? await AIOData.requestJson('/api/v1/progress',{key:'progress:all:'+accountSnapshotScope,ttl:15000,staleTime:5*60*1000,staleWhileRevalidate:true})
           : await (await fetch('/api/v1/progress',{cache:'no-store'})).json();
         if(Array.isArray(progressData?.items))sharedProgressItems=progressData.items;
         const resolved=window.AIOContinue
@@ -6300,7 +6303,7 @@
           : {continueItems:[],upcomingItems:[],nextRefreshAt:Infinity};
         currentItems=[...resolved.continueItems,...resolved.upcomingItems];
         renderContinueRows(resolved.continueItems,resolved.upcomingItems);
-        if(window.AIOData)AIOData.saveSnapshot('continue-overview',{continueItems:resolved.continueItems,upcomingItems:resolved.upcomingItems},7*24*60*60*1000);
+        if(window.AIOData)AIOData.saveSnapshot(accountSnapshotScope+':continue-overview',{continueItems:resolved.continueItems,upcomingItems:resolved.upcomingItems},7*24*60*60*1000);
         if(Number.isFinite(resolved.nextRefreshAt)){
           const delay=Math.min(2147480000,Math.max(1000,resolved.nextRefreshAt-Date.now()+15000));
           continueRefreshTimer=setTimeout(()=>{if(currentMode==='continue')loadContinueWatching({push:false})},delay);
@@ -6308,7 +6311,7 @@
         if(push&&!restoringUiState)persistUiState({push:true});
       } catch(err) {
         console.error(err);
-        const cached=window.AIOData?AIOData.loadSnapshot('continue-overview'):null;
+        const cached=window.AIOData?AIOData.loadSnapshot(accountSnapshotScope+':continue-overview'):null;
         if(cached&&(cached.continueItems?.length||cached.upcomingItems?.length)){
           currentItems=[...(cached.continueItems||[]),...(cached.upcomingItems||[])];
           renderContinueRows(cached.continueItems||[],cached.upcomingItems||[]);
