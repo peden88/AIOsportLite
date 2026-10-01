@@ -4145,6 +4145,7 @@
           <label>Subtitles<select id="playerSubtitleSelect"><option value="-1">Off</option></select></label>
           <label>Audio<select id="playerAudioSelect"><option value="-1">Default</option></select></label>
           <label>Quality<select id="playerQualitySelect"><option value="-1">Auto</option></select></label>
+          <label>Subtitle delay<select id="playerSubtitleDelay"><option value="-2">−2s</option><option value="-1">−1s</option><option value="0" selected>0s</option><option value="1">+1s</option><option value="2">+2s</option></select></label>
           <label>Speed<select id="playerSpeedSelect"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         </div>
         <label><input type="checkbox" id="playerAutoNext"> Auto-play next episode</label>
@@ -5759,6 +5760,7 @@
         const el=document.getElementById(id);el.checked=!!prefs[key];el.onchange=()=>{const p=playerPrefs();p[key]=el.checked;savePlayerPrefs(p)};
       }
       const speed=document.getElementById('playerSpeedSelect');speed.value=String(prefs.speed||1);speed.onchange=()=>{video.playbackRate=Number(speed.value);const p=playerPrefs();p.speed=video.playbackRate;savePlayerPrefs(p)};
+      const delay=document.getElementById('playerSubtitleDelay');if(delay){delay.value=String(window.AIOPlayback?.read()?.subtitleDelay||0);delay.onchange=()=>{if(window.AIOPlayback){const state=AIOPlayback.read();state.subtitleDelay=Number(delay.value)||0;AIOPlayback.write(state)}applySubtitleDelay()}};
       document.getElementById('playerSettings').onclick=()=>{panel.hidden=!panel.hidden;
     document.getElementById('playerStreamPicker').onclick = openRawStreamPicker;if(!panel.hidden)populatePlayerTracks()};
       const playPauseButton=document.getElementById('playerPlayPause');
@@ -5810,11 +5812,16 @@
       document.getElementById('playerSubtitleSelect').onchange=e=>{const tracks=[...(video.textTracks||[])],i=Number(e.target.value);tracks.forEach((t,n)=>t.mode=n===i?'showing':'disabled');if(window.AIOPlayback)AIOPlayback.rememberTrack('subtitle',i>=0?tracks[i]:null,i>=0?'on':'off')};
       document.getElementById('playerAudioSelect').onchange=e=>{const i=Number(e.target.value),tracks=hls?.audioTracks||[];if(hls&&i>=0)hls.audioTrack=i;if(window.AIOPlayback)AIOPlayback.rememberTrack('audio',i>=0?tracks[i]:null)};
       document.getElementById('playerQualitySelect').onchange=e=>{if(hls)hls.currentLevel=Number(e.target.value)};
-      video.addEventListener('loadedmetadata',()=>{video.playbackRate=Number(playerPrefs().speed||1);populatePlayerTracks()});
+      video.addEventListener('loadedmetadata',()=>{video.playbackRate=Number(playerPrefs().speed||1);populatePlayerTracks();setTimeout(applySubtitleDelay,0)});
       video.addEventListener('timeupdate',()=>{updateSkipSegment(video);lastPlayerProgress=Date.now();updatePlaybackStats()});
       clearInterval(playerStallTimer);playerStallTimer=setInterval(()=>{if(playerPrefs().autoRecover&&!video.paused&&!video.ended&&lastPlayerProgress&&Date.now()-lastPlayerProgress>15000&&currentPlaybackSession&&!requestingFallback){lastPlayerProgress=Date.now();recoverPlayback(playbackGeneration,'stall')}},5000);
     }
 
+    const subtitleCueTimes=new WeakMap();
+    function applySubtitleDelay(){
+      const video=document.getElementById('video'),delay=Number(window.AIOPlayback?.read()?.subtitleDelay||0);
+      for(const track of [...(video?.textTracks||[])])for(const cue of [...(track.cues||[])]){let original=subtitleCueTimes.get(cue);if(!original){original={start:cue.startTime,end:cue.endTime};subtitleCueTimes.set(cue,original)}try{cue.startTime=Math.max(0,original.start+delay);cue.endTime=Math.max(cue.startTime+.05,original.end+delay)}catch(_){}}
+    }
     function updatePlaybackStats(){
       const host=document.getElementById('playerPlaybackStats');if(!host||!window.AIOPlayback)return;
       const st=AIOPlayback.stats({video:document.getElementById('video'),hls,target:currentPlaybackTarget,session:currentPlaybackSession});
