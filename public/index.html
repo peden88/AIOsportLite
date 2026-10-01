@@ -8903,12 +8903,8 @@
         setTimeout(()=>{if(generation===playbackGeneration)recoverySnapshot=null},1200);
       };
       const failed = () => recoverPlayback(generation, 'media-error');
-      let startupSettled=false;
-      const startupWatch=setTimeout(()=>{if(!startupSettled&&generation===playbackGeneration&&video.readyState<1)recoverPlayback(generation,'startup-timeout')},5000);
-      const settleLoaded=()=>{startupSettled=true;clearTimeout(startupWatch);loaded()};
-      const settleFailed=()=>{startupSettled=true;clearTimeout(startupWatch);failed()};
-      video.addEventListener('loadedmetadata', settleLoaded, { once: true });
-      video.addEventListener('error', settleFailed, { once: true });
+      video.addEventListener('loadedmetadata', loaded, { once: true });
+      video.addEventListener('error', failed, { once: true });
       video.src = playbackUrl;
       video.load();
     }
