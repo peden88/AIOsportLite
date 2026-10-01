@@ -5934,53 +5934,20 @@
       document.addEventListener('fullscreenchange',()=>{ syncPlayPauseButton(); });
             document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
       document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
+      // Keep PiP on the same standards path that previously worked in the
+      // installed iOS PWA. Do not gate it on WebKit capability probes: Home
+      // Screen mode can report false negatives even when requestPiP succeeds.
       const pipButton=document.getElementById('playerPip');
-      // iOS Home Screen apps can report the WebKit PiP API but reject the
-      // transition while the media element is inline. In standalone mode,
-      // explicitly enter native AVKit fullscreen first; PiP is then requested
-      // from the same persistent <video> element. Browser Safari keeps its
-      // existing direct PiP path unchanged.
-      const isStandalonePwa=()=>document.documentElement.classList.contains('aioplay-standalone');
-      const supportsWebkitPip=()=>typeof video.webkitSetPresentationMode==='function'&&
-        (typeof video.webkitSupportsPresentationMode!=='function'||video.webkitSupportsPresentationMode('picture-in-picture'));
-      const supportsStandardPip=()=>!!document.pictureInPictureEnabled&&typeof video.requestPictureInPicture==='function';
-      const syncPipControl=()=>{
-        // iOS Home Screen apps can omit the standards API while retaining the
-        // WebKit media presentation API. Never hide PiP based on the former alone.
-        const supported=supportsWebkitPip()||supportsStandardPip();
-        pipButton.disabled=!supported;
-        pipButton.setAttribute('aria-disabled',supported?'false':'true');
-        pipButton.title=supported?'Picture in Picture':'Picture in Picture unavailable';
-      };
+      pipButton.disabled=false;
+      pipButton.removeAttribute('aria-disabled');
+      pipButton.title='Picture in Picture';
       pipButton.onclick=async()=>{
         try{
-          if(document.pictureInPictureElement){await document.exitPictureInPicture();return}
-          // Prefer WebKit on Apple platforms.
-          if(supportsWebkitPip()){
-            const active=video.webkitPresentationMode==='picture-in-picture';
-            if(active){video.webkitSetPresentationMode('inline');return}
-            if(isStandalonePwa()&&video.webkitPresentationMode==='inline'&&typeof video.webkitEnterFullscreen==='function'){
-              try{video.webkitEnterFullscreen()}catch(_){}
-              // Let AVKit finish the presentation transition before asking it
-              // to move the same media session into PiP.
-              setTimeout(()=>{
-                try{
-                  if(video.webkitPresentationMode!=='picture-in-picture'&&supportsWebkitPip()){
-                    video.webkitSetPresentationMode('picture-in-picture');
-                  }
-                }catch(err){console.warn('Standalone Picture in Picture unavailable',err)}
-              },180);
-              return;
-            }
-            video.webkitSetPresentationMode('picture-in-picture');
-            return;
-          }
-          if(supportsStandardPip())await video.requestPictureInPicture();
+          if(document.pictureInPictureElement)await document.exitPictureInPicture();
+          else if(typeof video.requestPictureInPicture==='function')await video.requestPictureInPicture();
+          else if(typeof video.webkitSetPresentationMode==='function')video.webkitSetPresentationMode('picture-in-picture');
         }catch(err){console.warn('Picture in Picture unavailable',err)}
       };
-      video.addEventListener('loadedmetadata',syncPipControl);
-      video.addEventListener('webkitpresentationmodechanged',syncPipControl);
-      syncPipControl();
       const enterPlayerFullscreen = async () => {
         const host = document.getElementById('video-container');
         try {
