@@ -1526,6 +1526,18 @@ app.post('/api/v1/playback/:sessionId/apple-hls', requirePage, express.json({ li
 
 app.get('/api/v1/apple-hls/:token/:file', (req, res) => hlsTransmux.serve(req, res));
 
+app.post('/api/v1/playback/:sessionId/remote', requirePage, (req, res) => {
+  const account=currentAccount(req),lease=playbackLeases.leaseForSession(req.params.sessionId);
+  if(!account)return res.status(401).json({error:'An AIOPlay account is required.'});
+  if(!lease||lease.userId!==account.user.id||!playbackLeases.touchLease(lease.id))return res.status(410).json({error:'Playback lease expired.',code:'PLAYBACK_LEASE_EXPIRED'});
+  const target=opaquePlayback.currentTarget(req.params.sessionId);
+  if(!target||target.kind!=='direct'||!target.url)return res.status(409).json({error:'This source cannot be sent to a remote player.'});
+  const issued=externalPlayback.issue(target,{leaseId:lease.id});
+  if(!issued)return res.status(409).json({error:'Remote playback is unavailable for this source.'});
+  const base=getRequestBaseUrl(req).replace(/\/$/,'');
+  return res.json({ok:true,url:base+'/api/v1/external-play/'+encodeURIComponent(issued.token),expiresAt:new Date(issued.expiresAt).toISOString()});
+});
+
 app.post('/api/v1/playback/:sessionId/external', requirePage, (req, res) => {
   const account = currentAccount(req);
   const lease = playbackLeases.leaseForSession(req.params.sessionId);
