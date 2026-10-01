@@ -3971,6 +3971,30 @@
         box-sizing:border-box;background:linear-gradient(currentColor,currentColor) right 2px bottom 2px/9px 7px no-repeat;
       }
     }
+
+    /* Mobile VOD PiP: independent lower-right action. Keep it clear of branding
+       and mirror the lower stream-switch control across the viewport. */
+    @media(max-width:650px), (hover:none) and (pointer:coarse){
+      #player-overlay.is-vod:not(.mini) #playerPip{
+        display:inline-flex!important;visibility:visible!important;opacity:1!important;
+        position:fixed!important;
+        left:auto!important;
+        right:max(18px,env(safe-area-inset-right,0px))!important;
+        top:auto!important;
+        bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;
+        transform:none!important;
+        margin:0!important;
+        z-index:181!important;
+        width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;
+        pointer-events:auto!important;touch-action:manipulation!important;
+      }
+      html.aioplay-standalone #player-overlay.is-vod:not(.mini) #playerPip{
+        display:inline-flex!important;visibility:visible!important;opacity:1!important;
+        right:max(18px,env(safe-area-inset-right,0px))!important;
+        bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;
+        z-index:220!important;
+      }
+    }
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5910,16 +5934,33 @@
       document.addEventListener('fullscreenchange',()=>{ syncPlayPauseButton(); });
             document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
       document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
-      document.getElementById('playerPip').onclick=async()=>{
+      const pipButton=document.getElementById('playerPip');
+      const supportsWebkitPip=()=>typeof video.webkitSetPresentationMode==='function'&&
+        (typeof video.webkitSupportsPresentationMode!=='function'||video.webkitSupportsPresentationMode('picture-in-picture'));
+      const supportsStandardPip=()=>!!document.pictureInPictureEnabled&&typeof video.requestPictureInPicture==='function';
+      const syncPipControl=()=>{
+        // iOS Home Screen apps can omit the standards API while retaining the
+        // WebKit media presentation API. Never hide PiP based on the former alone.
+        const supported=supportsWebkitPip()||supportsStandardPip();
+        pipButton.disabled=!supported;
+        pipButton.setAttribute('aria-disabled',supported?'false':'true');
+        pipButton.title=supported?'Picture in Picture':'Picture in Picture unavailable';
+      };
+      pipButton.onclick=async()=>{
         try{
           if(document.pictureInPictureElement){await document.exitPictureInPicture();return}
-          if(video.requestPictureInPicture){await video.requestPictureInPicture();return}
-          if(typeof video.webkitSetPresentationMode==='function'){
+          // Prefer WebKit on Apple platforms, including installed Home Screen apps.
+          if(supportsWebkitPip()){
             const active=video.webkitPresentationMode==='picture-in-picture';
             video.webkitSetPresentationMode(active?'inline':'picture-in-picture');
+            return;
           }
-        }catch(_){}
+          if(supportsStandardPip())await video.requestPictureInPicture();
+        }catch(err){console.warn('Picture in Picture unavailable',err)}
       };
+      video.addEventListener('loadedmetadata',syncPipControl);
+      video.addEventListener('webkitpresentationmodechanged',syncPipControl);
+      syncPipControl();
       const enterPlayerFullscreen = async () => {
         const host = document.getElementById('video-container');
         try {
