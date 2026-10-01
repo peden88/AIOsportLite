@@ -3946,10 +3946,18 @@
     #playerCast.active{border-color:rgba(87,220,156,.72)!important;color:#8ff0bd!important}
     @media(min-width:651px) and (hover:hover) and (pointer:fine){#player-overlay.is-vod #playerCast:not([hidden]){display:inline-flex!important;position:static!important;transform:none!important;height:48px!important;padding:0 16px!important;border-radius:14px!important;pointer-events:auto!important}}
 
-    .episode-item{position:relative;flex:0 0 var(--episode-card-width,300px);min-width:0;scroll-snap-align:start}
+    .episode-item{position:relative;flex:0 0 clamp(220px,31vw,290px);min-width:0;scroll-snap-align:start;isolation:isolate}
     .episode-item>.episode-btn{width:100%!important;min-width:0!important;height:100%;box-sizing:border-box}
-    .episode-item>.episode-more{z-index:12!important}
-    @media(max-width:650px){.episode-item{flex-basis:min(82vw,330px)}}
+    .episode-item>.episode-more{z-index:20!important;pointer-events:auto!important;touch-action:manipulation!important}
+    .episode-item>.episode-more::after{content:'';position:absolute;inset:-9px;border-radius:50%}
+    #episodeStateMenu{z-index:260!important;pointer-events:auto!important}
+    #episodeStateMenu:not([hidden]){display:block!important}
+    @media(max-width:650px){
+      .episode-item{flex-basis:min(76vw,270px)}
+      .episode-item>.episode-more{width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;right:8px!important;top:8px!important}
+      #episodeStateMenu{min-width:min(220px,calc(100vw - 24px));padding:8px}
+      #episodeStateMenu button{min-height:44px;padding:12px 14px}
+    }
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -8318,12 +8326,16 @@
             more.setAttribute('aria-label', 'Episode actions for ' + code);
             more.title = 'Episode actions';
             more.textContent = '•••';
-            more.addEventListener('pointerdown', event => event.stopPropagation());
-            more.onclick = event => {
+            const openEpisodeActions = event => {
               event.preventDefault();
               event.stopPropagation();
               showEpisodeStateMenu(more, meta, video, () => renderSeason(season));
             };
+            more.addEventListener('pointerdown', event => event.stopPropagation());
+            more.addEventListener('click', openEpisodeActions);
+            more.addEventListener('keydown', event => {
+              if(event.key==='Enter'||event.key===' '){openEpisodeActions(event)}
+            });
             episodeWrap.appendChild(more);
 
             button.addEventListener('keydown', event => {
@@ -9127,7 +9139,7 @@
         setTimeout(release, 650);
       }
       const episodeMenu = document.getElementById('episodeStateMenu');
-      if (episodeMenu && !episodeMenu.hidden && !episodeMenu.contains(event.target) && !event.target.closest?.('.episode-btn')) {
+      if (episodeMenu && !episodeMenu.hidden && !episodeMenu.contains(event.target) && !event.target.closest?.('.episode-btn,.episode-more')) {
         hideEpisodeStateMenu();
       }
       const menu = document.getElementById('quickActions');
