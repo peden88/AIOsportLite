@@ -4277,6 +4277,7 @@
         if(r.status===403){panel.hidden=true;return false}
         const data=await r.json(), streams=Array.isArray(data.streams)?data.streams:[];
         const affinityIndex=window.AIOPlayback?AIOPlayback.preferredStream(ctx.playArgs?.[3],streams):null;
+        if(beforePlayback&&affinityIndex!=null&&streams[affinityIndex]&&ctx.playArgs){panel.hidden=true;fetchAndPlay(...ctx.playArgs,streams[affinityIndex].index);return true}
         rows.innerHTML='';
         streams.forEach(s=>{
           const button=document.createElement('button');button.type='button';button.className='aiostreams-result';
