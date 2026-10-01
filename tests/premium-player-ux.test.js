@@ -44,4 +44,9 @@ assert(html.includes("await closePlayer(true);"),'caught-up playback exits the p
 assert(html.includes("typeof video.webkitSetPresentationMode==='function'"),'PiP supports the WebKit presentation mode used on iPhone');
 assert(html.includes("video.webkitPresentationMode==='picture-in-picture'"),'iPhone PiP control can toggle the active WebKit PiP session');
 assert(html.includes("#player-overlay.is-vod #playerPip,#player-overlay.is-vod #playerFullscreen{display:inline-flex!important"),'mobile VOD exposes PiP beside the custom transport controls');
+assert(html.includes('function armResumePosition(video,generation)'), 'resume position is retained until the media timeline becomes seekable');
+assert(html.includes("video.addEventListener('progress',tryResume)"), 'compatibility HLS retries resume as segments establish seekable ranges');
+assert(html.includes("video.addEventListener('canplay',tryResume)"), 'resume is retried when Safari can actually seek the compatibility stream');
+assert(html.includes('applyResumePosition(video);\n          started = true;'), 'HLS manifest readiness attempts the saved resume before playback starts');
+assert(!html.includes('resumeSeconds >= video.duration * 0.90'), 'playback resume is not suppressed by Continue-Watching completion thresholds');
 console.log('premium player UX contract passed');
