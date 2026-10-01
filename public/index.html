@@ -3933,8 +3933,8 @@
       #player-overlay.is-vod .player-hud{position:fixed!important;left:24px!important;right:24px!important;bottom:22px!important;top:auto!important;width:auto!important;height:auto!important;display:flex!important;align-items:flex-end!important;justify-content:center!important;pointer-events:none!important;z-index:145!important}
       #player-overlay.is-vod .player-hud-actions{position:static!important;inset:auto!important;width:auto!important;height:auto!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:12px!important;padding:10px 14px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:18px!important;background:rgba(12,15,19,.78)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important;box-shadow:0 10px 32px rgba(0,0,0,.38)!important;pointer-events:auto!important}
       #player-overlay.is-vod .player-hud-actions>*{position:static!important;transform:none!important}
-      #player-overlay.is-vod #playerMinimize,#player-overlay.is-vod #playerPrevChapter,#player-overlay.is-vod #playerNextChapter,#player-overlay.is-vod #playerPip,#player-overlay.is-vod #playerStreamPicker,#player-overlay.is-vod #playerSettings,#player-overlay.is-vod #playerSwitchSource{display:none!important}
-      #player-overlay.is-vod #playerTryAnother,#player-overlay.is-vod #playerBack10,#player-overlay.is-vod #playerPlayPause,#player-overlay.is-vod #playerForward10,#player-overlay.is-vod #playerFullscreen{display:inline-flex!important;position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;pointer-events:auto!important}
+      #player-overlay.is-vod #playerMinimize,#player-overlay.is-vod #playerPrevChapter,#player-overlay.is-vod #playerNextChapter,#player-overlay.is-vod #playerStreamPicker,#player-overlay.is-vod #playerSettings,#player-overlay.is-vod #playerSwitchSource{display:none!important}
+      #player-overlay.is-vod #playerTryAnother,#player-overlay.is-vod #playerBack10,#player-overlay.is-vod #playerPlayPause,#player-overlay.is-vod #playerForward10,#player-overlay.is-vod #playerPip,#player-overlay.is-vod #playerFullscreen{display:inline-flex!important;position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;pointer-events:auto!important}
       #player-overlay.is-vod #playerBack10,#player-overlay.is-vod #playerForward10{width:52px!important;min-width:52px!important;height:52px!important;min-height:52px!important;padding:0!important;border-radius:50%!important}
       #player-overlay.is-vod #playerPlayPause{width:68px!important;min-width:68px!important;height:68px!important;min-height:68px!important;padding:0!important;border-radius:50%!important}
       #player-overlay.is-vod #playerFullscreen{width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:50%!important}
@@ -3958,6 +3958,8 @@
       #episodeStateMenu{min-width:min(220px,calc(100vw - 24px));padding:8px}
       #episodeStateMenu button{min-height:44px;padding:12px 14px}
     }
+
+    @media(max-width:650px), (hover:none) and (pointer:coarse){#player-overlay.is-vod #playerPip{width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:50%!important;font-size:0!important}#player-overlay.is-vod #playerPip::before{content:'▣';font-size:22px;line-height:1;color:#fff}}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5897,7 +5899,16 @@
       document.addEventListener('fullscreenchange',()=>{ syncPlayPauseButton(); });
             document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
       document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
-      document.getElementById('playerPip').onclick=async()=>{try{if(document.pictureInPictureElement)await document.exitPictureInPicture();else if(video.requestPictureInPicture)await video.requestPictureInPicture()}catch(_){}};
+      document.getElementById('playerPip').onclick=async()=>{
+        try{
+          if(document.pictureInPictureElement){await document.exitPictureInPicture();return}
+          if(video.requestPictureInPicture){await video.requestPictureInPicture();return}
+          if(typeof video.webkitSetPresentationMode==='function'){
+            const active=video.webkitPresentationMode==='picture-in-picture';
+            video.webkitSetPresentationMode(active?'inline':'picture-in-picture');
+          }
+        }catch(_){}
+      };
       const enterPlayerFullscreen = async () => {
         const host = document.getElementById('video-container');
         try {
