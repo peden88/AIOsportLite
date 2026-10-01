@@ -5978,17 +5978,30 @@
           bootstrap.accountUser = account && account.user ? account.user : null;
           currentUserIsAdmin = !!(bootstrap.accountUser && bootstrap.accountUser.role === 'admin');
           if (bootstrap.accountUser) {
-            const progressResponse = await fetch('/api/v1/progress', { cache: 'no-store' });
-            if (progressResponse.ok) {
-              const progressBody = await progressResponse.json();
-              sharedProgressItems = Array.isArray(progressBody.items) ? progressBody.items : [];
+            const snapshotScope=String(bootstrap.accountUser.id||bootstrap.accountUser.username||bootstrap.accountUser.email||'account');
+            if(window.AIOData){
+              sharedProgressItems=AIOData.loadSnapshot(snapshotScope+':progress')||sharedProgressItems;
+              sharedLibraryItems=AIOData.loadSnapshot(snapshotScope+':library')||sharedLibraryItems;
+              sharedWatchState=AIOData.loadSnapshot(snapshotScope+':watch-state')||sharedWatchState;
             }
-            const [libraryResponse, watchResponse] = await Promise.all([
-              fetch('/api/v1/library', { cache:'no-store' }),
-              fetch('/api/v1/watch-state', { cache:'no-store' })
+            const [progressResult,libraryResult,watchResult]=await Promise.allSettled([
+              fetch('/api/v1/progress',{cache:'no-store'}),
+              fetch('/api/v1/library',{cache:'no-store'}),
+              fetch('/api/v1/watch-state',{cache:'no-store'})
             ]);
-            if (libraryResponse.ok) sharedLibraryItems = (await libraryResponse.json()).items || [];
-            if (watchResponse.ok) sharedWatchState = (await watchResponse.json()).items || [];
+            if(progressResult.status==='fulfilled'&&progressResult.value.ok){
+              const body=await progressResult.value.json();
+              sharedProgressItems=Array.isArray(body.items)?body.items:[];
+              window.AIOData?.saveSnapshot(snapshotScope+':progress',sharedProgressItems,7*24*60*60*1000);
+            }
+            if(libraryResult.status==='fulfilled'&&libraryResult.value.ok){
+              sharedLibraryItems=(await libraryResult.value.json()).items||[];
+              window.AIOData?.saveSnapshot(snapshotScope+':library',sharedLibraryItems,7*24*60*60*1000);
+            }
+            if(watchResult.status==='fulfilled'&&watchResult.value.ok){
+              sharedWatchState=(await watchResult.value.json()).items||[];
+              window.AIOData?.saveSnapshot(snapshotScope+':watch-state',sharedWatchState,7*24*60*60*1000);
+            }
           }
         } catch (_) {
           bootstrap.accountUser = null;
@@ -6378,12 +6391,13 @@
         const catalogRows = peopleSearchOnly
           ? allCatalogRows.filter(row => /people\s*search/i.test(String(row?.catalogName || row?.name || '')))
           : allCatalogRows;
-        const results = catalogRows.length
+        const rawResults = catalogRows.length
           ? catalogRows.flatMap(row => (row.metas || []).map(meta => ({
               ...meta,
               _searchCatalog: { id:row.catalogId, name:row.catalogName, type:row.type }
             })))
           : [...(data.metas || [])];
+        const results = window.AIOData ? AIOData.dedupe(rawResults) : rawResults;
         document.getElementById('searchContextTitle').textContent = peopleSearchOnly&&currentPersonSearch
           ? 'Titles featuring '+currentPersonSearch.name
           : results.length + (results.length === 1 ? ' result' : ' results') + ' for “' + clean + '”';
