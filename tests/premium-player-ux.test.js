@@ -5,5 +5,6 @@ assert(html.includes("body.mini-player-active>.mobile-bottom-nav"),'mobile dock 
 assert(html.includes("playerReturnToDetails&&currentDetailsMeta?'details':''"),'originating details view can be restored beneath mini player');
 assert(html.includes("classList.remove('mini-player-active','details-open');document.body.classList.add('player-open')"),'expand returns to full player');
 assert.equal((html.match(/timelineTrack\?\.addEventListener\('click'/g)||[]).length,0,'legacy duplicate timeline click seek removed');
-assert(html.includes("if(window.AIOTrickplay&&currentPlaybackSession)AIOTrickplay.start(currentPlaybackSession)"),'trickplay lifecycle remains attached to playback session');
+assert(!html.includes("currentPlaybackSession = data.sessionId || null;\n        if(window.AIOTrickplay"),'trickplay must not race the primary stream startup');
+assert(html.includes("setTimeout(()=>AIOTrickplay.start(currentPlaybackSession),1500)"),'trickplay starts only after media readiness');
 console.log('premium player UX contract passed');
