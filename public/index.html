@@ -5946,7 +5946,7 @@
     }
     function startNextEpisodeCountdown(){
       clearInterval(nextEpisodeCountdownTimer);const button=document.getElementById('playerNextCountdown');
-      if(!button||!currentNextEpisode||!playerPrefs().autoNext){if(button)button.hidden=true;return}
+      if(!button||!currentNextEpisode||currentNextEpisode.availableNow===false||!playerPrefs().autoNext){if(button)button.hidden=true;return}
       let remaining=8;button.hidden=false;
       const render=()=>{button.textContent='Next episode in '+remaining+'s';if(remaining--<=0){clearInterval(nextEpisodeCountdownTimer);button.hidden=true;const next=currentNextEpisode;if(next)fetchAndPlay(next.video.id,'episode','series',next.progress,document.getElementById('playerBackdrop'))}};
       button.onclick=()=>{remaining=0;render()};render();nextEpisodeCountdownTimer=setInterval(render,1000);
@@ -6091,10 +6091,15 @@
       const next = findNextVideo(meta, progressContext);
       if (!meta || !next) return;
 
+      const release=window.AIOContinue?.parseRelease?.(next);
+      const releaseMs=Number(release?.ms);
+      const availableNow=next.available!==false&&(!Number.isFinite(releaseMs)||releaseMs<=Date.now());
       currentNextEpisode = {
         meta,
         video:next,
-        progress:progressContextForEpisode(meta, next)
+        progress:progressContextForEpisode(meta, next),
+        availableNow,
+        releaseAt:Number.isFinite(releaseMs)?releaseMs:null
       };
       
     }
@@ -9072,10 +9077,30 @@
       if (currentProgressContext) {
         await syncCurrentProgress(true, true);
       }
+      const next=currentNextEpisode;
+      if(next&&next.availableNow===false){
+        // We are caught up. Persist the completed episode first, refresh the
+        // Continue/Upcoming snapshot from the authoritative progress endpoint,
+        // then leave playback instead of attempting an unaired episode.
+        try{
+          const progressData=await (await fetch('/api/v1/progress',{cache:'no-store'})).json();
+          if(Array.isArray(progressData?.items))sharedProgressItems=progressData.items;
+          if(window.AIOContinue){
+            const resolved=await AIOContinue.resolve({progress:sharedProgressItems,loadMeta:loadMetaFor});
+            window.AIOData?.saveSnapshot(accountSnapshotScope+':continue-overview',{continueItems:resolved.continueItems,upcomingItems:resolved.upcomingItems},7*24*60*60*1000);
+            if(currentMode==='continue'){
+              currentItems=[...resolved.continueItems,...resolved.upcomingItems];
+              renderContinueRows(resolved.continueItems,resolved.upcomingItems);
+            }
+          }
+        }catch(_){}
+        await closePlayer(true);
+        return;
+      }
       if (currentMode === 'continue') {
         loadContinueWatching({ push:false });
       }
-      if (playerPrefs().autoNext && currentNextEpisode) startNextEpisodeCountdown();
+      if (playerPrefs().autoNext && next) startNextEpisodeCountdown();
     });
 
     const playerOverlay = document.getElementById('player-overlay');
