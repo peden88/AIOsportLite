@@ -6103,9 +6103,9 @@
       setCatalogRailVisible(false);
       tabs().innerHTML = '';
       try {
-        const response = await fetch('/api/v1/collections', { cache:'no-store' });
-        if (!response.ok) throw new Error('collections unavailable');
-        const data = await response.json();
+        const data=window.AIOData
+          ? await AIOData.requestJson('/api/v1/collections',{key:'collections:index',ttl:5*60*1000,staleTime:60*60*1000,staleWhileRevalidate:true})
+          : await (await fetch('/api/v1/collections',{cache:'no-store'})).json();
         const collections = Array.isArray(data.collections) ? data.collections : [];
         if (!collections.length) { setGridState('No collections are available yet.'); return; }
 
@@ -6122,8 +6122,11 @@
           const saved=restore||(()=>{try{return JSON.parse(sessionStorage.getItem(key)||'null')}catch(_){return null}})();
           const targetCount=Math.max(pageSize,Math.min(300,Number(saved?.count)||pageSize));
           const fetchPage=async()=>{
-            const r=await fetch(endpoint+'?offset='+offset+'&limit='+pageSize);const body=await r.json().catch(()=>({}));
-            if(!r.ok)throw new Error(body.error||'collection failed');const metas=Array.isArray(body.metas)?body.metas:[];
+            const pageUrl=endpoint+'?offset='+offset+'&limit='+pageSize;
+            const body=window.AIOData
+              ? await AIOData.requestJson(pageUrl,{key:'collection-page:'+folder.id+':'+offset,ttl:5*60*1000,staleTime:30*60*1000,staleWhileRevalidate:true})
+              : await (await fetch(pageUrl)).json();
+            const metas=Array.isArray(body.metas)?body.metas:[];
             offset+=metas.length;finished=!body.hasMore||!metas.length;return metas;
           };
           try{
@@ -6197,7 +6200,9 @@
       clearCollectionDock();
       setCatalogRailVisible(true);
       try {
-        const data = await (await fetch('/api/v1/vod/catalogs')).json();
+        const data=window.AIOData
+          ? await AIOData.requestJson('/api/v1/vod/catalogs',{key:'vod:catalogs',ttl:5*60*1000,staleTime:60*60*1000,staleWhileRevalidate:true})
+          : await (await fetch('/api/v1/vod/catalogs')).json();
         tabs().innerHTML = '';
 
         let first = null;
@@ -6313,10 +6318,11 @@
       beginGridTransition({ posterMode:true });
       try {
         const url = '/api/v1/vod/catalog/' + encodeURIComponent(catalog.type) + '/' + encodeURIComponent(catalog.id);
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Catalog failed');
+        const data=window.AIOData
+          ? await AIOData.requestJson(url,{key:'vod:catalog:'+String(catalog.type)+':'+String(catalog.id),ttl:2*60*1000,staleTime:15*60*1000,staleWhileRevalidate:true,group:'vod-catalog',cancelPrevious:true})
+          : await (await fetch(url)).json();
         currentItems = data.metas || data.metasDetailed || [];
+        if(window.AIOData)currentItems=AIOData.dedupe(currentItems);
         renderGrid(currentItems);
         if (push && !restoringUiState) persistUiState({ push:true });
       } catch (err) {
@@ -7754,7 +7760,7 @@
     async function renderDetailsRelated(meta) {
       const section=document.getElementById('detailsRelatedSection'),host=document.getElementById('detailsRelated');if(!section||!host)return;
       const id=String(meta?.id||meta?.contentId||''),type=normalizedVodType(meta);host.innerHTML='';showDetailsSkeleton(host,'wide',4);setPanelAvailability(section,true);refreshDetailsTabs();
-      let candidates=[];try{const res=await fetch('/api/v1/vod/related/'+encodeURIComponent(type)+'/'+encodeURIComponent(id)+'?limit=18');const body=await res.json();if(res.ok&&Array.isArray(body.metas))candidates=body.metas}catch(_){}
+      let candidates=[];try{const url='/api/v1/vod/related/'+encodeURIComponent(type)+'/'+encodeURIComponent(id)+'?limit=18';const body=window.AIOData?await AIOData.requestJson(url,{key:'related:'+type+':'+id,ttl:10*60*1000,staleTime:60*60*1000,staleWhileRevalidate:true}):await (await fetch(url)).json();if(Array.isArray(body.metas))candidates=window.AIOData?AIOData.dedupe(body.metas):body.metas}catch(_){}
       host.innerHTML='';candidates.slice(0,18).forEach(item=>{const b=document.createElement('button');b.type='button';b.className='details-related-card';const relatedKey=normalizedVodType(item)+':'+String(item?.id||item?.contentId||'');if(visitedRelatedTitles.has(relatedKey))b.classList.add('is-visited');const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=safeImageUrl(item.background||item.poster)||safeImageUrl(item.poster)||'';const label=document.createElement('span');label.textContent=item.name||item.title||'Title';b.append(img,label);b.onclick=()=>{dismissDetailsTrailer({cancelVisit:true});visitedRelatedTitles.add(relatedKey);b.classList.add('is-visited');pushDetailsHistory();normalizedVodType(item)==='series'?openSeries(item,b):openMovie(item,b)};host.appendChild(b)});
       setPanelAvailability(section,!!candidates.length);detailsContentArrived(host);refreshDetailsTabs();
     }
