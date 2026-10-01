@@ -48,8 +48,12 @@ async function resolve({progress=[],loadMeta,now=Date.now(),maxSeries=32}={}){
   for(const r of rows){if(!seriesType(r?.contentType)||!r?.contentId)continue;const key=String(r.contentId);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r)}
   const seeds=[...groups.entries()].map(([id,rs])=>({id,rows:rs.sort((a,b)=>Number(b.lastWatched||0)-Number(a.lastWatched||0))})).sort((a,b)=>Number(b.rows[0]?.lastWatched||0)-Number(a.rows[0]?.lastWatched||0)).slice(0,maxSeries);
   const resolved=await mapLimit(seeds,4,async group=>{
-    const rs=group.rows;const inProgress=rs.find(r=>Number(r.progressPercent)>0&&Number(r.progressPercent)<90);
+    const rs=group.rows;
+    // Resolve from the furthest episode reached, not any older unfinished row.
+    // Otherwise completing a later episode can be masked by an abandoned
+    // partial episode and the genuine next/future episode is never discovered.
     const seed=rs.slice().sort((a,b)=>episodeOrder(progressSeed(b),progressSeed(a))||Number(b.lastWatched||0)-Number(a.lastWatched||0))[0];
+    const inProgress=rs.find(r=>Number(r.progressPercent)>0&&Number(r.progressPercent)<90&&episodeOrder(progressSeed(r),progressSeed(seed))>=0);
     if(inProgress)return {continue:{id:inProgress.videoId||inProgress.contentId,type:'episode',name:inProgress.name||'Untitled',description:[inProgress.season!=null&&inProgress.episode!=null?'S'+String(inProgress.season).padStart(2,'0')+'E'+String(inProgress.episode).padStart(2,'0'):'',inProgress.episodeTitle||''].filter(Boolean).join(' · '),poster:inProgress.poster,background:inProgress.backdrop,logo:inProgress.logo,_progress:inProgress,_continueKind:'progress'}};
     let meta=null;try{meta=await loadMeta({id:group.id,type:'series',name:seed?.name})}catch(_){}
     if(!meta)return null;const {all,watchable}=eligibleVideos(meta);const s=progressSeed(seed);
