@@ -3904,7 +3904,7 @@
   <meta name="apple-mobile-web-app-title" content="AIOPlay">
   <link rel="apple-touch-icon" href="/aioplay-launcher.webp">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX" crossorigin="anonymous"></script>
-</head>
+  <script src="/data-layer.js"></script>\n</head>
 <body>
   <script>
     // iOS Home Screen apps do not consistently match display-mode:standalone.
@@ -5323,11 +5323,11 @@
       const key = target.type + '|' + target.id;
       if (vodMetaCache.has(key)) return vodMetaCache.get(key);
       try {
-        const res = await fetch(
-          '/api/v1/vod/meta/' + encodeURIComponent(target.type) + '/' + encodeURIComponent(target.id)
-        );
-        const body = await res.json();
-        if (!res.ok || !body.meta) return null;
+        const url='/api/v1/vod/meta/'+encodeURIComponent(target.type)+'/'+encodeURIComponent(target.id);
+        const body=window.AIOData
+          ? await AIOData.requestJson(url,{key:'meta:'+key,ttl:5*60*1000,staleTime:30*60*1000,staleWhileRevalidate:true})
+          : await (await fetch(url)).json();
+        if (!body?.meta) return null;
         vodMetaCache.set(key, body.meta);
         return body.meta;
       } catch (_) {
@@ -6418,9 +6418,12 @@
         const request=++suggestionRequest;
         try{
           const url='/api/v1/vod/search?q='+encodeURIComponent(q)+(searchType?'&type='+encodeURIComponent(searchType):'');
-          const res=await fetch(url); const data=await res.json(); if(!res.ok||request!==suggestionRequest)return;
+          const data=window.AIOData
+            ? await AIOData.requestJson(url,{key:'suggest:'+searchType+':'+q.toLowerCase(),ttl:60*1000,staleTime:5*60*1000,group:'search-suggestions',cancelPrevious:true})
+            : await (await fetch(url)).json();
+          if(request!==suggestionRequest)return;
           const rows=(Array.isArray(data.catalogs)&&data.catalogs.length?data.catalogs.flatMap(r=>r.metas||[]):data.metas||[]);
-          const seen=new Set(); const items=rows.filter(m=>{const k=String(m.id||'')+'|'+String(m.type||'')+'|'+String(m.name||'').toLowerCase();if(seen.has(k))return false;seen.add(k);return true}).slice(0,7);
+          const items=(window.AIOData?AIOData.dedupe(rows):rows.filter((()=>{const seen=new Set();return m=>{const k=String(m.id||'')+'|'+String(m.type||'')+'|'+String(m.name||'').toLowerCase();if(seen.has(k))return false;seen.add(k);return true}})())).slice(0,7);
           if(!items.length){hideSearchSuggestions();return}
           searchSuggestions.innerHTML='';
           items.forEach((m,i)=>{const b=document.createElement('button');b.type='button';b.className='search-suggestion';b.setAttribute('role','option');b.dataset.index=i;
@@ -7766,6 +7769,14 @@
     async function loadDetailsEnrichment(type, id) {
       const key=String(type||'')+':'+String(id||''),now=Date.now(),cached=detailsEnrichmentCache.get(key);
       if(cached && now-cached.at<DETAILS_ENRICHMENT_TTL_MS)return cached.value;
+      if(window.AIOData){
+        try{
+          const url='/api/v1/vod/enrichment/'+encodeURIComponent(type)+'/'+encodeURIComponent(id);
+          const value=await AIOData.requestJson(url,{key:'enrichment:'+key,ttl:DETAILS_ENRICHMENT_TTL_MS,staleTime:30*60*1000,staleWhileRevalidate:true});
+          if(value)detailsEnrichmentCache.set(key,{at:Date.now(),value});
+          return value||null;
+        }catch(_){return null}
+      }
       if(detailsEnrichmentInFlight.has(key))return detailsEnrichmentInFlight.get(key);
       const request=(async()=>{
         const res=await fetch('/api/v1/vod/enrichment/'+encodeURIComponent(type)+'/'+encodeURIComponent(id));
