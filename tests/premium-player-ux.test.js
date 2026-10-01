@@ -6,7 +6,8 @@ assert(html.includes("body.mini-player-active>.mobile-bottom-nav"),'mobile dock 
 assert(html.includes("playerReturnToDetails&&currentDetailsMeta?'details':''"),'originating details view can be restored beneath mini player');
 assert(html.includes("classList.remove('mini-player-active','details-open');document.body.classList.add('player-open')"),'expand returns to full player');
 assert.equal((html.match(/timelineTrack\?\.addEventListener\('click'/g)||[]).length,0,'legacy duplicate timeline click seek removed');
-assert(html.includes("recoverPlayback(generation,'startup-timeout')"),'stalled Safari starts automatically escalate to compatibility');
+assert(!html.includes("recoverPlayback(generation,'startup-timeout')"),'healthy direct playback must never be escalated by a fixed startup timer');
+assert(html.includes("video.addEventListener('error', failed, { once: true })"),'direct playback recovery is driven by an actual media error');
 assert(html.includes("#player-overlay.is-vod .player-timeline{display:block!important"),'custom VOD scrubber is always exposed');
 assert(!html.includes('AIOTrickplay'),'thumbnail trickplay is fully removed from the player');
 assert(!html.includes('/trickplay-client.js'),'thumbnail trickplay client is not loaded');
