@@ -49,4 +49,6 @@ assert(html.includes("video.addEventListener('progress',tryResume)"), 'compatibi
 assert(html.includes("video.addEventListener('canplay',tryResume)"), 'resume is retried when Safari can actually seek the compatibility stream');
 assert(html.includes('applyResumePosition(video);\n          started = true;'), 'HLS manifest readiness attempts the saved resume before playback starts');
 assert(!html.includes('resumeSeconds >= video.duration * 0.90'), 'playback resume is not suppressed by Continue-Watching completion thresholds');
+assert(!html.includes("#player-overlay.is-vod #playerMinimize,\n    #player-overlay.is-vod #playerPip,\n    #player-overlay.is-vod #playerStreamPicker"),'unified VOD chrome must not globally hide PiP');
+assert(html.includes("display:inline-flex!important;visibility:visible!important;opacity:1!important;"),'final mobile PiP rule explicitly defeats legacy visibility rules');
 console.log('premium player UX contract passed');
