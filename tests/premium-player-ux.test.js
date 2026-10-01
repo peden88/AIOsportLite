@@ -24,4 +24,12 @@ assert(!html.includes("host.className = 'grid continue-rows'"),'Continue page mu
 assert(html.includes('@media(min-width:651px) and (hover:hover) and (pointer:fine)'),'desktop player has an explicit control layout');
 assert(!html.includes('.player-timeline{display:none;}'),'mobile CSS cannot suppress the premium scrubber');
 assert(html.includes("document.getElementById('playerStreamPicker').onclick=()=>openRawStreamPicker()"),'stream picker remains directly bound, independent of settings');
+
+assert(html.includes("suppressSuggestionsUntilEdit=true"),'selecting a predictive title commits the search and suppresses reopening');
+assert(html.includes("suggestionRequest++;searchInput.value=m.name||q"),'committed predictive search invalidates outstanding suggestion requests');
+assert(html.includes("searchInput.blur();applySearch(searchInput.value)"),'predictive selection closes focus/dropdown before searching');
+assert(html.includes("episodeWrap.className='episode-item'"),'episode actions use a valid sibling wrapper');
+assert(html.includes("episodeWrap.appendChild(more)"),'episode action button is not nested inside the episode playback button');
+assert(!html.includes("thumb.appendChild(more)"),'episode contextual action cannot be nested in the episode button');
+
 console.log('premium player UX contract passed');
