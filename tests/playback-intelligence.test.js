@@ -1,0 +1,6 @@
+const assert=require('assert'),fs=require('fs'),vm=require('vm'),path=require('path');const store=new Map();
+const c={window:{},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},Date,JSON,console};vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(__dirname,'../public/playback-intelligence.js'),'utf8'),c);const P=c.window.AIOPlayback;
+P.rememberTrack('audio',{lang:'EN',name:'English Atmos'});assert.equal(P.read().audio.language,'en');assert.equal(P.bestTrack([{lang:'fr'},{lang:'en',name:'English Atmos'}],P.read().audio),1);
+P.rememberTrack('subtitle',{language:'en',label:'English SDH'},'on');assert(P.read().subtitle.sdh);
+const ctx={contentId:'show'};const streams=[{name:'1080p WEB-DL Real-Debrid'},{name:'2160p REMUX TorBox'}];P.rememberSource(ctx,streams[1],1);assert.equal(P.preferredStream(ctx,[{name:'720p WEB-DL Easynews'},streams[1]]),1);
+const r=P.recovery('stall','sameSource');assert.equal(r.attempts,1);assert.equal(r.sameSource,1);console.log('playback-intelligence contract passed');
