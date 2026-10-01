@@ -1,4 +1,5 @@
 'use strict';const assert=require('assert'),fs=require('fs'),path=require('path');const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');
+assert(!html.includes('</script>\\\\n'),'literal escaped newlines must never leak into the HTML shell');
 assert(html.includes('miniPlayerTitle')&&html.includes('miniPlayerTime')&&html.includes('miniPlayPause'),'mini player exposes metadata and transport');
 assert(html.includes("classList.remove('player-open');document.body.classList.add('mini-player-active')"),'minimize restores browsing chrome');
 assert(html.includes("body.mini-player-active>.mobile-bottom-nav"),'mobile dock remains interactive while minimized');
