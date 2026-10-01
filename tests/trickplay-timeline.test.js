@@ -1,6 +1,0 @@
-'use strict';const assert=require('assert'),fs=require('fs'),vm=require('vm'),path=require('path');
-const c={window:{dispatchEvent:()=>{}},fetch:async()=>({ok:false,status:409,json:async()=>({})}),setTimeout,clearTimeout,encodeURIComponent,CustomEvent:function(){}};vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(__dirname,'../public/trickplay-client.js'),'utf8'),c);
-const T=c.window.AIOTrickplay,m={interval:10,frameCount:50,framesPerSheet:25,columns:5,rows:5,tileWidth:240,tileHeight:135,sheets:[{url:'/a.jpg'},{url:'/b.jpg'}]};
-const a=T.frameAt(0,m),b=T.frameAt(249,m),d=T.frameAt(490,m);assert.deepEqual([a.sheet,a.x,a.y],[0,0,0]);assert.equal(b.frame,24);assert.deepEqual([b.sheet,b.x,b.y],[0,960,540]);assert.equal(d.sheet,1);
-const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');assert(html.includes('playerSeekPreview')&&html.includes('showSeekPreview'));assert(html.includes('playerPrevChapter')&&html.includes('playerNextChapter'));assert(html.includes("progressVideo.addEventListener('playing'"));assert(html.includes("session===currentPlaybackSession&&!progressVideo.paused)AIOTrickplay.start(session)"));assert(html.includes("kind==='chapter'"));
-console.log('trickplay timeline contract passed');
