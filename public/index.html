@@ -9016,7 +9016,11 @@
 
       const useHls = currentPlaybackKind === 'sport_event' || /\.m3u8(?:$|[?#])/i.test(playbackUrl);
 
-      if (useHls && Hls.isSupported()) {
+      // On Safari/iOS (including installed Home Screen PWAs), keep HLS on the
+      // native AVKit-backed <video> pipeline. Routing Apple HLS through hls.js/MSE
+      // can make playback work while silently disabling native PiP/auto-PiP.
+      // Other browsers continue to use hls.js where supported.
+      if (useHls && !isSafariBasedBrowser() && Hls.isSupported()) {
         stopVideoEngine();
         hls = new Hls({
           maxBufferLength: 30,
