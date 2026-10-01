@@ -15,8 +15,12 @@ assert(!html.includes("startup-timeout"),'Safari compatibility selection must no
 assert(html.includes("#player-overlay.is-vod .player-timeline{display:block!important"),'custom VOD scrubber is always exposed');
 assert(!html.includes('AIOTrickplay'),'thumbnail trickplay is fully removed from the player');
 assert(!html.includes('/trickplay-client.js'),'thumbnail trickplay client is not loaded');
-assert(html.includes('grid-template-rows:repeat(2,auto)!important'),'desktop Continue and Upcoming rails use two stacked rows');
-assert(html.includes('grid-template-rows:1fr!important'),'mobile Continue and Upcoming rails use one row');
+assert(html.includes("viewport.className='continue-rail-viewport'"),'Continue and Upcoming use a dedicated horizontal scroll viewport');
+assert(html.includes("rail.className='continue-rail-track'"),'Continue rail restores its dedicated track after generic card rendering');
+assert(html.includes('grid-template-rows:repeat(2,max-content)!important'),'desktop Continue and Upcoming tracks use two stacked rows');
+assert(html.includes('grid-template-rows:max-content!important'),'mobile Continue and Upcoming tracks use exactly one row');
+assert(html.includes('touch-action:pan-x'),'mobile Continue rails explicitly accept horizontal touch gestures');
+assert(!html.includes("host.className = 'grid continue-rows'"),'Continue page must not inherit the generic catalog grid layout');
 assert(html.includes('@media(min-width:651px) and (hover:hover) and (pointer:fine)'),'desktop player has an explicit control layout');
 assert(!html.includes('.player-timeline{display:none;}'),'mobile CSS cannot suppress the premium scrubber');
 assert(html.includes("document.getElementById('playerStreamPicker').onclick=()=>openRawStreamPicker()"),'stream picker remains directly bound, independent of settings');
