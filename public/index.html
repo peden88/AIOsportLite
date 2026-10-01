@@ -1797,6 +1797,12 @@
       object-fit:contain;
       box-shadow:none;
     }
+
+    #player-overlay.mini{cursor:pointer}
+    #player-overlay.mini .mini-player-bar{left:7px;right:7px;top:auto;bottom:7px;align-items:center;padding:5px;border-radius:10px;background:linear-gradient(180deg,transparent,rgba(5,7,10,.92))}
+    .mini-player-meta{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px;padding:4px 6px;color:#fff;pointer-events:none}.mini-player-meta strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem}.mini-player-meta span{font-size:.58rem;color:rgba(255,255,255,.68);font-variant-numeric:tabular-nums}
+    body.mini-player-active{padding-bottom:max(92px,env(safe-area-inset-bottom,0px))}
+    @media(max-width:650px){#player-overlay.mini{right:10px;bottom:calc(78px + env(safe-area-inset-bottom,0px));width:min(300px,calc(100vw - 20px));z-index:125}html.aioplay-standalone #player-overlay.mini{bottom:calc(66px + env(safe-area-inset-bottom,0px))}body.mini-player-active>.mobile-bottom-nav{opacity:1!important;transform:none!important;pointer-events:auto!important}}
     .mini-player-bar {
       position:absolute;
       right:7px;
@@ -4102,6 +4108,8 @@
     <div class="player-brand" aria-label="AIOPlay"><img src="/aioplay-brand.webp" alt=""><span>AIOPlay</span></div>
     <button id="close-btn" onclick="closePlayerFromUi()">Close Player</button>
     <div id="miniPlayerBar" class="mini-player-bar" hidden>
+      <div class="mini-player-meta"><strong id="miniPlayerTitle">Playing</strong><span id="miniPlayerTime">0:00</span></div>
+      <button type="button" id="miniPlayPause" aria-label="Pause playback">Pause</button>
       <button type="button" id="miniExpand" aria-label="Return to full player">Expand</button>
       <button type="button" id="miniClose" aria-label="Close playback">Close</button>
     </div>
@@ -5746,15 +5754,17 @@
       if (!overlay || overlay.style.display !== 'flex') return;
       overlay.classList.add('mini');
       document.getElementById('miniPlayerBar').hidden = false;
-      showPlayerHud(false);
+      document.body.classList.remove('player-open');document.body.classList.add('mini-player-active');
+      const title=currentPlaybackMeta?.episodeTitle||currentPlaybackMeta?.name||currentPlaybackMeta?.parentName||'Playing';document.getElementById('miniPlayerTitle').textContent=title;
+      persistUiState({overlay:null});showPlayerHud(false);
     }
 
     function expandPlayer() {
       const overlay = document.getElementById('player-overlay');
       if (!overlay) return;
-      overlay.classList.remove('mini', 'is-vod');
-      document.getElementById('miniPlayerBar').hidden = true;
-      showPlayerHud(true);
+      overlay.classList.remove('mini');document.getElementById('miniPlayerBar').hidden = true;
+      document.body.classList.remove('mini-player-active');document.body.classList.add('player-open');
+      persistUiState({overlay:'player'});showPlayerHud(true);
     }
 
     const PLAYER_PREFS_KEY = 'aioplay.playerPrefs.v1';
@@ -8909,6 +8919,7 @@
 
       const overlay = document.getElementById('player-overlay');
       overlay.classList.remove('mini');
+      document.body.classList.remove('mini-player-active');
       document.getElementById('miniPlayerBar').hidden = true;
       overlay.style.display = 'none';
       document.body.classList.remove('player-open');
@@ -8955,6 +8966,7 @@
     const progressVideo = document.getElementById('video');
     progressVideo.addEventListener('timeupdate', () => {
       updatePlayerTimeline(progressVideo);
+      const miniTime=document.getElementById('miniPlayerTime');if(miniTime)miniTime.textContent=formatPlaybackTime(progressVideo.currentTime)+' / '+formatPlaybackTime(progressVideo.duration);
       updateNextUpVisibility(progressVideo);
       if (currentProgressContext && !progressVideo.paused) syncCurrentProgress(false, false);
     });
@@ -8966,7 +8978,9 @@
       showPlayerHud(true);
       if (currentProgressContext && !progressVideo.ended) syncCurrentProgress(true, false);
     });
-    progressVideo.addEventListener('play', () => showPlayerHud(false));
+    const syncMiniPlay=()=>{const b=document.getElementById('miniPlayPause');if(b){b.textContent=progressVideo.paused?'Play':'Pause';b.setAttribute('aria-label',progressVideo.paused?'Play playback':'Pause playback')}};
+    progressVideo.addEventListener('play', () => {syncMiniPlay();showPlayerHud(false)});
+    progressVideo.addEventListener('pause',syncMiniPlay);
     progressVideo.addEventListener('ended', async () => {
       showPlayerHud(true);
       if (currentProgressContext) {
@@ -8983,8 +8997,10 @@
       playerOverlay.addEventListener(eventName, () => showPlayerHud(false), { passive: true });
     });
     document.getElementById('playerMinimize').addEventListener('click', minimizePlayer);
-    document.getElementById('miniExpand').addEventListener('click', expandPlayer);
-    document.getElementById('miniClose').addEventListener('click', () => closePlayerFromUi());
+    document.getElementById('miniExpand').addEventListener('click', event=>{event.stopPropagation();expandPlayer()});
+    document.getElementById('miniPlayPause').addEventListener('click',async event=>{event.stopPropagation();const video=document.getElementById('video');try{if(video.paused)await video.play();else video.pause()}catch(_){}});
+    document.getElementById('player-overlay').addEventListener('click',event=>{if(event.currentTarget.classList.contains('mini')&&!event.target.closest('button'))expandPlayer()});
+    document.getElementById('miniClose').addEventListener('click', event => {event.stopPropagation();closePlayerFromUi()});
     document.getElementById('playerSwitchSource').addEventListener('click', () => {
       if (currentPlaybackSession && !requestingFallback) {
         requestNextPlayback(playbackGeneration);
