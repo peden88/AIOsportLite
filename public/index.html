@@ -3945,6 +3945,11 @@
 
     #playerCast.active{border-color:rgba(87,220,156,.72)!important;color:#8ff0bd!important}
     @media(min-width:651px) and (hover:hover) and (pointer:fine){#player-overlay.is-vod #playerCast:not([hidden]){display:inline-flex!important;position:static!important;transform:none!important;height:48px!important;padding:0 16px!important;border-radius:14px!important;pointer-events:auto!important}}
+
+    .episode-item{position:relative;flex:0 0 var(--episode-card-width,300px);min-width:0;scroll-snap-align:start}
+    .episode-item>.episode-btn{width:100%!important;min-width:0!important;height:100%;box-sizing:border-box}
+    .episode-item>.episode-more{z-index:12!important}
+    @media(max-width:650px){.episode-item{flex-basis:min(82vw,330px)}}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -6589,11 +6594,12 @@
     let suggestionTimer = null;
     let suggestionRequest = 0;
     let activeSuggestion = -1;
+    let suppressSuggestionsUntilEdit = false;
 
     function hideSearchSuggestions(){ if(searchSuggestions){searchSuggestions.hidden=true;searchSuggestions.innerHTML='';} activeSuggestion=-1; }
     async function updateSearchSuggestions(raw){
       const q=String(raw||'').trim(); clearTimeout(suggestionTimer);
-      if(q.length<2||peopleSearchOnly){hideSearchSuggestions();return}
+      if(suppressSuggestionsUntilEdit||q.length<2||peopleSearchOnly){hideSearchSuggestions();return}
       suggestionTimer=setTimeout(async()=>{
         const request=++suggestionRequest;
         try{
@@ -6610,7 +6616,7 @@
             if(m.poster){const im=document.createElement('img');im.src=safeImageUrl(m.poster);im.alt='';im.loading='lazy';b.appendChild(im)}
             const copy=document.createElement('span');copy.className='search-suggestion-copy';const title=document.createElement('span');title.className='search-suggestion-title';title.textContent=m.name||'Untitled';copy.appendChild(title);
             const meta=document.createElement('span');meta.className='search-suggestion-meta';meta.textContent=[m.releaseInfo||m.year||'',String(m.type||'').replace('tv','Series')].filter(Boolean).join(' · ');copy.appendChild(meta);b.appendChild(copy);
-            b.onclick=()=>{searchInput.value=m.name||q;syncClearSearchButton();hideSearchSuggestions();applySearch(searchInput.value);searchInput.focus()};searchSuggestions.appendChild(b)});
+            b.onclick=()=>{suppressSuggestionsUntilEdit=true;clearTimeout(suggestionTimer);suggestionRequest++;searchInput.value=m.name||q;syncClearSearchButton();hideSearchSuggestions();searchInput.blur();applySearch(searchInput.value)};searchSuggestions.appendChild(b)});
           searchSuggestions.hidden=false; activeSuggestion=-1;
         }catch(_){hideSearchSuggestions()}
       },180);
@@ -6658,9 +6664,10 @@
       else if(e.key==='Escape'){hideSearchSuggestions();}
     });
     searchInput.addEventListener('blur',()=>setTimeout(hideSearchSuggestions,160));
-    searchInput.addEventListener('focus',()=>{if(searchInput.value.trim().length>=2)updateSearchSuggestions(searchInput.value)});
+    searchInput.addEventListener('focus',()=>{if(!suppressSuggestionsUntilEdit&&searchInput.value.trim().length>=2)updateSearchSuggestions(searchInput.value)});
 
     searchInput.addEventListener('input', e => {
+      suppressSuggestionsUntilEdit=false;
       peopleSearchOnly = false;currentPersonSearch=null;personSearchOrigin=null;renderPersonSearchHeader();
       syncClearSearchButton();
       const raw = e.target.value;
@@ -8303,6 +8310,8 @@
 
             button.append(thumb, copy);
 
+            const episodeWrap=document.createElement('div');episodeWrap.className='episode-item';
+            episodeWrap.appendChild(button);
             const more = document.createElement('button');
             more.type = 'button';
             more.className = 'episode-more';
@@ -8315,7 +8324,7 @@
               event.stopPropagation();
               showEpisodeStateMenu(more, meta, video, () => renderSeason(season));
             };
-            thumb.appendChild(more);
+            episodeWrap.appendChild(more);
 
             button.addEventListener('keydown', event => {
               if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -8370,7 +8379,7 @@
               );
             };
 
-            list.appendChild(button);
+            list.appendChild(episodeWrap);
           });
           setupEpisodeRail(list);
 
