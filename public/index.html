@@ -5938,14 +5938,32 @@
       // installed iOS PWA. Do not gate it on WebKit capability probes: Home
       // Screen mode can report false negatives even when requestPiP succeeds.
       const pipButton=document.getElementById('playerPip');
+      const supportsWebkitPip=()=>typeof video.webkitSetPresentationMode==='function'&&
+        (typeof video.webkitSupportsPresentationMode!=='function'||video.webkitSupportsPresentationMode('picture-in-picture'));
       pipButton.disabled=false;
       pipButton.removeAttribute('aria-disabled');
       pipButton.title='Picture in Picture';
       pipButton.onclick=async()=>{
         try{
-          if(document.pictureInPictureElement)await document.exitPictureInPicture();
-          else if(typeof video.requestPictureInPicture==='function')await video.requestPictureInPicture();
-          else if(typeof video.webkitSetPresentationMode==='function')video.webkitSetPresentationMode('picture-in-picture');
+          // Always allow either API to exit an already-active PiP session.
+          if(document.pictureInPictureElement){await document.exitPictureInPicture();return}
+          if(video.webkitPresentationMode==='picture-in-picture'&&supportsWebkitPip()){
+            video.webkitSetPresentationMode('inline');
+            return;
+          }
+          const standalone=document.documentElement.classList.contains('aioplay-standalone');
+          // The installed PWA previously worked through the standards request,
+          // so preserve that path first instead of trusting standalone WebKit
+          // capability probes. Safari/browser continues to prefer WebKit.
+          if(standalone&&typeof video.requestPictureInPicture==='function'){
+            await video.requestPictureInPicture();
+            return;
+          }
+          if(supportsWebkitPip()){
+            video.webkitSetPresentationMode('picture-in-picture');
+            return;
+          }
+          if(typeof video.requestPictureInPicture==='function')await video.requestPictureInPicture();
         }catch(err){console.warn('Picture in Picture unavailable',err)}
       };
       const enterPlayerFullscreen = async () => {
