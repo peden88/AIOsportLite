@@ -9009,7 +9009,7 @@
       // keep installed iOS Home Screen playback on the older direct-play-first
       // media session that supported native PiP. If direct playback genuinely
       // fails, the existing recovery path can still escalate to compatibility.
-      const needsCompatibility = compatibility || (isVod && isSafariBasedBrowser() && !standalonePwa);
+      const needsCompatibility = compatibility || (isVod && isSafariBasedBrowser());
       if (needsCompatibility && isVod && currentPlaybackSession && target.kind === 'direct') {
         showPlaybackLoading(isSafariBasedBrowser() && !recovery ? 'Starting playback…' : 'Preparing compatible stream…');
         try {
