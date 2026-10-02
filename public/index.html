@@ -8797,8 +8797,7 @@
           if (opened) return;
         }
 
-        const standalonePwa = document.documentElement.classList.contains('aioplay-standalone');
-        const appleCompatibility = isVod && isSafariBasedBrowser() && !standalonePwa && data.playback?.kind === 'direct';
+        const appleCompatibility = isVod && isSafariBasedBrowser() && data.playback?.kind === 'direct';
         await playOpaqueTarget(data.playback, generation, { compatibility:appleCompatibility });
       } catch (err) {
         console.error('Playback start failed', err);
