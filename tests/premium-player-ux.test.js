@@ -41,8 +41,8 @@ assert(html.includes("currentNextEpisode.availableNow===false"),'auto-next count
 assert(html.includes("if(next&&next.availableNow===false)"),'ended playback has a caught-up path');
 assert(html.includes("fetch('/api/v1/progress',{cache:'no-store'})"),'caught-up transition refreshes authoritative progress before Upcoming resolution');
 assert(html.includes("await closePlayer(true);"),'caught-up playback exits the player after persisting state');
-assert(html.includes("typeof video.webkitSetPresentationMode==='function'"),'PiP supports the WebKit presentation mode used on iPhone');
-assert(html.includes("video.webkitPresentationMode==='picture-in-picture'"),'iPhone PiP control can toggle the active WebKit PiP session');
+// PiP API selection, actual transitions and failure handling are exercised by
+// player-presentation.test.js against the production functions.
 assert(html.includes("#player-overlay.is-vod #playerPip,#player-overlay.is-vod #playerFullscreen{display:inline-flex!important"),'mobile VOD exposes PiP beside the custom transport controls');
 assert(html.includes('function armResumePosition(video,generation)'), 'resume position is retained until the media timeline becomes seekable');
 assert(html.includes("video.addEventListener('progress',tryResume)"), 'compatibility HLS retries resume as segments establish seekable ranges');
@@ -54,6 +54,4 @@ assert(html.includes("display:inline-flex!important;visibility:visible!important
 assert(html.includes("#player-overlay.is-vod:not(.mini) #playerPip"),'mobile PiP has an independent player anchor');
 assert(html.includes("right:max(18px,env(safe-area-inset-right,0px))!important"),'PiP is docked to the lower-right safe area');
 assert(html.includes("html.aioplay-standalone #player-overlay.is-vod:not(.mini) #playerPip"),'installed PWA explicitly exposes the PiP control');
-assert(html.includes("video.webkitSupportsPresentationMode('picture-in-picture')"),'installed iOS PWA checks the WebKit PiP capability directly');
-assert(html.includes("if(supportsWebkitPip())"),'Apple PiP prefers the WebKit presentation path before the standards API');
 console.log('premium player UX contract passed');

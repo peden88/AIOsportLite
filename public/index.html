@@ -3995,6 +3995,8 @@
         z-index:220!important;
       }
     }
+    #playerPresentationNotice{position:absolute;top:calc(72px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:225;width:max-content;max-width:calc(100% - 36px);box-sizing:border-box;padding:12px 16px;border:1px solid rgba(255,255,255,.2);border-radius:12px;background:rgba(12,16,21,.95);color:#fff;font-size:.85rem;line-height:1.4;text-align:center;pointer-events:none}
+    #playerPresentationNotice[hidden]{display:none}
 </style>
   <link rel="manifest" href="/app.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4185,6 +4187,7 @@
   </div>
 
   <div id="player-overlay">
+    <div id="playerPresentationNotice" role="status" aria-live="polite" hidden></div>
     <div id="playerBackdrop" class="player-backdrop" aria-hidden="true"></div>
     <div class="player-brand" aria-label="AIOPlay"><img src="/aioplay-brand.webp" alt=""><span>AIOPlay</span></div>
     <button id="close-btn" onclick="closePlayerFromUi()">Close Player</button>
@@ -5906,6 +5909,141 @@
       remotePlaybackUnsubscribe?.();remotePlaybackUnsubscribe=AIORemote.subscribe(state=>{button.hidden=!state.available;button.textContent=state.connected?'Casting':'Cast';button.classList.toggle('active',state.connected)});AIORemote.init();
     }
 
+    function isStandaloneApplePlayer() {
+      const standalone = navigator.standalone === true ||
+        document.documentElement.classList.contains('aioplay-standalone');
+      const appleDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      return standalone && appleDevice;
+    }
+
+    function shouldUseNativePlayerHls(video) {
+      // Keep Safari's working browser pipeline. Only the installed Apple app
+      // hands its prepared HLS URL to AVKit instead of a JS-owned MediaSource.
+      return isStandaloneApplePlayer() &&
+        /^(maybe|probably)$/.test(video.canPlayType('application/vnd.apple.mpegurl'));
+    }
+
+    function playerIsInPictureInPicture(video) {
+      return document.pictureInPictureElement === video ||
+        video.webkitPresentationMode === 'picture-in-picture';
+    }
+
+    let playerPresentationNoticeTimer = null;
+    function showPlayerPresentationNotice(message = '') {
+      const notice = document.getElementById('playerPresentationNotice');
+      clearTimeout(playerPresentationNoticeTimer);
+      notice.textContent = message;
+      notice.hidden = !message;
+      if (message) playerPresentationNoticeTimer = setTimeout(() => { notice.hidden = true; }, 8000);
+    }
+
+    function requestPlayerPictureInPicture(video) {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = error => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          video.removeEventListener('enterpictureinpicture', changed);
+          video.removeEventListener('webkitpresentationmodechanged', changed);
+          video.removeEventListener('emptied', cancelled);
+          if (error) reject(error); else resolve();
+        };
+        const changed = () => { if (playerIsInPictureInPicture(video)) finish(); };
+        const cancelled = () => finish(new DOMException('Playback changed.', 'AbortError'));
+        const timer = setTimeout(() => {
+          if (playerIsInPictureInPicture(video)) finish();
+          else finish(new DOMException('The video did not enter Picture in Picture.', 'TimeoutError'));
+        }, 2500);
+        video.addEventListener('enterpictureinpicture', changed);
+        video.addEventListener('webkitpresentationmodechanged', changed);
+        video.addEventListener('emptied', cancelled);
+        const requestStandard = () => {
+          if (typeof video.requestPictureInPicture !== 'function') {
+            throw new DOMException('Picture in Picture is unavailable.', 'NotSupportedError');
+          }
+          Promise.resolve(video.requestPictureInPicture()).then(changed, finish);
+        };
+        try {
+          // Call the native API synchronously in the tap, in BOTH Safari and
+          // its Home Screen app. Never await play(), fullscreen or a timeout
+          // first: that can consume the user gesture. Capability flags alone
+          // are not proof of a successful transition (WebKit bug 303885).
+          let useWebkit = typeof video.webkitSetPresentationMode === 'function';
+          if (useWebkit && !isStandaloneApplePlayer() && typeof video.webkitSupportsPresentationMode === 'function') {
+            // Preserve the browser's existing API choice when both are exposed.
+            useWebkit = video.webkitSupportsPresentationMode('picture-in-picture');
+          }
+          if (useWebkit) {
+            try { video.webkitSetPresentationMode('picture-in-picture'); }
+            catch (error) {
+              if (typeof video.requestPictureInPicture !== 'function') throw error;
+              requestStandard();
+            }
+          } else requestStandard();
+          changed();
+        } catch (error) { finish(error); }
+      });
+    }
+
+    let playerPipPending = false;
+    async function togglePlayerPictureInPicture() {
+      const video = document.getElementById('video');
+      const button = document.getElementById('playerPip');
+      if (playerPipPending) return;
+      showPlayerPresentationNotice();
+      playerPipPending = true;
+      button.setAttribute('aria-busy', 'true');
+      try {
+        if (document.pictureInPictureElement === video) {
+          await document.exitPictureInPicture();
+        } else if (video.webkitPresentationMode === 'picture-in-picture') {
+          // Exit must still work when WebKit reports PiP entry unavailable.
+          video.webkitSetPresentationMode('inline');
+        } else if (video.readyState === 0) {
+          showPlayerPresentationNotice('Wait for playback to start, then tap Picture in Picture.');
+        } else {
+          await requestPlayerPictureInPicture(video);
+        }
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        console.warn('Picture in Picture failed', {
+          error: error?.name, standalone: isStandaloneApplePlayer(),
+          readyState: video.readyState, engine: hls ? 'hls.js' : 'native'
+        });
+        showPlayerPresentationNotice(error?.name === 'NotAllowedError'
+          ? 'Tap Picture in Picture again while the video is playing.'
+          : isStandaloneApplePlayer()
+            ? 'Picture in Picture could not start in this installed app. Try this title in Safari.'
+            : 'Picture in Picture is unavailable for this video.');
+      } finally {
+        playerPipPending = false;
+        button.removeAttribute('aria-busy');
+      }
+    }
+
+    async function enterPlayerFullscreen() {
+      const video = document.getElementById('video');
+      const host = document.getElementById('video-container');
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen?.();
+        } else if (isStandaloneApplePlayer() && typeof video.webkitEnterFullscreen === 'function') {
+          // Element fullscreen can exist in Home Screen mode without being
+          // AVKit video fullscreen. Only AVKit owns the native swipe-to-PiP UI.
+          if (video.webkitDisplayingFullscreen) video.webkitExitFullscreen?.();
+          else video.webkitEnterFullscreen();
+        } else if (host?.requestFullscreen) {
+          await host.requestFullscreen();
+        } else if (video.webkitEnterFullscreen) {
+          video.webkitEnterFullscreen();
+        }
+      } catch (_) {
+        showPlayerPresentationNotice('Fullscreen is unavailable. Try again once playback starts.');
+      }
+    }
+
     function setupPlayerFeatures(){
       const video=document.getElementById('video'), panel=document.getElementById('playerSettingsPanel'), prefs=playerPrefs();
       setupPlayerTimelineInteraction();
@@ -5934,54 +6072,11 @@
       document.addEventListener('fullscreenchange',()=>{ syncPlayPauseButton(); });
             document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
       document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
-      // Keep PiP on the same standards path that previously worked in the
-      // installed iOS PWA. Do not gate it on WebKit capability probes: Home
-      // Screen mode can report false negatives even when requestPiP succeeds.
       const pipButton=document.getElementById('playerPip');
-      const supportsWebkitPip=()=>typeof video.webkitSetPresentationMode==='function'&&
-        (typeof video.webkitSupportsPresentationMode!=='function'||video.webkitSupportsPresentationMode('picture-in-picture'));
       pipButton.disabled=false;
       pipButton.removeAttribute('aria-disabled');
       pipButton.title='Picture in Picture';
-      pipButton.onclick=async()=>{
-        try{
-          const standalone=document.documentElement.classList.contains('aioplay-standalone');
-          // Preserve the exact pre-unified-player entry path in the installed
-          // PWA. Do not route its user gesture through WebKit presentation-mode
-          // probing before requestPictureInPicture().
-          if(standalone){
-            if(document.pictureInPictureElement)await document.exitPictureInPicture();
-            else if(typeof video.requestPictureInPicture==='function')await video.requestPictureInPicture();
-            return;
-          }
-          if(document.pictureInPictureElement){await document.exitPictureInPicture();return}
-          if(video.webkitPresentationMode==='picture-in-picture'&&supportsWebkitPip()){
-            video.webkitSetPresentationMode('inline');
-            return;
-          }
-          if(supportsWebkitPip()){
-            video.webkitSetPresentationMode('picture-in-picture');
-            return;
-          }
-          if(typeof video.requestPictureInPicture==='function')await video.requestPictureInPicture();
-        }catch(err){console.warn('Picture in Picture unavailable',err)}
-      };
-      const enterPlayerFullscreen = async () => {
-        const host = document.getElementById('video-container');
-        try {
-          if (document.fullscreenElement) {
-            await document.exitFullscreen?.();
-            return;
-          }
-          if (host?.requestFullscreen) {
-            await host.requestFullscreen();
-            return;
-          }
-          // iPhone Safari exposes fullscreen on the media element rather than
-          // arbitrary containers. Only call it after this explicit user action.
-          if (video?.webkitEnterFullscreen) video.webkitEnterFullscreen();
-        } catch (_) {}
-      };
+      pipButton.onclick=togglePlayerPictureInPicture;
       document.getElementById('playerFullscreen').onclick=enterPlayerFullscreen;
       let playerLastTapAt = 0;
       video.addEventListener('touchend', event => {
@@ -8999,11 +9094,6 @@
       // Safari/WebKit can leave unsupported direct media indefinitely pending
       // without emitting a media error. Prepare the existing Apple-compatible
       // HLS path up front there; other browsers retain direct-play-first.
-      const standalonePwa=document.documentElement.classList.contains('aioplay-standalone');
-      // Preserve Safari's proven compatibility-first path in the browser, but
-      // keep installed iOS Home Screen playback on the older direct-play-first
-      // media session that supported native PiP. If direct playback genuinely
-      // fails, the existing recovery path can still escalate to compatibility.
       const needsCompatibility = compatibility || (isVod && isSafariBasedBrowser());
       if (needsCompatibility && isVod && currentPlaybackSession && target.kind === 'direct') {
         showPlaybackLoading(isSafariBasedBrowser() && !recovery ? 'Starting playback…' : 'Preparing compatible stream…');
@@ -9026,7 +9116,7 @@
 
       const useHls = currentPlaybackKind === 'sport_event' || /\.m3u8(?:$|[?#])/i.test(playbackUrl);
 
-      if (useHls && Hls.isSupported()) {
+      if (useHls && !shouldUseNativePlayerHls(video) && Hls.isSupported()) {
         stopVideoEngine();
         hls = new Hls({
           maxBufferLength: 30,
@@ -9066,6 +9156,12 @@
       }
 
       stopVideoEngine();
+      if (shouldUseNativePlayerHls(video)) {
+        // hls.js sets this flag for ManagedMediaSource. Clear it if this video
+        // element is being reused for a native HLS session.
+        video.disableRemotePlayback = false;
+        video.removeAttribute('disableremoteplayback');
+      }
       const loaded = () => {
         if (generation !== playbackGeneration) return;
         document.getElementById('loader').style.display = 'none';
@@ -9096,6 +9192,7 @@
     }
 
     async function closePlayer(invalidate = true, { returnToOrigin = true } = {}) {
+      showPlayerPresentationNotice();
       const session = currentPlaybackSession;
       if(window.AIORemote?.state?.connected)AIORemote.stop();
       if (currentProgressContext) {
