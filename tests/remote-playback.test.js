@@ -22,3 +22,4 @@ assert(server.includes("app.post('/api/v1/playback/:sessionId/remote'"),'server 
 assert(server.includes("externalPlayback.issue(target,{leaseId:lease.id})"),'remote URL stays bound to the active playback lease');
 assert(!remote.includes('/apple-hls'),'remote playback does not alter Safari compatibility playback');
 console.log('remote playback and AirPlay contract passed');
+// CI mirror for combined remote-playback pass.
