@@ -9222,7 +9222,7 @@
       }
       try { video.pause(); } catch (_) {}
       video.removeAttribute('src');
-      setAirPlayAlternative(video);
+      video.querySelectorAll?.('source[data-aioplay-airplay]').forEach(source => source.remove());
       video.load();
     }
 
