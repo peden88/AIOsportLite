@@ -1,22 +1,31 @@
 /* AIOPlay remote playback abstraction. Cast transport is loaded lazily and
-   never changes local playback unless the user explicitly connects. */
+   AirPlay uses Safari's native playback-target picker. Local playback is only
+   changed after the user explicitly selects a remote target. */
 (()=>{'use strict';
-const listeners=new Set();let state={mode:'local',available:false,connected:false,device:'',position:0,duration:0,paused:true};
-let context=null,castContext=null,remotePlayer=null,remoteController=null,initialized=false;
+const listeners=new Set();let state={mode:'local',available:false,castAvailable:false,airplayAvailable:false,connected:false,device:'',position:0,duration:0,paused:true,ended:false};
+let context=null,castContext=null,remotePlayer=null,remoteController=null,initialized=false,airplayVideo=null;
 function emit(patch={}){state={...state,...patch};listeners.forEach(fn=>{try{fn({...state})}catch(_){}});return state}
 function subscribe(fn){listeners.add(fn);fn({...state});return()=>listeners.delete(fn)}
 function setContext(next){context=next?{...next}:null}
 function loadCastSdk(){if(window.cast?.framework)return Promise.resolve(true);return new Promise(resolve=>{let done=false;const finish=v=>{if(done)return;done=true;resolve(v)};window.__onGCastApiAvailable=ok=>finish(!!ok);const old=document.querySelector('script[data-aioplay-cast]');if(old){setTimeout(()=>finish(!!window.cast?.framework),5000);return}const s=document.createElement('script');s.src='https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';s.async=true;s.dataset.aioplayCast='1';s.onerror=()=>finish(false);document.head.appendChild(s);setTimeout(()=>finish(!!window.cast?.framework),8000)})}
-async function init(){if(initialized)return state;initialized=true;const ok=await loadCastSdk();if(!ok||!window.cast?.framework){emit({available:false});return state}
+function bindAirPlay(video){airplayVideo=video||airplayVideo;if(!airplayVideo)return false;const supported=typeof airplayVideo.webkitShowPlaybackTargetPicker==='function';if(!supported){emit({airplayAvailable:false});return false}
+ const availability=e=>emit({airplayAvailable:e?.availability==='available'});
+ const wireless=()=>{const connected=!!airplayVideo.webkitCurrentPlaybackTargetIsWireless;emit({mode:connected?'airplay':(state.mode==='airplay'?'local':state.mode),connected:connected||(state.mode==='cast'&&state.connected),device:connected?'AirPlay':'',position:Number(airplayVideo.currentTime||0),duration:Number(airplayVideo.duration||0),paused:!!airplayVideo.paused,ended:!!airplayVideo.ended})};
+ airplayVideo.addEventListener('webkitplaybacktargetavailabilitychanged',availability);
+ airplayVideo.addEventListener('webkitcurrentplaybacktargetiswirelesschanged',wireless);
+ ['timeupdate','durationchange','play','pause','ended'].forEach(name=>airplayVideo.addEventListener(name,()=>{if(state.mode==='airplay')wireless()}));
+ emit({airplayAvailable:true});wireless();return true}
+function requestAirPlay(video=airplayVideo){if(video)bindAirPlay(video);if(!airplayVideo||typeof airplayVideo.webkitShowPlaybackTargetPicker!=='function')throw new Error('AirPlay is unavailable in this browser.');airplayVideo.webkitShowPlaybackTargetPicker()}
+async function init({video}={}){if(video)bindAirPlay(video);if(initialized)return state;initialized=true;const ok=await loadCastSdk();if(!ok||!window.cast?.framework){emit({castAvailable:false,available:state.airplayAvailable});return state}
  try{castContext=cast.framework.CastContext.getInstance();castContext.setOptions({receiverApplicationId:chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,autoJoinPolicy:chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED});remotePlayer=new cast.framework.RemotePlayer();remoteController=new cast.framework.RemotePlayerController(remotePlayer);
- const sync=()=>emit({available:true,connected:!!remotePlayer.isConnected,mode:remotePlayer.isConnected?'cast':'local',device:remotePlayer.displayName||'',position:Number(remotePlayer.currentTime||0),duration:Number(remotePlayer.duration||0),paused:!!remotePlayer.isPaused});
- ['IS_CONNECTED_CHANGED','CURRENT_TIME_CHANGED','DURATION_CHANGED','IS_PAUSED_CHANGED','DISPLAY_NAME_CHANGED'].forEach(k=>{const e=cast.framework.RemotePlayerEventType[k];if(e)remoteController.addEventListener(e,sync)});sync()}catch(_){emit({available:false})}return state}
+ const sync=()=>{const playerState=String(remotePlayer.playerState||'');const connected=!!remotePlayer.isConnected;emit({available:true,castAvailable:true,connected,mode:connected?'cast':(state.mode==='cast'?'local':state.mode),device:connected?(remotePlayer.displayName||'Cast'):'',position:Number(remotePlayer.currentTime||0),duration:Number(remotePlayer.duration||0),paused:!!remotePlayer.isPaused,ended:playerState==='IDLE'&&String(remotePlayer.idleReason||'')==='FINISHED'})};
+ ['IS_CONNECTED_CHANGED','CURRENT_TIME_CHANGED','DURATION_CHANGED','IS_PAUSED_CHANGED','DISPLAY_NAME_CHANGED','PLAYER_STATE_CHANGED'].forEach(k=>{const e=cast.framework.RemotePlayerEventType[k];if(e)remoteController.addEventListener(e,sync)});sync()}catch(_){emit({castAvailable:false,available:state.airplayAvailable})}return state}
 async function requestSession(){await init();if(!castContext)throw new Error('Google Cast is unavailable in this browser.');await castContext.requestSession();return state}
 async function load(media){if(!castContext)throw new Error('Cast is not initialised.');const session=castContext.getCurrentSession();if(!session)throw new Error('Choose a Cast device first.');const url=String(media?.url||context?.url||'');if(!url)throw new Error('No remote playback URL is available.');
  const info=new chrome.cast.media.MediaInfo(url,String(media?.contentType||context?.contentType||'video/mp4'));const meta=new chrome.cast.media.GenericMediaMetadata();meta.title=String(media?.title||context?.title||'AIOPlay');meta.subtitle=String(media?.subtitle||context?.subtitle||'');const image=String(media?.image||context?.image||'');if(image)meta.images=[new chrome.cast.Image(image)];info.metadata=meta;info.streamType=chrome.cast.media.StreamType.BUFFERED;
- const req=new chrome.cast.media.LoadRequest(info);req.currentTime=Math.max(0,Number(media?.position||context?.position||0));req.autoplay=true;await session.loadMedia(req);emit({mode:'cast',connected:true});return state}
-function playPause(){if(remoteController)remoteController.playOrPause()}
-function seek(seconds){if(!remotePlayer||!remoteController)return;remotePlayer.currentTime=Math.max(0,Number(seconds)||0);remoteController.seek()}
-function stop(){try{castContext?.endCurrentSession(true)}catch(_){}emit({mode:'local',connected:false,device:'',position:0,duration:0,paused:true})}
-window.AIORemote=Object.freeze({init,subscribe,setContext,requestSession,load,playPause,seek,stop,get state(){return {...state}}});
+ const req=new chrome.cast.media.LoadRequest(info);req.currentTime=Math.max(0,Number(media?.position||context?.position||0));req.autoplay=true;await session.loadMedia(req);emit({mode:'cast',connected:true,ended:false});return state}
+function playPause(){if(state.mode==='cast'&&remoteController)remoteController.playOrPause();else if(airplayVideo){if(airplayVideo.paused)airplayVideo.play().catch(()=>{});else airplayVideo.pause()}}
+function seek(seconds){const value=Math.max(0,Number(seconds)||0);if(state.mode==='cast'&&remotePlayer&&remoteController){remotePlayer.currentTime=value;remoteController.seek()}else if(airplayVideo)airplayVideo.currentTime=value}
+function stop(){if(state.mode==='cast'){try{castContext?.endCurrentSession(true)}catch(_){}}emit({mode:'local',connected:false,device:'',position:0,duration:0,paused:true,ended:false})}
+window.AIORemote=Object.freeze({init,subscribe,setContext,bindAirPlay,requestAirPlay,requestSession,load,playPause,seek,stop,get state(){return {...state}}});
 })();
