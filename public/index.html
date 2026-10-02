@@ -5665,9 +5665,14 @@
       const playbackVideo = document.getElementById('video');
       if (playbackVideo) {
         const compactTouch = window.matchMedia?.('(max-width:650px), (hover:none) and (pointer:coarse)')?.matches === true;
-        // VOD uses the same AIOPlay transport on desktop and mobile. Native
-        // controls are retained only for non-VOD playback/fallback surfaces.
-        playbackVideo.controls = !isVodPlayback && !compactTouch;
+        // Preserve the pre-unified-player native iOS media session in the
+        // installed PWA. AIOPlay's custom chrome still covers the player, but
+        // keeping native controls enabled lets WebKit retain its media/PiP
+        // presentation hooks. Browser/mobile UI remains otherwise unchanged.
+        const standalonePwa = document.documentElement.classList.contains('aioplay-standalone');
+        const iosWebKit = /iP(?:hone|ad|od)/.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        playbackVideo.controls = (standalonePwa && iosWebKit) || (!isVodPlayback && !compactTouch);
       }
 
       const isEpisode = contentType === 'episode' || String(meta?.contentType || '').toLowerCase() === 'series';
