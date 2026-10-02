@@ -9141,11 +9141,13 @@
         // playlist as an explicit second source for WebKit's remote route.
         video.setAttribute?.('x-webkit-airplay', 'allow');
         video.querySelectorAll?.('source[data-aioplay-airplay]').forEach(source => source.remove());
-        const airPlaySource = document.createElement('source');
-        airPlaySource.dataset.aioplayAirplay = 'true';
-        airPlaySource.type = 'application/vnd.apple.mpegurl';
-        airPlaySource.src = playbackUrl;
-        video.appendChild?.(airPlaySource);
+        if (typeof document.createElement === 'function' && typeof video.appendChild === 'function') {
+          const airPlaySource = document.createElement('source');
+          airPlaySource.dataset.aioplayAirplay = 'true';
+          airPlaySource.type = 'application/vnd.apple.mpegurl';
+          airPlaySource.src = playbackUrl;
+          video.appendChild(airPlaySource);
+        }
         hls = new Hls({
           maxBufferLength: 30,
           xhrSetup: xhr => {
