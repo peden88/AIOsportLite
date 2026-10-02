@@ -8999,7 +8999,12 @@
       // Safari/WebKit can leave unsupported direct media indefinitely pending
       // without emitting a media error. Prepare the existing Apple-compatible
       // HLS path up front there; other browsers retain direct-play-first.
-      const needsCompatibility = compatibility || (isVod && isSafariBasedBrowser());
+      const standalonePwa=document.documentElement.classList.contains('aioplay-standalone');
+      // Preserve Safari's proven compatibility-first path in the browser, but
+      // keep installed iOS Home Screen playback on the older direct-play-first
+      // media session that supported native PiP. If direct playback genuinely
+      // fails, the existing recovery path can still escalate to compatibility.
+      const needsCompatibility = compatibility || (isVod && isSafariBasedBrowser() && !standalonePwa);
       if (needsCompatibility && isVod && currentPlaybackSession && target.kind === 'direct') {
         showPlaybackLoading(isSafariBasedBrowser() && !recovery ? 'Starting playback…' : 'Preparing compatible stream…');
         try {
