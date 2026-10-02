@@ -9139,13 +9139,13 @@
         // hls.js drives Safari through a MediaSource/blob URL. AirPlay cannot
         // fetch that URL from the receiver, so retain the same prepared HLS
         // playlist as an explicit second source for WebKit's remote route.
-        video.setAttribute('x-webkit-airplay', 'allow');
+        video.setAttribute?.('x-webkit-airplay', 'allow');
         video.querySelectorAll?.('source[data-aioplay-airplay]').forEach(source => source.remove());
         const airPlaySource = document.createElement('source');
         airPlaySource.dataset.aioplayAirplay = 'true';
         airPlaySource.type = 'application/vnd.apple.mpegurl';
         airPlaySource.src = playbackUrl;
-        video.appendChild(airPlaySource);
+        video.appendChild?.(airPlaySource);
         hls = new Hls({
           maxBufferLength: 30,
           xhrSetup: xhr => {
