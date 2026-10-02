@@ -3942,7 +3942,8 @@
       #player-overlay.is-vod .player-timeline-track{height:8px!important;cursor:pointer!important}
     }
 
-    #playerCast.active{border-color:rgba(87,220,156,.72)!important;color:#8ff0bd!important}
+    #playerCast.active,#playerAirPlay.active{border-color:rgba(87,220,156,.72)!important;color:#8ff0bd!important}
+    #playerAirPlay:not([hidden]){display:inline-flex;align-items:center;justify-content:center}
     @media(min-width:651px) and (hover:hover) and (pointer:fine){#player-overlay.is-vod #playerCast:not([hidden]){display:inline-flex!important;position:static!important;transform:none!important;height:48px!important;padding:0 16px!important;border-radius:14px!important;pointer-events:auto!important}}
 
     .episode-item{position:relative;flex:0 0 clamp(220px,31vw,290px);min-width:0;scroll-snap-align:start;isolation:isolate}
@@ -4234,6 +4235,7 @@
           <button type="button" id="playerNextChapter" class="player-hud-btn" aria-label="Next chapter">Chapter ›</button>
           <button type="button" id="playerPip" class="player-hud-btn">PiP</button>
           <button type="button" id="playerCast" class="player-hud-btn" aria-label="Cast to device" hidden>Cast</button>
+          <button type="button" id="playerAirPlay" class="player-hud-btn" aria-label="AirPlay" hidden>AirPlay</button>
           <button type="button" id="playerFullscreen" class="player-hud-btn player-fullscreen-object" aria-label="Fullscreen"><span aria-hidden="true"></span></button>
           <button type="button" id="playerStreamPicker" class="player-hud-btn player-hud-primary">☰ Streams</button>
           <button type="button" id="playerSettings" class="player-hud-btn player-hud-primary">⚙ Settings</button>
@@ -5775,8 +5777,8 @@
 
     function updatePlayerTimeline(video = document.getElementById('video')) {
       if (!video) return;
-      const duration = Number(video.duration);
-      const current = Number(video.currentTime || 0);
+      const duration = playerDuration(video);
+      const current = playerPosition(video);
       const fill = document.getElementById('playerTimelineFill');
       const currentLabel = document.getElementById('playerTimelineCurrent');
       const remainingLabel = document.getElementById('playerTimelineRemaining');
@@ -5819,10 +5821,10 @@
     }
     function showSeekPreview(clientX,{commit=false}={}){
       const track=document.getElementById('playerTimelineTrack'),video=document.getElementById('video'),preview=document.getElementById('playerSeekPreview'),label=document.getElementById('playerSeekLabel');
-      if(!track||!video||!preview||!label||!Number.isFinite(video.duration)||video.duration<=0)return;
-      const rect=track.getBoundingClientRect(),ratio=Math.max(0,Math.min(1,(clientX-rect.left)/Math.max(1,rect.width))),seconds=ratio*video.duration;
+      const duration=playerDuration(video);if(!track||!video||!preview||!label||!Number.isFinite(duration)||duration<=0)return;
+      const rect=track.getBoundingClientRect(),ratio=Math.max(0,Math.min(1,(clientX-rect.left)/Math.max(1,rect.width))),seconds=ratio*duration;
       preview.hidden=false;preview.style.left=(ratio*100)+'%';label.textContent=formatPlaybackTime(seconds);
-      if(commit){video.currentTime=seconds;updatePlayerTimeline(video)}
+      if(commit){seekPlayer(seconds,video);updatePlayerTimeline(video)}
     }
     function setupPlayerTimelineInteraction(){
       const track=document.getElementById('playerTimelineTrack'),preview=document.getElementById('playerSeekPreview');if(!track||track.dataset.ready==='1')return;track.dataset.ready='1';
@@ -5830,7 +5832,7 @@
       track.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||playerSeekingPointer)showSeekPreview(e.clientX,{commit:playerSeekingPointer})});
       track.addEventListener('pointerup',e=>{playerSeekingPointer=false;showSeekPreview(e.clientX,{commit:true});setTimeout(()=>{preview.hidden=true},450)});
       track.addEventListener('pointerleave',()=>{if(!playerSeekingPointer)preview.hidden=true});
-      track.addEventListener('keydown',e=>{const video=document.getElementById('video');if(!video)return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();video.currentTime=Math.max(0,Math.min(video.duration||Infinity,video.currentTime+(e.key==='ArrowRight'?10:-10)));updatePlayerTimeline(video)}});
+      track.addEventListener('keydown',e=>{const video=document.getElementById('video');if(!video)return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();seekPlayer(Math.max(0,Math.min(playerDuration(video)||Infinity,playerPosition(video)+(e.key==='ArrowRight'?10:-10))),video);updatePlayerTimeline(video)}});
       document.getElementById('playerPrevChapter').onclick=()=>seekChapter(-1);document.getElementById('playerNextChapter').onclick=()=>seekChapter(1);
     }
 
@@ -5896,6 +5898,12 @@
       const video=document.getElementById('video'),meta=currentPlaybackMeta||{};
       return {title:String(meta.name||meta.parentName||meta.title||'AIOPlay'),subtitle:String(meta.episodeTitle||''),image:safeImageUrl(meta.poster||meta.background||meta.backdrop)||'',position:Number(video?.currentTime||0)};
     }
+    function activeRemoteState(){const s=window.AIORemote?.state;return s?.mode==='cast'&&s.connected?s:null}
+    function playerPosition(video=document.getElementById('video')){const s=activeRemoteState();return Number(s?.position??video?.currentTime??0)}
+    function playerDuration(video=document.getElementById('video')){const s=activeRemoteState();return Number(s?.duration??video?.duration??0)}
+    function playerPaused(video=document.getElementById('video')){const s=activeRemoteState();return s?!!s.paused:!!video?.paused}
+    function seekPlayer(seconds,video=document.getElementById('video')){const value=Math.max(0,Number(seconds)||0);if(activeRemoteState())AIORemote.seek(value);else if(video)video.currentTime=value}
+    function togglePlayerPlayback(video=document.getElementById('video')){if(activeRemoteState()){AIORemote.playPause();return Promise.resolve()}if(!video)return Promise.resolve();return video.paused?video.play():Promise.resolve(video.pause())}
     async function castCurrentPlayback(){
       if(!window.AIORemote||!currentPlaybackSession)return;const button=document.getElementById('playerCast');if(button)button.disabled=true;
       try{if(AIORemote.state.connected){AIORemote.stop();return}await AIORemote.requestSession();
@@ -5905,8 +5913,17 @@
       }catch(err){showPlaybackFailure(err?.message||'Could not start Cast playback.')}finally{if(button)button.disabled=false}
     }
     function setupRemotePlayback(){
-      if(!window.AIORemote)return;const button=document.getElementById('playerCast');if(!button)return;button.onclick=castCurrentPlayback;
-      remotePlaybackUnsubscribe?.();remotePlaybackUnsubscribe=AIORemote.subscribe(state=>{button.hidden=!state.available;button.textContent=state.connected?'Casting':'Cast';button.classList.toggle('active',state.connected)});AIORemote.init();
+      if(!window.AIORemote)return;const button=document.getElementById('playerCast'),airplay=document.getElementById('playerAirPlay'),video=document.getElementById('video');if(!button||!video)return;
+      button.onclick=castCurrentPlayback;
+      if(airplay)airplay.onclick=()=>{try{AIORemote.requestAirPlay(video)}catch(err){showPlaybackFailure(err?.message||'AirPlay is unavailable.')}};
+      let remoteEnded=false;
+      remotePlaybackUnsubscribe?.();remotePlaybackUnsubscribe=AIORemote.subscribe(state=>{
+        button.hidden=!state.castAvailable;button.textContent=state.mode==='cast'&&state.connected?'Casting':'Cast';button.classList.toggle('active',state.mode==='cast'&&state.connected);
+        if(airplay){airplay.hidden=!state.airplayAvailable;airplay.textContent=state.mode==='airplay'&&state.connected?'AirPlaying':'AirPlay';airplay.classList.toggle('active',state.mode==='airplay'&&state.connected)}
+        if(state.mode==='cast'&&state.connected){updatePlayerTimeline(video);const play=document.getElementById('playerPlayPause'),icon=play?.querySelector('.transport-main-icon');if(icon)icon.className='transport-main-icon '+(state.paused?'play':'pause');play?.setAttribute('aria-label',state.paused?'Play':'Pause')}
+        if(state.mode==='cast'&&state.ended&&!remoteEnded){remoteEnded=true;if(Number.isFinite(state.duration)&&state.duration>0)video.currentTime=state.duration;video.dispatchEvent(new Event('ended'))}
+        if(!state.ended)remoteEnded=false;
+      });AIORemote.init({video});
     }
 
     function isStandaloneApplePlayer() {
@@ -6059,10 +6076,11 @@
       const syncPlayPauseButton=()=>{
         if(!playPauseButton) return;
         const icon=playPauseButton.querySelector('.transport-main-icon');
-        if(icon) icon.className='transport-main-icon '+(video.paused?'play':'pause');
-        playPauseButton.setAttribute('aria-label',video.paused?'Play':'Pause');
+        const paused=playerPaused(video);
+        if(icon) icon.className='transport-main-icon '+(paused?'play':'pause');
+        playPauseButton.setAttribute('aria-label',paused?'Play':'Pause');
       };
-      playPauseButton.onclick=async()=>{ try{ if(video.paused) await video.play(); else video.pause(); }catch(_){} syncPlayPauseButton(); };
+      playPauseButton.onclick=async()=>{ try{ await togglePlayerPlayback(video); }catch(_){} syncPlayPauseButton(); };
       video.addEventListener('play',syncPlayPauseButton);
       video.addEventListener('pause',syncPlayPauseButton);
       video.addEventListener('ended',syncPlayPauseButton);
@@ -6070,8 +6088,8 @@
       // Keep playback state usable inline and expose the transport controls.
       video.addEventListener('webkitendfullscreen',()=>{ syncPlayPauseButton(); });
       document.addEventListener('fullscreenchange',()=>{ syncPlayPauseButton(); });
-            document.getElementById('playerBack10').onclick=()=>video.currentTime=Math.max(0,video.currentTime-10);
-      document.getElementById('playerForward10').onclick=()=>video.currentTime=Math.min(video.duration||Infinity,video.currentTime+10);
+      document.getElementById('playerBack10').onclick=()=>seekPlayer(Math.max(0,playerPosition(video)-10),video);
+      document.getElementById('playerForward10').onclick=()=>seekPlayer(Math.min(playerDuration(video)||Infinity,playerPosition(video)+10),video);
       const pipButton=document.getElementById('playerPip');
       pipButton.disabled=false;
       pipButton.removeAttribute('aria-disabled');
