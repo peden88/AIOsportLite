@@ -4205,7 +4205,7 @@
         <div>Finding the best stream</div>
       </div>
       <div id="playback-message"><strong>Unable to start playback</strong><span>There are no working streams for this event right now.</span></div>
-      <video id="video" controls autoplay playsinline webkit-playsinline></video>
+      <video id="video" controls autoplay playsinline webkit-playsinline x-webkit-airplay="allow"></video>
       <div id="playerHud" class="player-hud">
         <button type="button" id="playerHudToggle" class="player-hud-toggle" aria-label="Hide playback details" title="Hide playback details">−</button>
         <div class="player-hud-main">
@@ -9066,6 +9066,18 @@
       }
     }
 
+    function setAirPlayAlternative(video, url = '') {
+      if (!video) return;
+      video.setAttribute('x-webkit-airplay', 'allow');
+      video.querySelectorAll('source[data-aioplay-airplay]').forEach(source => source.remove());
+      if (!url) return;
+      const source = document.createElement('source');
+      source.dataset.aioplayAirplay = 'true';
+      source.type = 'application/vnd.apple.mpegurl';
+      source.src = url;
+      video.appendChild(source);
+    }
+
     async function playOpaqueTarget(target, generation, { recovery = false, compatibility = false } = {}) {
       if (generation !== playbackGeneration || !target) return;
       const fingerprint = value => {
@@ -9136,6 +9148,10 @@
 
       if (useHls && !shouldUseNativePlayerHls(video) && Hls.isSupported()) {
         stopVideoEngine();
+        // hls.js drives Safari through a MediaSource/blob URL. AirPlay cannot
+        // fetch that URL from the receiver, so retain the same prepared HLS
+        // playlist as an explicit second source for WebKit's remote route.
+        setAirPlayAlternative(video, playbackUrl);
         hls = new Hls({
           maxBufferLength: 30,
           xhrSetup: xhr => {
@@ -9206,6 +9222,7 @@
       }
       try { video.pause(); } catch (_) {}
       video.removeAttribute('src');
+      setAirPlayAlternative(video);
       video.load();
     }
 
