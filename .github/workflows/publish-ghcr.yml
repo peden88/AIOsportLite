@@ -1,16 +1,9 @@
-name: Build and Publish Docker Image to GHCR
+name: Build and Publish Post-Live PiP Rollback Test Image
 
 on:
   push:
     branches:
-      - main
-      # A branch for changes to this file. Building the image is the only way to
-      # find out whether a change to how it is built works, and finding out on
-      # main means every discovery is published as :latest.
-      - 'ci/**'
-    # A release tag publishes the same image under its version as well.
-    tags:
-      - 'v*'
+      - feature/pip-post-live-rollback
   workflow_dispatch:
 
 env:
@@ -238,10 +231,11 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # This historical diagnostic branch must never publish release tags.
+          flavor: latest=false
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=sha,prefix=
+            type=raw,value=pip-post-live-rollback
+            type=sha,prefix=pip-post-live-
 
       - name: Create the manifest list and push it
         working-directory: ${{ runner.temp }}/digests
