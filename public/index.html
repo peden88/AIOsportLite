@@ -9066,18 +9066,6 @@
       }
     }
 
-    function setAirPlayAlternative(video, url = '') {
-      if (!video) return;
-      video.setAttribute('x-webkit-airplay', 'allow');
-      video.querySelectorAll('source[data-aioplay-airplay]').forEach(source => source.remove());
-      if (!url) return;
-      const source = document.createElement('source');
-      source.dataset.aioplayAirplay = 'true';
-      source.type = 'application/vnd.apple.mpegurl';
-      source.src = url;
-      video.appendChild(source);
-    }
-
     async function playOpaqueTarget(target, generation, { recovery = false, compatibility = false } = {}) {
       if (generation !== playbackGeneration || !target) return;
       const fingerprint = value => {
@@ -9151,7 +9139,13 @@
         // hls.js drives Safari through a MediaSource/blob URL. AirPlay cannot
         // fetch that URL from the receiver, so retain the same prepared HLS
         // playlist as an explicit second source for WebKit's remote route.
-        setAirPlayAlternative(video, playbackUrl);
+        video.setAttribute('x-webkit-airplay', 'allow');
+        video.querySelectorAll?.('source[data-aioplay-airplay]').forEach(source => source.remove());
+        const airPlaySource = document.createElement('source');
+        airPlaySource.dataset.aioplayAirplay = 'true';
+        airPlaySource.type = 'application/vnd.apple.mpegurl';
+        airPlaySource.src = playbackUrl;
+        video.appendChild(airPlaySource);
         hls = new Hls({
           maxBufferLength: 30,
           xhrSetup: xhr => {
