@@ -13,7 +13,7 @@ assert(remote.includes('PLAYER_STATE_CHANGED'),'Cast completion state is tracked
 assert(html.includes('id="playerCast"'),'player exposes Cast control');
 assert(html.includes('id="playerAirPlay"'),'player exposes AirPlay control');
 assert(html.includes('x-webkit-airplay="allow"'),'player explicitly permits Safari video AirPlay');
-assert(html.includes("source.type = 'application/vnd.apple.mpegurl'"),'AirPlay alternative is advertised as HLS');
+assert(html.includes("airPlaySource.type = 'application/vnd.apple.mpegurl'"),'AirPlay alternative is advertised as HLS');
 assert(html.includes('airPlaySource.src = playbackUrl'),'hls.js playback retains the prepared HLS URL for AirPlay');
 assert(html.includes("fetch('/api/v1/playback/'+encodeURIComponent(currentPlaybackSession)+'/remote'"),'Cast requests a receiver-safe playback URL');
 assert(html.includes("document.getElementById('video')?.pause()"),'local playback pauses only after remote load succeeds');
