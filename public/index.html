@@ -5665,14 +5665,9 @@
       const playbackVideo = document.getElementById('video');
       if (playbackVideo) {
         const compactTouch = window.matchMedia?.('(max-width:650px), (hover:none) and (pointer:coarse)')?.matches === true;
-        // Preserve the pre-unified-player native iOS media session in the
-        // installed PWA. AIOPlay's custom chrome still covers the player, but
-        // keeping native controls enabled lets WebKit retain its media/PiP
-        // presentation hooks. Browser/mobile UI remains otherwise unchanged.
-        const standalonePwa = document.documentElement.classList.contains('aioplay-standalone');
-        const iosWebKit = /iP(?:hone|ad|od)/.test(navigator.userAgent) ||
-          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        playbackVideo.controls = (standalonePwa && iosWebKit) || (!isVodPlayback && !compactTouch);
+        // VOD uses the same AIOPlay transport on desktop and mobile. Native
+        // controls are retained only for non-VOD playback/fallback surfaces.
+        playbackVideo.controls = !isVodPlayback && !compactTouch;
       }
 
       const isEpisode = contentType === 'episode' || String(meta?.contentType || '').toLowerCase() === 'series';
@@ -5950,18 +5945,18 @@
       pipButton.title='Picture in Picture';
       pipButton.onclick=async()=>{
         try{
-          // Always allow either API to exit an already-active PiP session.
+          const standalone=document.documentElement.classList.contains('aioplay-standalone');
+          // Preserve the exact pre-unified-player entry path in the installed
+          // PWA. Do not route its user gesture through WebKit presentation-mode
+          // probing before requestPictureInPicture().
+          if(standalone){
+            if(document.pictureInPictureElement)await document.exitPictureInPicture();
+            else if(typeof video.requestPictureInPicture==='function')await video.requestPictureInPicture();
+            return;
+          }
           if(document.pictureInPictureElement){await document.exitPictureInPicture();return}
           if(video.webkitPresentationMode==='picture-in-picture'&&supportsWebkitPip()){
             video.webkitSetPresentationMode('inline');
-            return;
-          }
-          const standalone=document.documentElement.classList.contains('aioplay-standalone');
-          // The installed PWA previously worked through the standards request,
-          // so preserve that path first instead of trusting standalone WebKit
-          // capability probes. Safari/browser continues to prefer WebKit.
-          if(standalone&&typeof video.requestPictureInPicture==='function'){
-            await video.requestPictureInPicture();
             return;
           }
           if(supportsWebkitPip()){
