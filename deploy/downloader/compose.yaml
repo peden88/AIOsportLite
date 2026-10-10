@@ -1,7 +1,8 @@
 services:
   aioplay-downloader:
     container_name: aioplay-downloader
-    image: ghcr.io/peden88/aioplay-downloader:feature\n    pull_policy: always
+    image: ghcr.io/peden88/aioplay-downloader:feature
+    pull_policy: always
     restart: unless-stopped
     environment:
       PORT: "7000"
