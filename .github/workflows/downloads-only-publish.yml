@@ -28,8 +28,10 @@ jobs:
           node-version: '22'
           cache: npm
 
+      # The feature branch currently has an outdated package-lock.json (sharp is missing).
+      # Match the existing Dockerfile's npm install until the lockfile is regenerated.
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Run tests
         run: npm test
