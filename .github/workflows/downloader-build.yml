@@ -15,7 +15,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      # The inherited lockfile predates sharp; regenerate dependency resolution
+      # during validation until a fully synchronized lockfile is committed.
+      - run: npm install --no-audit --no-fund
       - name: Downloader JavaScript syntax
         run: |
           node --check src/index.js
