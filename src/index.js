@@ -240,6 +240,7 @@ const WARM_INTERVAL_MS = Number(process.env.WARM_INTERVAL_MS) || 4 * 60 * 60 * 1
 if (process.env.DOWNLOADER_ONLY === 'true') {
   app.use((req,res,next)=>{
     const pathname=req.path;
+    if (/^\/(?:index\.html|dashboard\.html|services\.html|analytics\.html|configure\.html|users\.html)$/i.test(pathname)) return res.status(404).send('Not available in downloader mode.');
     if (/^\/(?:watch(?:\/|$)|stream(?:\/|$)|title(?:\/|$))/i.test(pathname) ||
         /^\/api\/v1\/(?:play(?:\/|$)|playback(?:\/|$)|apple-hls(?:\/|$)|vod\/streams(?:\/|$)|vod\/skip(?:\/|$))/i.test(pathname)) {
       return res.status(404).json({error:'Not available in downloader mode.'});
