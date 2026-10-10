@@ -241,7 +241,7 @@ if (process.env.DOWNLOADER_ONLY === 'true') {
   app.use((req,res,next)=>{
     const pathname=req.path;
     if (/^\/(?:watch(?:\/|$)|stream(?:\/|$)|title(?:\/|$))/i.test(pathname) ||
-        /^\/api\/v1\/(?:play(?:\/|$)|playback(?:\/|$)|apple-hls(?:\/|$)|external-play(?:\/|$)|vod\/streams(?:\/|$)|vod\/skip(?:\/|$))/i.test(pathname)) {
+        /^\/api\/v1\/(?:play(?:\/|$)|playback(?:\/|$)|apple-hls(?:\/|$)|vod\/streams(?:\/|$)|vod\/skip(?:\/|$))/i.test(pathname)) {
       return res.status(404).json({error:'Not available in downloader mode.'});
     }
     next();
