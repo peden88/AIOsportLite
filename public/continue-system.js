@@ -13,10 +13,10 @@ function parseRelease(value){
 }
 function isAired(video,now=Date.now()){const at=parseRelease(releaseValue(video));return at==null||at<=now}
 function episodeOrder(a,b){return (Number(a?.season)||0)-(Number(b?.season)||0)||(Number(a?.episode)||0)-(Number(b?.episode)||0)}
-function eligibleVideos(meta){
+function eligibleVideos(meta,now=Date.now()){
   const videos=(Array.isArray(meta?.videos)?meta.videos:[]).filter(v=>v?.id&&Number(v.season)>0&&Number.isFinite(Number(v.episode))).sort(episodeOrder);
   const blocked=new Set();
-  for(const v of videos){const s=Number(v.season);if(blocked.has(s))continue;const first=videos.find(x=>Number(x.season)===s);if(first&&(first.available===false||!isAired(first)))blocked.add(s)}
+  for(const v of videos){const s=Number(v.season);if(blocked.has(s))continue;const first=videos.find(x=>Number(x.season)===s);if(first&&(first.available===false||!isAired(first,now)))blocked.add(s)}
   return {all:videos,watchable:videos.filter(v=>v.available!==false&&!blocked.has(Number(v.season)))};
 }
 function afterSeed(video,seed){if(!seed)return true;return episodeOrder(video,seed)>0}
@@ -56,7 +56,7 @@ async function resolve({progress=[],loadMeta,now=Date.now(),maxSeries=32}={}){
     const inProgress=rs.find(r=>Number(r.progressPercent)>0&&Number(r.progressPercent)<90&&episodeOrder(progressSeed(r),progressSeed(seed))>=0);
     if(inProgress)return {continue:{id:inProgress.videoId||inProgress.contentId,type:'episode',name:inProgress.name||'Untitled',description:[inProgress.season!=null&&inProgress.episode!=null?'S'+String(inProgress.season).padStart(2,'0')+'E'+String(inProgress.episode).padStart(2,'0'):'',inProgress.episodeTitle||''].filter(Boolean).join(' · '),poster:inProgress.poster,background:inProgress.backdrop,logo:inProgress.logo,_progress:inProgress,_continueKind:'progress'}};
     let meta=null;try{meta=await loadMeta({id:group.id,type:'series',name:seed?.name})}catch(_){}
-    if(!meta)return null;const {all,watchable}=eligibleVideos(meta);const s=progressSeed(seed);
+    if(!meta)return null;const {all,watchable}=eligibleVideos(meta,now);const s=progressSeed(seed);
     const nextAll=all.find(v=>afterSeed(v,s)&&v.available!==false);
     const nextAired=watchable.find(v=>afterSeed(v,s)&&isAired(v,now));
     if(nextAired)return {continue:rowForEpisode(meta,nextAired,seed,'next')};
