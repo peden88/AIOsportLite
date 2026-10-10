@@ -248,7 +248,7 @@ const publicDir = fs.existsSync(path.join(runtimePublicDir, 'index.html'))
 app.use(express.static(publicDir, { index: false }));
 
 app.get('/', requirePage, (req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
+  res.sendFile(path.join(publicDir, process.env.DOWNLOADER_ONLY === 'true' ? 'downloader.html' : 'index.html'));
 });
 
 // Client-side title routes use the same SPA document. Without this fallback a
