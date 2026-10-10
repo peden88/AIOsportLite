@@ -1381,6 +1381,29 @@ app.get('/api/v1/vod/meta/:type/:id', requirePage, async (req, res) => {
   }
 });
 
+// Downloader API: no playback session, lease or player is created.
+const downloadSelections = require('./services/DownloadSelections');
+app.get('/api/v1/download/options/:type/:id', requirePage, async (req,res)=>{
+  try {
+    const account=currentAccount(req);
+    if(!account?.user?.id)return res.status(401).json({error:'Sign in required.'});
+    res.setHeader('Cache-Control','no-store');
+    res.json(await downloadSelections.options(account.user.id,req.params.type,req.params.id));
+  } catch(err) {
+    res.status(err.statusCode||502).json({error:err.statusCode&&err.statusCode<500?err.message:'Could not retrieve download options.'});
+  }
+});
+app.post('/api/v1/download/select',requirePage,express.json({limit:'4kb'}),async(req,res)=>{
+  try {
+    const account=currentAccount(req);
+    if(!account?.user?.id)return res.status(401).json({error:'Sign in required.'});
+    res.setHeader('Cache-Control','no-store');
+    res.json(await downloadSelections.select(account.user.id,req.body?.selectionId,req.body?.index,req.body?.filename));
+  } catch(err) {
+    res.status(err.statusCode||502).json({error:err.statusCode&&err.statusCode<500?err.message:'Could not prepare download.'});
+  }
+});
+
 // ─── First-party app API ──────────────────────────────────────────────────────
 // Stremio-compatible routes intentionally continue returning stream arrays.
 // Our own web/TV clients never call them. They use this API, which exposes one
