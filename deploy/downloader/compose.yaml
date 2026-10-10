@@ -10,6 +10,7 @@ services:
     environment:
       PORT: "7000"
       NODE_ENV: production
+      DOWNLOADER_ONLY: "true"
       DATA_DIR: /data
       TZ: ${TZ:-Europe/London}
       ADDON_URL: ${ADDON_URL}
@@ -25,6 +26,8 @@ services:
       COLLECTIONS_TTL_MS: ${COLLECTIONS_TTL_MS:-3600000}
     volumes:
       - aioplay-downloader-data:/data
+      # Place your COLLECTIONS.json at /opt/aioplay/collections/COLLECTIONS.json on the VPS
+      - /opt/aioplay/collections/COLLECTIONS.json:/data/COLLECTIONS.json:ro
     networks:
       - pangolin_frontend
     healthcheck:
