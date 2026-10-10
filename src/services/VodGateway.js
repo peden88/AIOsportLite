@@ -515,7 +515,7 @@ async function rawPlaybackCandidates(type, id, clientKind = 'web') {
   const client=clientFor('streams', clientKind === 'app' ? 'app' : 'web');
   const response=await client.streams(safeType,safeId);
   const rows=response&&Array.isArray(response.streams)?response.streams:[];
-  return rows.slice(0,100).map((row,index)=>{
+  return rows.map((row,index)=>{
     const playable=privatePlaybackRow(row,client);
     return {
       index,
