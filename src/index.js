@@ -236,6 +236,17 @@ function startWarm(reason = 'manual') {
 const WARM_INTERVAL_MS = Number(process.env.WARM_INTERVAL_MS) || 4 * 60 * 60 * 1000;
 
 // Serve the web debugger UI and Configuration Page
+// The downloader deployment must not expose playback and streaming entry points.
+if (process.env.DOWNLOADER_ONLY === 'true') {
+  app.use((req,res,next)=>{
+    const pathname=req.path;
+    if (/^\/(?:watch(?:\/|$)|stream(?:\/|$)|title(?:\/|$))/i.test(pathname) ||
+        /^\/api\/v1\/(?:play(?:\/|$)|playback(?:\/|$)|apple-hls(?:\/|$)|external-play(?:\/|$)|vod\/streams(?:\/|$)|vod\/skip(?:\/|$))/i.test(pathname)) {
+      return res.status(404).json({error:'Not available in downloader mode.'});
+    }
+    next();
+  });
+}
 app.use(guardStaticPages);
 const runtimePublicDir = path.join(process.cwd(), 'public');
 const sourcePublicDir = path.join(__dirname, '..', 'public');
