@@ -29,6 +29,6 @@ const C=context.window.AIOContinue;
   r=await C.resolve({progress:[olderPartial,latestComplete],loadMeta:async()=>meta,now});
   assert.equal(r.continueItems.length,0);assert.equal(r.upcomingItems.length,1);assert.equal(r.upcomingItems[0]._progress.videoId,'e3');
   const futureSeason={id:'future',name:'Future',videos:[{id:'s1e1',season:1,episode:1,released:'2026-09-01'},{id:'s2e1',season:2,episode:1,released:'2026-10-10'}]};
-  const elig=C.eligibleVideos(futureSeason);assert(!elig.watchable.some(v=>v.season===2));
+  const elig=C.eligibleVideos(futureSeason,now);assert(!elig.watchable.some(v=>v.season===2));
   console.log('continue-system contract passed');
 })().catch(err=>{console.error(err);process.exit(1)});
