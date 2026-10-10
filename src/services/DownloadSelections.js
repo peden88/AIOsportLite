@@ -15,7 +15,7 @@ async function options(userId,type,id){
   if(typeof id!=='string'||!id.trim()||id.length>500)fail('Invalid content ID.');
   const rows=await vod.rawPlaybackCandidates(type,id,'web');
   const client=vod._clientFor('streams','web');
-  const selected=rows.filter(row=>row&&typeof row.url==='string'&&row.url.trim()&&!['info','statistic','error'].includes(String(row.streamData?.type||'').toLowerCase())).slice(0,150);
+  const selected=rows.filter(row=>row&&typeof row.url==='string'&&row.url.trim()&&!['info','statistic','error'].includes(String(row.streamData?.type||'').toLowerCase()));
   const candidates=selected.map(row=>({
     target:client.absolutizePlaybackUrl(row.url),
     headers:row.behaviorHints?.proxyHeaders?.request||{},
