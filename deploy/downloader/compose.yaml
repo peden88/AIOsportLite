@@ -1,12 +1,8 @@
 services:
   aioplay-downloader:
     container_name: aioplay-downloader
-    build:
-      context: https://github.com/peden88/AIOsportLite.git#feature/downloads-only
-      dockerfile: Dockerfile
+    image: ghcr.io/peden88/aioplay-downloader:feature\n    pull_policy: always
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       PORT: "7000"
       NODE_ENV: production
